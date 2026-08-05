@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+model MagicToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model Session {
+  sid    String   @id
+  sess   Json     @db.JsonB
+  expire DateTime @db.Timestamp(6)
+
+  @@map("session")
+  @@index([expire])
+}
+
+model Project {
+  id        String     @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  apiKeys   ApiKey[]
+  endpoints Endpoint[]
+
+  @@index([ownerId])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String    @default("default")
+  /// SHA-256 hex of the full API key (key never stored plaintext)
+  keyHash    String    @unique
+  /// First 8 chars for display, e.g. "ask_abcd..."
+  keyPrefix  String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@index([projectId])
+}
+
+model Endpoint {
+  id           String   @id @default(uuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  method       String
+  pathTemplate String
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  hitCount     Int      @default(0)
+  /// Observed auth modes: bearer, cookie, none (JSON array)
+  authModes    Json     @default("[]")
+  /// Status code histogram: { "200": 12, "404": 1 }
+  statusCodes  Json     @default("{}")
+  /// Merged request body schema fragment (JSON Schema-ish)
+  requestSchema  Json?
+  /// Merged response body schema fragment
+  responseSchema Json?
+  /// Request/response content types seen
+  contentTypes Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  signals      Signal[]
+
+  @@unique([projectId, method, pathTemplate])
+  @@index([projectId])
+  @@index([lastSeenAt])
+}
+
+model Signal {
+  id         String   @id @default(uuid())
+  endpointId String
+  endpoint   Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  /// e.g. sensitive_field, auth_observed
+  type       String
+  /// JSON path or field name, e.g. "body.email", "header.authorization"
+  fieldPath  String
+  /// email | phone | ssn | jwt | card | password | secret | ...
+  category   String
+  severity   String   @default("info")
+  lastSeenAt DateTime @default(now())
+  metadata   Json?
+
+  @@unique([endpointId, type, fieldPath, category])
+  @@index([endpointId])
+}

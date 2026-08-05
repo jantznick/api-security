@@ -1,0 +1,138 @@
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { generateApiKey } from '../lib/apiKeys.js';
+import { requireAuth } from '../middleware/auth.js';
+
+const router = express.Router();
+
+router.use(requireAuth);
+
+router.get('/', async (req, res) => {
+  try {
+    const projects = await prisma.project.findMany({
+      where: { ownerId: req.session.userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        apiKeys: {
+          select: {
+            id: true,
+            name: true,
+            keyPrefix: true,
+            createdAt: true,
+            lastUsedAt: true,
+          },
+        },
+        _count: { select: { endpoints: true } },
+      },
+    });
+    res.json({ projects });
+  } catch (error) {
+    console.error('List projects error:', error);
+    res.status(500).json({ error: 'Failed to list projects' });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim() || 'Default project';
+    const key = generateApiKey();
+
+    const project = await prisma.project.create({
+      data: {
+        name,
+        ownerId: req.session.userId,
+        apiKeys: {
+          create: {
+            name: 'default',
+            keyHash: key.hash,
+            keyPrefix: key.prefix,
+          },
+        },
+      },
+      include: {
+        apiKeys: {
+          select: {
+            id: true,
+            name: true,
+            keyPrefix: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      project,
+      /** Shown once — store in agent / middleware env */
+      apiKey: key.raw,
+    });
+  } catch (error) {
+    console.error('Create project error:', error);
+    res.status(500).json({ error: 'Failed to create project' });
+  }
+});
+
+router.get('/:projectId', async (req, res) => {
+  try {
+    const project = await prisma.project.findFirst({
+      where: { id: req.params.projectId, ownerId: req.session.userId },
+      include: {
+        apiKeys: {
+          select: {
+            id: true,
+            name: true,
+            keyPrefix: true,
+            createdAt: true,
+            lastUsedAt: true,
+          },
+        },
+        _count: { select: { endpoints: true } },
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json({ project });
+  } catch (error) {
+    console.error('Get project error:', error);
+    res.status(500).json({ error: 'Failed to get project' });
+  }
+});
+
+router.post('/:projectId/api-keys', async (req, res) => {
+  try {
+    const project = await prisma.project.findFirst({
+      where: { id: req.params.projectId, ownerId: req.session.userId },
+    });
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const key = generateApiKey();
+    const name = String(req.body?.name || 'default').trim() || 'default';
+
+    const apiKey = await prisma.apiKey.create({
+      data: {
+        projectId: project.id,
+        name,
+        keyHash: key.hash,
+        keyPrefix: key.prefix,
+      },
+      select: {
+        id: true,
+        name: true,
+        keyPrefix: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(201).json({ apiKey, rawKey: key.raw });
+  } catch (error) {
+    console.error('Create API key error:', error);
+    res.status(500).json({ error: 'Failed to create API key' });
+  }
+});
+
+export default router;

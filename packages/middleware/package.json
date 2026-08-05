@@ -1,0 +1,18 @@
+{
+  "name": "@api-security/middleware",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@api-security/shared": "file:../shared"
+  },
+  "peerDependencies": {
+    "express": ">=4"
+  },
+  "files": [
+    "src"
+  ]
+}

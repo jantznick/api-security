@@ -1,0 +1,14 @@
+{
+  "name": "demo-express-app",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@api-security/middleware": "file:../../packages/middleware",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

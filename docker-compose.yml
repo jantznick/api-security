@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: api-security-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: api_security
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: api-security-agent
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      INGEST_URL: "http://host.docker.internal:3002"
+      # Override with a real project API key after creating one in the dashboard
+      INGEST_API_KEY: "${INGEST_API_KEY:-dev-ingest-key-replace-me}"
+      AGENT_DEBUG_BUFFER: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

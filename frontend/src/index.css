@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-50: #f4f7f6;
+  --color-ink-100: #e4ebe8;
+  --color-ink-200: #c9d7d1;
+  --color-ink-300: #9fb5ac;
+  --color-ink-400: #6f8f82;
+  --color-ink-500: #507365;
+  --color-ink-600: #3d5a4f;
+  --color-ink-700: #324840;
+  --color-ink-800: #2a3c35;
+  --color-ink-900: #24322d;
+  --color-ink-950: #121a17;
+
+  --color-signal-50: #f0f9ff;
+  --color-signal-600: #0284c7;
+  --color-signal-800: #075985;
+
+  --color-warn-50: #fff7ed;
+  --color-warn-700: #c2410c;
+  --color-danger-50: #fef2f2;
+  --color-danger-700: #b91c1c;
+}
+
+html {
+  overflow-x: clip;
+}
+
+body {
+  @apply bg-ink-50 text-ink-950 antialiased;
+  overflow-x: clip;
+}
+
+#root {
+  min-height: 100vh;
+}
