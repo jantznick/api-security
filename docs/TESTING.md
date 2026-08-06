@@ -6,7 +6,7 @@ The implementation agent **did not** run Docker, `npm install`, migrations, or s
 
 - Node.js 20+
 - Docker + Docker Compose
-- Ports free: `5432`, `3001`, `3002`, `4000`, `5173`, `8080`
+- Ports free: `5432`, `3001`, `3002`, `4000`, `5173`, `5174`, `5175`, `8080`
 
 ## 1. Start infrastructure
 
@@ -39,8 +39,12 @@ cd ..
 cd ingest && cp .env.example .env && npm install && npx prisma generate --schema=../backend/prisma/schema.prisma
 cd ..
 
-# Frontend
+# Frontend (dashboard)
 cd frontend && cp .env.example .env && npm install
+cd ..
+
+# Optional — marketing (production-style auth on :5174)
+cd marketing && cp .env.example .env && npm install
 cd ..
 
 # Shared + middleware (file: deps for demo)
@@ -58,7 +62,7 @@ cd ../..
 
 ## 3. Start app processes
 
-Use **four terminals** (plus Docker for agent/postgres):
+Use **four terminals** (plus Docker for agent/postgres). Marketing is optional for app-only auth.
 
 ```bash
 # Terminal A — Core API
@@ -71,11 +75,17 @@ cd ingest && npm run dev
 
 # Terminal C — Dashboard
 cd frontend && npm run dev
-# → http://localhost:5173
+# → http://localhost:5173  (welcome + AuthModal)
 
 # Terminal D — Demo (after API key in step 5)
 cd demo/express-app && npm run dev
 # → http://localhost:4000/health
+
+# Optional — Marketing (same AuthModal; cross-origin handoff)
+# cd marketing && npm run dev
+# → http://localhost:5174
+# For shared session cookie across :5174 → :5173, set VITE_API_URL=http://localhost:3001
+# on BOTH frontend/.env and marketing/.env (see docs/DEPLOY.md#local-dev).
 ```
 
 Health checks:
@@ -88,15 +98,16 @@ curl -s http://localhost:4000/health   # after demo is up
 
 ## 4. Auth (vacation-home parity)
 
-1. Open http://localhost:5173 → **Get started** / **Create account**
+1. Open http://localhost:5173 → **welcome** page; click **Sign in** or **Create account** (AuthModal)
 2. Register with email + password (min 6 chars)
 3. Confirm you land on **Projects**
-4. Sign out → sign in with password
+4. Sign out → welcome again → sign in with password
 5. Magic link (dev):
-   - On login, enter email → **Email me a magic link instead**
+   - In the modal, enter email → **Email me a magic link instead**
    - Check **backend** terminal for `=== MAGIC TOKEN ===` (6-digit code + link)
-   - Enter the 6-digit code, or open the printed login link
+   - Enter the 6-digit code, or open the printed login link (`/login?token=` opens the modal)
 6. Optional: `GET /api/auth/me` via browser session should return the user after login
+7. Optional: run marketing on `:5174` with `VITE_API_URL=http://localhost:3001` on both apps
 
 ## 5. Create project + wire API key
 

@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { authAPI } from './api/api';
 import useAuthStore from './store/authStore';
+import AuthModal from './components/AuthModal';
 import ProtectedRoute from './components/ProtectedRoute';
+import { AuthModalProvider } from './context/AuthModalContext';
+import AuthDeepLink from './pages/AuthDeepLink';
 import RootRedirect from './pages/RootRedirect';
-import MarketingAuthRedirect from './pages/MarketingAuthRedirect';
 import Projects from './pages/Projects';
 import Inventory from './pages/Inventory';
 import EndpointDetail from './pages/EndpointDetail';
@@ -23,51 +25,54 @@ export default function App() {
   }, [setUser, setLoading]);
 
   return (
-    <Routes>
-      <Route path="/" element={<RootRedirect />} />
-      <Route path="/login" element={<MarketingAuthRedirect path="/login" />} />
-      <Route path="/register" element={<MarketingAuthRedirect path="/register" />} />
-      <Route
-        path="/projects"
-        element={
-          <ProtectedRoute>
-            <Projects />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/projects/:projectId"
-        element={
-          <ProtectedRoute>
-            <Inventory />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/projects/:projectId/settings"
-        element={
-          <ProtectedRoute>
-            <ProjectSettings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/projects/:projectId/endpoints/:endpointId"
-        element={
-          <ProtectedRoute>
-            <EndpointDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/account"
-        element={
-          <ProtectedRoute>
-            <Account />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <AuthModalProvider>
+      <AuthModal />
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/login" element={<AuthDeepLink mode="login" />} />
+        <Route path="/register" element={<AuthDeepLink mode="register" />} />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <Inventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/settings"
+          element={
+            <ProtectedRoute>
+              <ProjectSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/endpoints/:endpointId"
+          element={
+            <ProtectedRoute>
+              <EndpointDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <Account />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthModalProvider>
   );
 }

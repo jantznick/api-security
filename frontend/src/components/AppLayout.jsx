@@ -2,7 +2,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { authAPI } from '../api/api';
 import useAuthStore from '../store/authStore';
 import { APP_NAME } from '../lib/brand';
-import { DOCS_URL, marketingLoginUrl } from '../lib/urls';
+import { DOCS_URL, loginUrl } from '../lib/urls';
 import Button from './Button';
 
 const navLinkClass = ({ isActive }) =>
@@ -20,7 +20,7 @@ export default function AppLayout({ children }) {
       /* ignore */
     }
     logout();
-    window.location.assign(marketingLoginUrl());
+    window.location.assign(loginUrl());
   };
 
   return (

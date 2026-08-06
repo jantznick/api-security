@@ -1,15 +1,9 @@
-import { useEffect } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { marketingLoginUrl } from '../lib/urls';
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      window.location.replace(marketingLoginUrl(window.location.href));
-    }
-  }, [isLoading, isAuthenticated]);
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -20,11 +14,11 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-50">
-        <p className="text-sm text-ink-600">Redirecting to sign in…</p>
-      </div>
-    );
+    const redirect = `${location.pathname}${location.search}` || '/projects';
+    const params = new URLSearchParams();
+    params.set('auth', 'login');
+    params.set('redirect', redirect);
+    return <Navigate to={`/?${params.toString()}`} replace />;
   }
 
   return children;

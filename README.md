@@ -15,14 +15,28 @@ Your Express app
 **[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[npm publish](docs/NPM_PUBLISH.md)** — first-time `@apiglimpse/*` publish.
 ## Quick start
 
-Nick verifies manually — see **[docs/TESTING.md](docs/TESTING.md)** for the full step-by-step.
+Nick verifies manually — see **[docs/TESTING.md](docs/TESTING.md)** for the full step-by-step. Short local-dev notes: **[docs/DEPLOY.md#local-dev](docs/DEPLOY.md#local-dev)**.
 
 High level:
 
 1. `docker-compose up -d` — Postgres + collector
-2. Core + ingest + frontend via `npm run dev` in each package
+2. Core + dashboard via `npm run dev` (marketing optional for app-only auth)
 3. Create a project in the dashboard → copy API key into **demo/app** env only
 4. Hit demo routes → inventory appears within seconds
+
+### Local dashboard (minimum)
+
+```bash
+# Once: copy env examples, install, migrate
+cd backend && cp .env.example .env && npm install && npx prisma generate && npx prisma migrate deploy
+cd ../frontend && cp .env.example .env && npm install
+
+# Terminals
+cd backend && npm run dev    # http://localhost:3001
+cd frontend && npm run dev   # http://localhost:5173 — welcome + AuthModal
+```
+
+Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create account). Marketing (`:5174`) is optional for local app-only auth; set `VITE_API_URL=http://localhost:3001` on both when testing cross-origin cookies.
 
 ## Repo layout
 

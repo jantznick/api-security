@@ -1,18 +1,22 @@
 const trimSlash = (url) => url.replace(/\/$/, '');
 
+const isDev = import.meta.env.DEV;
+
 export const APP_URL = trimSlash(
-  import.meta.env.VITE_APP_URL || 'https://app.apiglimpse.com',
+  import.meta.env.VITE_APP_URL ||
+    (isDev ? 'http://localhost:5173' : 'https://app.apiglimpse.com'),
 );
 export const DOCS_URL = trimSlash(
-  import.meta.env.VITE_DOCS_URL || 'https://docs.apiglimpse.com',
+  import.meta.env.VITE_DOCS_URL ||
+    (isDev ? 'http://localhost:5175' : 'https://docs.apiglimpse.com'),
 );
 export const COLLECT_URL = import.meta.env.VITE_COLLECT_URL
   ? trimSlash(import.meta.env.VITE_COLLECT_URL)
   : null;
 
-/** Canonical auth lives on marketing (this site). */
-export const signupUrl = '/register';
-export const signinUrl = '/login';
+/** Deep-link helpers — prefer openAuth() from AuthModalContext when on-site. */
+export const signupUrl = '/?auth=register';
+export const signinUrl = '/?auth=login';
 export const integratingDocsUrl = `${DOCS_URL}/integrating/`;
 
 export const appProjectsUrl = `${APP_URL}/projects`;

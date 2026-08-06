@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
-import { DOCS_URL, integratingDocsUrl, signupUrl } from '../lib/urls';
+import { useAuthModal } from '../context/AuthModalContext';
+import { DOCS_URL, integratingDocsUrl } from '../lib/urls';
 
 const steps = [
   {
     n: '01',
     title: 'Create an account',
     body: 'Sign up, create a project, and create an API key. The key is shown once when you create it — copy it then.',
-    cta: { href: signupUrl, label: 'Sign up →' },
+    cta: { auth: 'register', label: 'Sign up →' },
   },
   {
     n: '02',
@@ -22,6 +23,8 @@ const steps = [
 ];
 
 export default function GetStarted() {
+  const { openAuth } = useAuthModal();
+
   return (
     <div className="prose-page">
       <p className="section-eyebrow anim-rise">Start here</p>
@@ -41,7 +44,15 @@ export default function GetStarted() {
               {s.title}
             </h2>
             <p className="mt-2.5 leading-relaxed text-muted">{s.body}</p>
-            {s.cta ? (
+            {s.cta?.auth ? (
+              <button
+                type="button"
+                onClick={() => openAuth(s.cta.auth)}
+                className="text-link mt-3 inline-block cursor-pointer bg-transparent p-0"
+              >
+                {s.cta.label}
+              </button>
+            ) : s.cta?.href ? (
               s.cta.href.startsWith('/') ? (
                 <Link to={s.cta.href} className="text-link mt-3 inline-block">
                   {s.cta.label}

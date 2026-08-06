@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import SurfaceMap from '../components/SurfaceMap';
+import { useAuthModal } from '../context/AuthModalContext';
 import { APP_HEADLINE, APP_NAME, APP_TAGLINE } from '../lib/brand';
-import { DOCS_URL, signupUrl } from '../lib/urls';
+import { DOCS_URL } from '../lib/urls';
 
 const steps = [
   {
@@ -68,6 +69,8 @@ const privacyPoints = [
 ];
 
 export default function Home() {
+  const { openAuth } = useAuthModal();
+
   return (
     <>
       <section
@@ -97,9 +100,9 @@ export default function Home() {
             {APP_TAGLINE}
           </p>
           <div className="anim-rise-delay-3 mt-11 flex flex-wrap items-center gap-3 sm:gap-4">
-            <Link to={signupUrl} className="btn btn-primary">
+            <button type="button" onClick={() => openAuth('register')} className="btn btn-primary">
               Sign up
-            </Link>
+            </button>
             <a href={DOCS_URL} className="btn btn-secondary">
               Docs
             </a>
@@ -239,9 +242,13 @@ export default function Home() {
               Endpoint inventory appears in the dashboard as traffic arrives.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link to={signupUrl} className="btn btn-on-dark">
+              <button
+                type="button"
+                onClick={() => openAuth('register')}
+                className="btn btn-on-dark"
+              >
                 Create an account
-              </Link>
+              </button>
               <Link to="/get-started" className="btn btn-ghost-on-dark">
                 Setup guide
               </Link>

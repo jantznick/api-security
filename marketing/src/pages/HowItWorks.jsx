@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { DOCS_URL, signupUrl } from '../lib/urls';
+import { useAuthModal } from '../context/AuthModalContext';
+import { DOCS_URL } from '../lib/urls';
 
 const steps = [
   {
@@ -46,6 +47,8 @@ const whatYouGet = [
 ];
 
 export default function HowItWorks() {
+  const { openAuth } = useAuthModal();
+
   return (
     <div className="prose-page">
       <p className="section-eyebrow anim-rise">Product</p>
@@ -119,9 +122,9 @@ export default function HowItWorks() {
       </section>
 
       <div className="mt-16 flex flex-wrap gap-3 border-t border-line pt-12">
-        <Link to={signupUrl} className="btn btn-primary">
+        <button type="button" onClick={() => openAuth('register')} className="btn btn-primary">
           Sign up
-        </Link>
+        </button>
         <Link to="/get-started" className="btn btn-secondary">
           Get started
         </Link>

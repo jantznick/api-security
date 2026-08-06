@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { APP_NAME } from '../lib/brand';
-import { DOCS_URL, signinUrl, signupUrl } from '../lib/urls';
+import { useAuthModal } from '../context/AuthModalContext';
+import { DOCS_URL } from '../lib/urls';
 
 const linkClass = ({ isActive }) =>
   `relative text-[0.95rem] tracking-tight transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-signal after:transition-transform after:duration-200 ${
@@ -12,6 +13,7 @@ const linkClass = ({ isActive }) =>
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const { openAuth } = useAuthModal();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -49,15 +51,20 @@ export default function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link
-            to={signinUrl}
-            className="hidden text-[0.95rem] text-muted transition-colors hover:text-ink sm:inline"
+          <button
+            type="button"
+            onClick={() => openAuth('login')}
+            className="hidden cursor-pointer text-[0.95rem] text-muted transition-colors hover:text-ink sm:inline"
           >
             Sign in
-          </Link>
-          <Link to={signupUrl} className="btn btn-primary btn-sm">
+          </button>
+          <button
+            type="button"
+            onClick={() => openAuth('register')}
+            className="btn btn-primary btn-sm"
+          >
             Sign up
-          </Link>
+          </button>
           <button
             type="button"
             className="inline-flex items-center justify-center border border-line px-2.5 py-2 text-sm text-ink transition-colors hover:border-ink/40 md:hidden"
@@ -102,13 +109,16 @@ export default function SiteHeader() {
           >
             Docs
           </a>
-          <Link
-            to={signinUrl}
-            className="py-2.5 text-[0.95rem] text-muted sm:hidden"
-            onClick={() => setOpen(false)}
+          <button
+            type="button"
+            className="cursor-pointer py-2.5 text-left text-[0.95rem] text-muted sm:hidden"
+            onClick={() => {
+              setOpen(false);
+              openAuth('login');
+            }}
           >
             Sign in
-          </Link>
+          </button>
         </nav>
       ) : null}
     </header>

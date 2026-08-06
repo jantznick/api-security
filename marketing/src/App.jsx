@@ -1,20 +1,22 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import AuthModal from './components/AuthModal';
 import Layout from './components/Layout';
+import { AuthModalProvider } from './context/AuthModalContext';
+import AuthDeepLink from './pages/AuthDeepLink';
 import GetStarted from './pages/GetStarted';
 import Home from './pages/Home';
 import HowItWorks from './pages/HowItWorks';
-import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import Privacy from './pages/Privacy';
-import Register from './pages/Register';
 import Terms from './pages/Terms';
 
-export default function App() {
+function AppRoutes() {
   return (
-    <BrowserRouter>
+    <>
+      <AuthModal />
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<AuthDeepLink mode="login" />} />
+        <Route path="/register" element={<AuthDeepLink mode="register" />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="how-it-works" element={<HowItWorks />} />
@@ -25,6 +27,16 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthModalProvider>
+        <AppRoutes />
+      </AuthModalProvider>
     </BrowserRouter>
   );
 }

@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout';
 import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { marketingLoginUrl } from '../lib/urls';
+import { loginUrl } from '../lib/urls';
 
 export default function Account() {
   const { user, logout } = useAuthStore();
@@ -17,7 +17,7 @@ export default function Account() {
       /* ignore */
     }
     logout();
-    window.location.assign(marketingLoginUrl());
+    window.location.assign(loginUrl());
   };
 
   const copyEmail = async () => {

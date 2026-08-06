@@ -64,7 +64,7 @@ Redeploy core after changing these.
 
 ### Smoke
 
-1. Open `https://apiglimpse.com/login` (or register) → sign in
+1. Open `https://apiglimpse.com/?auth=login` (or register) → sign in in the AuthModal
 2. You should land on `https://app.apiglimpse.com/projects` with a session cookie
 3. Browser Network tab: API calls go to the core host with cookies
 4. Create a project → mint API key
@@ -83,7 +83,7 @@ If login fails with CORS or missing cookies:
 | API base | Vite proxy `/api` → `localhost:3001` | `VITE_API_URL` + `/api` |
 | Cookies | `SameSite=Lax`, not Secure | `SameSite=None`, Secure; `COOKIE_DOMAIN=.apiglimpse.com` |
 | CORS | `FRONTEND_URLS=http://localhost:5173,http://localhost:5174` | App + marketing origins |
-| Auth UI | Marketing `:5174` `/login` `/register` | `apiglimpse.com/login` |
+| Auth UI | App `:5173` welcome + AuthModal; marketing `:5174` same modal | `apiglimpse.com/?auth=login` |
 
 ---
 
