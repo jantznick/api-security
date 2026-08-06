@@ -4,13 +4,80 @@ import { toast } from 'sonner';
 import { projectsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
+import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
+import FormField, { inputClassName } from '../components/FormField';
+import PageHeader from '../components/PageHeader';
+import { integratingDocsUrl } from '../lib/urls';
+
+function KeyBanner({ apiKey, projectId, onDismiss }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      toast.success('API key copied');
+    } catch {
+      toast.error('Could not copy');
+    }
+  };
+
+  return (
+    <div className="mt-6 rounded-lg border border-signal-600/30 bg-signal-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="text-sm font-medium text-signal-800">API key (shown once)</p>
+        {onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="cursor-pointer text-xs text-signal-800/70 hover:text-signal-800"
+          >
+            Dismiss
+          </button>
+        ) : null}
+      </div>
+      <code className="mt-2 block break-all rounded bg-white px-3 py-2 font-mono text-sm text-ink-900">
+        {apiKey}
+      </code>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          variant="secondary"
+          className="min-h-9 px-3 py-1.5 text-sm"
+          onClick={copy}
+        >
+          Copy key
+        </Button>
+        {projectId ? (
+          <Link
+            to={`/projects/${projectId}/settings`}
+            className="text-sm font-medium text-signal-800 hover:underline"
+          >
+            Project settings →
+          </Link>
+        ) : null}
+      </div>
+      <p className="mt-3 text-xs text-signal-800">
+        Set this as <code className="font-mono">API_SENSOR_KEY</code> in your app. See the{' '}
+        <a
+          href={integratingDocsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium underline underline-offset-2"
+        >
+          connect guide
+        </a>
+        .
+      </p>
+    </div>
+  );
+}
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
-  const [name, setName] = useState('Demo project');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [lastKey, setLastKey] = useState(null);
+  const [lastProjectId, setLastProjectId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -30,11 +97,19 @@ export default function Projects() {
 
   const handleCreate = async (event) => {
     event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error('Enter a project name');
+      return;
+    }
     setCreating(true);
     setLastKey(null);
+    setLastProjectId(null);
     try {
-      const data = await projectsAPI.create(name);
+      const data = await projectsAPI.create(trimmed);
       setLastKey(data.apiKey);
+      setLastProjectId(data.project?.id || null);
+      setName('');
       toast.success('Project created — copy the API key now');
       await load();
     } catch (err) {
@@ -46,49 +121,57 @@ export default function Projects() {
 
   return (
     <AppLayout>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink-900">Projects</h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Each project has an API key for the agent and middleware.
-          </p>
-        </div>
-        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
-          <div>
-            <label htmlFor="project-name" className="mb-1 block text-xs font-medium text-ink-700">
-              Name
-            </label>
-            <input
-              id="project-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-ink-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <Button type="submit" disabled={creating}>
-            {creating ? 'Creating...' : 'New project'}
-          </Button>
-        </form>
-      </div>
+      <PageHeader
+        title="Projects"
+        description="Each project has an API key for the agent and middleware."
+        actions={
+          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
+            <FormField id="project-name" label="Name">
+              <input
+                id="project-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My API"
+                className={`${inputClassName} w-48`}
+                required
+              />
+            </FormField>
+            <Button type="submit" disabled={creating}>
+              {creating ? 'Creating…' : 'New project'}
+            </Button>
+          </form>
+        }
+      />
 
-      {lastKey && (
-        <div className="mt-6 rounded-lg border border-signal-600/30 bg-signal-50 p-4">
-          <p className="text-sm font-medium text-signal-800">API key (shown once)</p>
-          <code className="mt-2 block break-all rounded bg-white px-3 py-2 text-sm text-ink-900">
-            {lastKey}
-          </code>
-          <p className="mt-2 text-xs text-signal-800">
-            Set this as <code>API_SENSOR_KEY</code> in your app. API Glimpse
-            validates it on each batch — see the integrating docs.
-          </p>
-        </div>
-      )}
+      {lastKey ? (
+        <KeyBanner
+          apiKey={lastKey}
+          projectId={lastProjectId}
+          onDismiss={() => {
+            setLastKey(null);
+            setLastProjectId(null);
+          }}
+        />
+      ) : null}
 
-      <div className="mt-8 overflow-hidden rounded-lg border border-ink-200 bg-white">
+      <Card className="mt-8 overflow-hidden">
         {loading ? (
-          <p className="p-6 text-sm text-ink-600">Loading...</p>
+          <p className="p-6 text-sm text-ink-600">Loading…</p>
         ) : projects.length === 0 ? (
-          <p className="p-6 text-sm text-ink-600">No projects yet. Create one to get an API key.</p>
+          <EmptyState
+            title="No projects yet"
+            description="Create a project to get an API key, then connect your app so inventory can appear."
+            action={
+              <a
+                href={integratingDocsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium text-signal-600 hover:text-signal-800"
+              >
+                Connect guide →
+              </a>
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink-200 bg-ink-50 text-ink-700">
@@ -108,19 +191,27 @@ export default function Projects() {
                     {p.apiKeys?.[0]?.keyPrefix || '—'}…
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/projects/${p.id}`}
-                      className="font-medium text-ink-700 hover:text-ink-900"
-                    >
-                      Open inventory →
-                    </Link>
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <Link
+                        to={`/projects/${p.id}/settings`}
+                        className="font-medium text-ink-500 hover:text-ink-900"
+                      >
+                        Settings
+                      </Link>
+                      <Link
+                        to={`/projects/${p.id}`}
+                        className="font-medium text-ink-700 hover:text-ink-900"
+                      >
+                        Inventory →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </AppLayout>
   );
 }

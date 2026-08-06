@@ -75,9 +75,10 @@ Path: `GET /health`. Ingest must **not** be reachable on the public internet.
 | --- | --- |
 | `DATABASE_URL` | Postgres reference |
 | `SESSION_SECRET` | Long random string |
-| `FRONTEND_URL` | `https://app.apiglimpse.com` (or Render dashboard URL until DNS) |
+| `FRONTEND_URLS` | `https://app.apiglimpse.com,https://apiglimpse.com` (CORS allowlist) |
+| `MARKETING_URL` | `https://apiglimpse.com` (magic-link email base) |
 | `NODE_ENV` | `production` |
-| `COOKIE_DOMAIN` | **Leave unset** |
+| `COOKIE_DOMAIN` | `.apiglimpse.com` once api/app/apex share the domain; leave unset across different registrable domains |
 
 `npm start` runs Prisma migrate then the server.
 
@@ -156,6 +157,9 @@ Three **Static Site** services. Connect the same GitHub repo.
 | Build env | Value |
 | --- | --- |
 | `VITE_API_URL` | Public core URL (`https://api.apiglimpse.com` or Railway `*.up.railway.app`) |
+| `VITE_MARKETING_URL` | `https://apiglimpse.com` (auth redirect target) |
+| `VITE_APP_URL` | `https://app.apiglimpse.com` |
+| `VITE_DOCS_URL` | `https://docs.apiglimpse.com` |
 
 No trailing slash. Changing `VITE_*` requires a **rebuild**.
 
@@ -174,6 +178,7 @@ Then set Railway core `FRONTEND_URL` to the dashboard origin and redeploy core i
 | --- | --- |
 | `VITE_APP_URL` | `https://app.apiglimpse.com` (or Render dashboard URL until DNS) |
 | `VITE_DOCS_URL` | `https://docs.apiglimpse.com` |
+| `VITE_API_URL` | Public core URL (`https://api.apiglimpse.com`) — required for marketing login/register |
 | `VITE_COLLECT_URL` | Optional — `https://collect.apiglimpse.com` or agent Railway URL |
 
 ### 2.3 Docs (`docs-site` → `docs.apiglimpse.com`)
@@ -202,9 +207,9 @@ Attach custom domains in each platform, then point DNS as the provider instructs
 
 After DNS:
 
-1. Core `FRONTEND_URL=https://app.apiglimpse.com` → redeploy if needed
-2. Rebuild dashboard with `VITE_API_URL=https://api.apiglimpse.com`
-3. Rebuild marketing if CTA / collect URLs changed
+1. Core `FRONTEND_URLS` + `MARKETING_URL` + `COOKIE_DOMAIN=.apiglimpse.com` → redeploy
+2. Rebuild dashboard with `VITE_API_URL` + `VITE_MARKETING_URL`
+3. Rebuild marketing with `VITE_API_URL` + `VITE_APP_URL`
 
 ---
 

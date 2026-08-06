@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { APP_NAME } from '../lib/brand';
 import { DOCS_URL, signinUrl, signupUrl } from '../lib/urls';
 
@@ -49,15 +49,15 @@ export default function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          <a
-            href={signinUrl}
+          <Link
+            to={signinUrl}
             className="hidden text-[0.95rem] text-muted transition-colors hover:text-ink sm:inline"
           >
             Sign in
-          </a>
-          <a href={signupUrl} className="btn btn-primary btn-sm">
+          </Link>
+          <Link to={signupUrl} className="btn btn-primary btn-sm">
             Sign up
-          </a>
+          </Link>
           <button
             type="button"
             className="inline-flex items-center justify-center border border-line px-2.5 py-2 text-sm text-ink transition-colors hover:border-ink/40 md:hidden"
@@ -102,13 +102,13 @@ export default function SiteHeader() {
           >
             Docs
           </a>
-          <a
-            href={signinUrl}
+          <Link
+            to={signinUrl}
             className="py-2.5 text-[0.95rem] text-muted sm:hidden"
             onClick={() => setOpen(false)}
           >
             Sign in
-          </a>
+          </Link>
         </nav>
       ) : null}
     </header>

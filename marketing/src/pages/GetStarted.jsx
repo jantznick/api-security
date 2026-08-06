@@ -42,9 +42,15 @@ export default function GetStarted() {
             </h2>
             <p className="mt-2.5 leading-relaxed text-muted">{s.body}</p>
             {s.cta ? (
-              <a href={s.cta.href} className="text-link mt-3 inline-block">
-                {s.cta.label}
-              </a>
+              s.cta.href.startsWith('/') ? (
+                <Link to={s.cta.href} className="text-link mt-3 inline-block">
+                  {s.cta.label}
+                </Link>
+              ) : (
+                <a href={s.cta.href} className="text-link mt-3 inline-block">
+                  {s.cta.label}
+                </a>
+              )
             ) : null}
           </li>
         ))}

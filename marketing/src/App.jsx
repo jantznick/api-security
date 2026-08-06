@@ -3,14 +3,18 @@ import Layout from './components/Layout';
 import GetStarted from './pages/GetStarted';
 import Home from './pages/Home';
 import HowItWorks from './pages/HowItWorks';
+import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import Privacy from './pages/Privacy';
+import Register from './pages/Register';
 import Terms from './pages/Terms';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="how-it-works" element={<HowItWorks />} />

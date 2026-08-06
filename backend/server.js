@@ -18,9 +18,38 @@ if (isProduction) {
   app.set('trust proxy', 1);
 }
 
+function resolveCorsOrigins() {
+  const fromList = (process.env.FRONTEND_URLS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (fromList.length) return fromList;
+
+  const singles = [
+    process.env.FRONTEND_URL,
+    process.env.MARKETING_URL,
+  ]
+    .map((s) => (s || '').trim())
+    .filter(Boolean);
+
+  if (singles.length) return [...new Set(singles)];
+
+  // Local defaults: app (:5173) + marketing (:5174)
+  return ['http://localhost:5173', 'http://localhost:5174'];
+}
+
+const corsOrigins = resolveCorsOrigins();
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin(origin, callback) {
+      // Allow non-browser clients (no Origin) and configured frontends
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
   }),
 );

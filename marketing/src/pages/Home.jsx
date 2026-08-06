@@ -97,9 +97,9 @@ export default function Home() {
             {APP_TAGLINE}
           </p>
           <div className="anim-rise-delay-3 mt-11 flex flex-wrap items-center gap-3 sm:gap-4">
-            <a href={signupUrl} className="btn btn-primary">
+            <Link to={signupUrl} className="btn btn-primary">
               Sign up
-            </a>
+            </Link>
             <a href={DOCS_URL} className="btn btn-secondary">
               Docs
             </a>
@@ -239,9 +239,9 @@ export default function Home() {
               Endpoint inventory appears in the dashboard as traffic arrives.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <a href={signupUrl} className="btn btn-on-dark">
+              <Link to={signupUrl} className="btn btn-on-dark">
                 Create an account
-              </a>
+              </Link>
               <Link to="/get-started" className="btn btn-ghost-on-dark">
                 Setup guide
               </Link>

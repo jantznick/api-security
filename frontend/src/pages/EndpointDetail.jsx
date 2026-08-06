@@ -3,12 +3,24 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { inventoryAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
+import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
+import PageHeader from '../components/PageHeader';
 import SchemaTree from '../components/SchemaTree';
 
 function severityClass(severity) {
   if (severity === 'high') return 'bg-danger-50 text-danger-700';
   if (severity === 'medium') return 'bg-warn-50 text-warn-700';
   return 'bg-ink-100 text-ink-700';
+}
+
+function MetaBlock({ label, children }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{label}</p>
+      <div className="mt-1 text-sm text-ink-800">{children}</div>
+    </div>
+  );
 }
 
 export default function EndpointDetail() {
@@ -36,55 +48,77 @@ export default function EndpointDetail() {
 
   return (
     <AppLayout>
-      <Link
-        to={`/projects/${projectId}`}
-        className="text-sm text-ink-600 hover:text-ink-900"
-      >
-        ← Inventory
-      </Link>
+      <PageHeader
+        breadcrumb={
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <Link to="/projects" className="hover:text-ink-900">
+              Projects
+            </Link>
+            <span aria-hidden>/</span>
+            <Link to={`/projects/${projectId}`} className="hover:text-ink-900">
+              Inventory
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="text-ink-700">Endpoint</span>
+          </div>
+        }
+        title={
+          endpoint ? (
+            <>
+              <span className="text-ink-500">{endpoint.method}</span> {endpoint.pathTemplate}
+            </>
+          ) : (
+            'Endpoint'
+          )
+        }
+        titleClassName="font-mono font-semibold"
+        description={
+          endpoint
+            ? `${endpoint.hitCount} hits · first ${new Date(endpoint.firstSeenAt).toLocaleString()} · last ${new Date(endpoint.lastSeenAt).toLocaleString()}`
+            : undefined
+        }
+      />
 
       {loading ? (
-        <p className="mt-6 text-sm text-ink-600">Loading...</p>
+        <p className="mt-8 text-sm text-ink-600">Loading…</p>
       ) : !endpoint ? (
-        <p className="mt-6 text-sm text-ink-600">Endpoint not found.</p>
+        <Card className="mt-8">
+          <EmptyState
+            title="Endpoint not found"
+            description="It may have been removed, or the link is incorrect."
+            action={
+              <Link
+                to={`/projects/${projectId}`}
+                className="text-sm font-medium text-signal-600 hover:text-signal-800"
+              >
+                ← Back to inventory
+              </Link>
+            }
+          />
+        </Card>
       ) : (
         <>
-          <div className="mt-4">
-            <h1 className="font-mono text-2xl font-semibold text-ink-900">
-              <span className="text-ink-600">{endpoint.method}</span> {endpoint.pathTemplate}
-            </h1>
-            <p className="mt-2 text-sm text-ink-600">
-              {endpoint.hitCount} hits · first{' '}
-              {new Date(endpoint.firstSeenAt).toLocaleString()} · last{' '}
-              {new Date(endpoint.lastSeenAt).toLocaleString()}
-            </p>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-4 text-sm">
-            <div>
-              <p className="font-medium text-ink-800">Auth modes</p>
-              <p className="mt-1 text-ink-600">
-                {(Array.isArray(endpoint.authModes) ? endpoint.authModes : []).join(', ') || '—'}
-              </p>
-            </div>
-            <div>
-              <p className="font-medium text-ink-800">Status codes</p>
-              <p className="mt-1 font-mono text-ink-600">
-                {endpoint.statusCodes
-                  ? Object.entries(endpoint.statusCodes)
-                      .map(([c, n]) => `${c}×${n}`)
-                      .join(', ')
-                  : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="font-medium text-ink-800">Content types</p>
-              <p className="mt-1 text-ink-600">
+          <Card className="mt-8 p-5">
+            <div className="grid gap-6 sm:grid-cols-3">
+              <MetaBlock label="Auth modes">
+                {(Array.isArray(endpoint.authModes) ? endpoint.authModes : []).join(', ') ||
+                  'None observed'}
+              </MetaBlock>
+              <MetaBlock label="Status codes">
+                <span className="font-mono">
+                  {endpoint.statusCodes
+                    ? Object.entries(endpoint.statusCodes)
+                        .map(([c, n]) => `${c}×${n}`)
+                        .join(', ')
+                    : '—'}
+                </span>
+              </MetaBlock>
+              <MetaBlock label="Content types">
                 {(Array.isArray(endpoint.contentTypes) ? endpoint.contentTypes : []).join(', ') ||
                   '—'}
-              </p>
+              </MetaBlock>
             </div>
-          </div>
+          </Card>
 
           <div className="mt-8 grid gap-4 lg:grid-cols-2">
             <SchemaTree title="Request schema" schema={endpoint.requestSchema} />
@@ -92,13 +126,24 @@ export default function EndpointDetail() {
           </div>
 
           <div className="mt-8">
-            <h2 className="text-lg font-semibold text-ink-900">Signals</h2>
+            <h2 className="font-display text-lg font-semibold text-ink-900">Signals</h2>
+            <p className="mt-1 text-sm text-ink-500">
+              Sensitive or interesting field patterns inferred from traffic shape.
+            </p>
             {(endpoint.signals || []).length === 0 ? (
-              <p className="mt-2 text-sm text-ink-600">No signals yet.</p>
+              <Card className="mt-4">
+                <EmptyState
+                  title="No signals yet"
+                  description="As more traffic is observed, field-level signals will show up here."
+                />
+              </Card>
             ) : (
-              <ul className="mt-3 divide-y divide-ink-100 rounded-lg border border-ink-200 bg-white">
+              <ul className="mt-4 divide-y divide-ink-100 overflow-hidden rounded-lg border border-ink-200 bg-white">
                 {endpoint.signals.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"
+                  >
                     <span className={`rounded px-1.5 py-0.5 text-xs ${severityClass(s.severity)}`}>
                       {s.severity}
                     </span>

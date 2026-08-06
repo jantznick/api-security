@@ -4,6 +4,10 @@ import { toast } from 'sonner';
 import { inventoryAPI, projectsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
+import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
+import PageHeader from '../components/PageHeader';
+import { integratingDocsUrl } from '../lib/urls';
 
 function severityClass(severity) {
   if (severity === 'high') return 'bg-danger-50 text-danger-700';
@@ -39,33 +43,73 @@ export default function Inventory() {
     return () => clearInterval(id);
   }, [load]);
 
+  const keyPrefix = project?.apiKeys?.[0]?.keyPrefix;
+
   return (
     <AppLayout>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link to="/projects" className="text-sm text-ink-600 hover:text-ink-900">
+      <PageHeader
+        breadcrumb={
+          <Link to="/projects" className="text-sm text-ink-500 hover:text-ink-900">
             ← Projects
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-ink-900">
-            {project?.name || 'Inventory'}
-          </h1>
-          <p className="mt-1 text-sm text-ink-600">
-            Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies.
-          </p>
-        </div>
-        <Button variant="secondary" onClick={load}>
-          Refresh
-        </Button>
-      </div>
+        }
+        title={project?.name || 'Inventory'}
+        description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies."
+        actions={
+          <>
+            <Link to={`/projects/${projectId}/settings`}>
+              <Button variant="secondary">Settings</Button>
+            </Link>
+            <Button variant="secondary" onClick={load}>
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
-      <div className="mt-8 overflow-hidden rounded-lg border border-ink-200 bg-white">
-        {loading && endpoints.length === 0 ? (
-          <p className="p-6 text-sm text-ink-600">Loading...</p>
-        ) : endpoints.length === 0 ? (
-          <p className="p-6 text-sm text-ink-600">
-            No endpoints yet. Hit the demo app routes with the sensor configured, then wait a few
-            seconds.
+      {keyPrefix ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <p className="text-ink-600">
+            API key prefix{' '}
+            <code className="font-mono text-ink-900">{keyPrefix}…</code>
+            {' — '}
+            use the full key as <code className="font-mono">API_SENSOR_KEY</code>
           </p>
+          <Link
+            to={`/projects/${projectId}/settings`}
+            className="font-medium text-signal-600 hover:text-signal-800"
+          >
+            Manage keys →
+          </Link>
+        </div>
+      ) : null}
+
+      <Card className="mt-8 overflow-hidden">
+        {loading && endpoints.length === 0 ? (
+          <p className="p-6 text-sm text-ink-600">Loading…</p>
+        ) : endpoints.length === 0 ? (
+          <EmptyState
+            title="No endpoints yet"
+            description="Connect middleware with your project API key and send traffic. Inventory appears within seconds."
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <a
+                  href={integratingDocsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-signal-600 hover:text-signal-800"
+                >
+                  Connect your app →
+                </a>
+                <Link
+                  to={`/projects/${projectId}/settings`}
+                  className="text-sm font-medium text-ink-600 hover:text-ink-900"
+                >
+                  Project settings
+                </Link>
+              </div>
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink-200 bg-ink-50 text-ink-700">
@@ -119,7 +163,7 @@ export default function Inventory() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </AppLayout>
   );
 }

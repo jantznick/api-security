@@ -119,9 +119,9 @@ export default function HowItWorks() {
       </section>
 
       <div className="mt-16 flex flex-wrap gap-3 border-t border-line pt-12">
-        <a href={signupUrl} className="btn btn-primary">
+        <Link to={signupUrl} className="btn btn-primary">
           Sign up
-        </a>
+        </Link>
         <Link to="/get-started" className="btn btn-secondary">
           Get started
         </Link>

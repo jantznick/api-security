@@ -211,9 +211,14 @@ router.post('/magic-token/request', async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const { sixDigitCode, linkToken, expiresAt } = await issueMagicTokens(normalizedEmail);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Magic links land on marketing auth pages (canonical).
+    const marketingUrl = (
+      process.env.MARKETING_URL ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:5174'
+    ).replace(/\/$/, '');
     const loginPath = intent === 'register' ? '/register' : '/login';
-    const loginUrl = `${frontendUrl}${loginPath}?token=${linkToken}`;
+    const loginUrl = `${marketingUrl}${loginPath}?token=${linkToken}`;
 
     try {
       await sendMagicLinkEmail({

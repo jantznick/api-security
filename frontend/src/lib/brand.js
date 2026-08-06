@@ -1,2 +1,3 @@
 export const APP_NAME = 'API Glimpse';
-export const APP_TAGLINE = 'Observe traffic. Build inventory. Surface risk.';
+export const APP_TAGLINE =
+  'Endpoints, schemas, and field types from real traffic.';

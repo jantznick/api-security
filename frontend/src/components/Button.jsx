@@ -5,9 +5,9 @@ export default function Button({
   ...props
 }) {
   const variants = {
-    primary: 'bg-ink-700 text-white hover:bg-ink-800',
-    secondary: 'border border-ink-300 bg-white text-ink-800 hover:bg-ink-50',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
+    primary: 'bg-ink-900 text-white hover:bg-ink-800',
+    secondary: 'border border-ink-200 bg-white text-ink-800 hover:bg-ink-50',
+    danger: 'bg-danger-700 text-white hover:bg-red-800',
   };
 
   return (

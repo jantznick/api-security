@@ -49,34 +49,41 @@ Notes:
 
 ### Wire Railway core CORS
 
-On the Railway **core** service:
+On the Railway **core** service, allow both the dashboard and marketing origins (auth lives on marketing):
 
 ```bash
-FRONTEND_URL=https://app.apiglimpse.com
-# or until DNS: FRONTEND_URL=https://<your-dashboard>.onrender.com
+FRONTEND_URLS=https://app.apiglimpse.com,https://apiglimpse.com,https://www.apiglimpse.com
+MARKETING_URL=https://apiglimpse.com
+# Magic-link emails use MARKETING_URL
+COOKIE_DOMAIN=.apiglimpse.com
 ```
 
-Redeploy core if needed. Leave `COOKIE_DOMAIN` unset (different sites: Render vs Railway → cookies use `SameSite=None; Secure` in production).
+Until custom domains are live (Render `*.onrender.com` → Railway `*.up.railway.app`), set `FRONTEND_URL` / `FRONTEND_URLS` to the exact Render origins and **leave `COOKIE_DOMAIN` unset**.
+
+Redeploy core after changing these.
 
 ### Smoke
 
-1. Open the dashboard URL → register / login
-2. Browser Network tab: API calls go to the Railway core host with cookies
-3. Create a project → mint API key
+1. Open `https://apiglimpse.com/login` (or register) → sign in
+2. You should land on `https://app.apiglimpse.com/projects` with a session cookie
+3. Browser Network tab: API calls go to the core host with cookies
+4. Create a project → mint API key
 
 If login fails with CORS or missing cookies:
 
-- Confirm `FRONTEND_URL` exactly matches the dashboard origin (scheme + host, no path)
+- Confirm `FRONTEND_URLS` (or `FRONTEND_URL` + `MARKETING_URL`) includes every browser origin exactly (scheme + host, no path)
+- Confirm `COOKIE_DOMAIN=.apiglimpse.com` once `api`, `app`, and apex share `apiglimpse.com`
 - Confirm core `NODE_ENV=production` (enables `secure` + `sameSite: 'none'`)
-- Confirm frontend was built with the correct `VITE_API_URL`
+- Confirm frontend and marketing were built with the correct `VITE_API_URL`
 
 ### Local vs production (dashboard)
 
 | | Local | Production |
 | --- | --- | --- |
 | API base | Vite proxy `/api` → `localhost:3001` | `VITE_API_URL` + `/api` |
-| Cookies | `SameSite=Lax`, not Secure | `SameSite=None`, Secure |
-| CORS origin | `http://localhost:5173` | Dashboard origin via `FRONTEND_URL` |
+| Cookies | `SameSite=Lax`, not Secure | `SameSite=None`, Secure; `COOKIE_DOMAIN=.apiglimpse.com` |
+| CORS | `FRONTEND_URLS=http://localhost:5173,http://localhost:5174` | App + marketing origins |
+| Auth UI | Marketing `:5174` `/login` `/register` | `apiglimpse.com/login` |
 
 ---
 

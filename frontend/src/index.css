@@ -1,21 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink-50: #f4f7f6;
-  --color-ink-100: #e4ebe8;
-  --color-ink-200: #c9d7d1;
+  --font-display: "Syne", ui-sans-serif, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-ink-50: #eef3f0;
+  --color-ink-100: #e2ebe6;
+  --color-ink-200: #c5d4cd;
   --color-ink-300: #9fb5ac;
   --color-ink-400: #6f8f82;
-  --color-ink-500: #507365;
+  --color-ink-500: #5a6e66;
   --color-ink-600: #3d5a4f;
-  --color-ink-700: #324840;
-  --color-ink-800: #2a3c35;
-  --color-ink-900: #24322d;
-  --color-ink-950: #121a17;
+  --color-ink-700: #2a3c35;
+  --color-ink-800: #162822;
+  --color-ink-900: #0f1c18;
+  --color-ink-950: #0a1210;
 
-  --color-signal-50: #f0f9ff;
-  --color-signal-600: #0284c7;
-  --color-signal-800: #075985;
+  --color-signal-50: #ecfdf7;
+  --color-signal-600: #0f7a62;
+  --color-signal-700: #0c6350;
+  --color-signal-800: #0a4f40;
 
   --color-warn-50: #fff7ed;
   --color-warn-700: #c2410c;
@@ -28,10 +33,17 @@ html {
 }
 
 body {
-  @apply bg-ink-50 text-ink-950 antialiased;
+  margin: 0;
+  font-family: var(--font-sans);
+  @apply bg-ink-50 text-ink-900 antialiased;
   overflow-x: clip;
 }
 
 #root {
   min-height: 100vh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-signal-600);
+  outline-offset: 3px;
 }
