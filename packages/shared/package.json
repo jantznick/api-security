@@ -1,12 +1,28 @@
 {
-  "name": "@api-security/shared",
+  "name": "@apiglimpse/shared",
   "version": "0.1.0",
+  "description": "Sample envelope and redaction helpers for API security discovery",
   "type": "module",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js"
   },
   "files": [
-    "src"
-  ]
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "api-security",
+    "discovery",
+    "redaction"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nick/api-security.git",
+    "directory": "packages/shared"
+  }
 }

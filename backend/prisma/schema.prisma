@@ -2,6 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Second output so ingest can `import '@prisma/client'` from its own node_modules.
+// Default generate lands under backend/; ingest shares this schema file.
+generator ingestClient {
+  provider = "prisma-client-js"
+  output   = "../../ingest/node_modules/.prisma/client"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

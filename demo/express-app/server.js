@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { apiSensor } from '@api-security/middleware';
+import { apiSensor } from '@apiglimpse/middleware';
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);

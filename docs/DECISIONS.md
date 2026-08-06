@@ -8,7 +8,7 @@ Wallarm-style API firewall is a **future optional enforcement backend** (feed it
 
 ## Self-hosted agent first
 
-Traceable-style: agent runs next to the app (Docker), ships **derived** inventory to the control plane. Public SaaS ingest can be the same protocol later without changing middleware.
+~~Traceable-style customer agent.~~ **Superseded:** product path is **hosted multi-tenant agent** (Noname-style). Customers point middleware at our collector. Customer-hosted agent is an explicit non-goal. See [PRODUCTIZATION.md](./PRODUCTIZATION.md).
 
 ## Separate ingest from core
 
@@ -18,6 +18,10 @@ Traceable-style: agent runs next to the app (Docker), ships **derived** inventor
 | Ingest | API key | Machine writes from agent |
 
 Same Postgres. Two Express entrypoints so ingest stays independently scalable/securable when productizing.
+
+In production the **agent is public**; **ingest is private** (Railway internal). Middleware never calls ingest. The agent validates keys via ingest introspect (cached) before accepting samples, and keeps **per-project** aggregators.
+
+Prisma schema lives in `backend/prisma/` and is shared. Two generators (`client` + `ingestClient`) ensure `prisma generate` populates both packages’ `node_modules` — a single default generate only lands under backend and leaves ingest with an uninitialized client.
 
 ## Fail-open middleware
 

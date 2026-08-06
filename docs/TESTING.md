@@ -23,10 +23,10 @@ docker-compose ps
 # postgres healthy, agent running
 
 curl -s http://localhost:8080/health
-# {"status":"ok","service":"agent",...}
+# {"status":"ok"}
 ```
 
-> The agent may log that it is skipping ingest flushes until you set a real `INGEST_API_KEY` (step 5).
+> Agent accepts samples only with a valid project API key (step 5). Without it, batches get `401`.
 
 ## 2. Install dependencies
 
@@ -102,25 +102,7 @@ curl -s http://localhost:4000/health   # after demo is up
 
 1. In the dashboard, create a project (e.g. `Demo project`)
 2. **Copy the API key shown once** (`ask_…`)
-3. Configure agent + demo:
-
-**Option A — restart Docker agent with the key:**
-
-```bash
-# From repo root
-export INGEST_API_KEY='ask_YOUR_KEY_HERE'
-docker-compose up -d --force-recreate agent
-```
-
-**Option B — env file for compose:**
-
-Create `.env` at repo root:
-
-```
-INGEST_API_KEY=ask_YOUR_KEY_HERE
-```
-
-Then `docker-compose up -d --force-recreate agent`.
+3. Put it only on the **demo app** (and any real apps). The hosted agent validates each request’s key via ingest — no agent `INGEST_API_KEY` env needed.
 
 **Demo app** (`demo/express-app/.env`):
 
@@ -131,6 +113,23 @@ PORT=4000
 ```
 
 Restart the demo process after editing `.env`.
+
+Optional — confirm introspect works:
+
+```bash
+curl -s -H "X-API-Key: ask_YOUR_KEY_HERE" http://localhost:3002/v1/auth/introspect
+# → {"ok":true,"projectId":"...","projectName":"..."}
+
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/v1/samples \
+  -H 'Content-Type: application/json' \
+  -d '{"version":1,"samples":[]}'
+# → 401 (no key)
+
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/v1/samples \
+  -H 'Content-Type: application/json' -H "X-API-Key: ask_YOUR_KEY_HERE" \
+  -d '{"version":1,"apiKey":"ask_YOUR_KEY_HERE","samples":[]}'
+# → 202
+```
 
 ## 6. Generate traffic
 
@@ -192,19 +191,21 @@ There is **no** table for raw request/response bodies. `requestSchema` / `respon
 ```bash
 docker-compose stop agent
 cd agent && cp .env.example .env
-# Set INGEST_URL=http://localhost:3002 and INGEST_API_KEY=ask_...
+# Set INGEST_URL=http://localhost:3002 (keys come per-request from middleware)
 npm install && npm run dev
 ```
 
-Point demo `API_SENSOR_AGENT_URL=http://localhost:8080`.
+Point demo `API_SENSOR_AGENT_URL=http://localhost:8080` and `API_SENSOR_KEY=ask_...`.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Inventory empty | API key match on agent + demo; ingest `:3002` up; agent logs upsert |
+| Inventory empty | Valid `API_SENSOR_KEY` on demo; ingest `:3002` up; agent introspect + upsert logs |
+| Agent 401 on samples | Key missing/wrong; create project key in dashboard |
+| Agent 503 on samples | Ingest down or unreachable from agent (`INGEST_URL`) |
 | `Invalid API key` on ingest | Key must be the raw `ask_…` from project create, not the prefix |
-| Prisma client missing on ingest | `npx prisma generate --schema=../backend/prisma/schema.prisma` |
+| Prisma client missing on ingest | From `ingest/`: `npm run prisma:generate` (writes into ingest `node_modules`; `npm run dev` also runs this first) |
 | Session / CORS issues | `FRONTEND_URL=http://localhost:5173`, Vite proxy, `credentials: 'include'` |
 | Agent can't reach ingest from Docker | `INGEST_URL=http://host.docker.internal:3002` + `extra_hosts` in compose |
 | Magic link email | Dev logs tokens to backend console when Resend unset |

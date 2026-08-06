@@ -6,24 +6,43 @@ const router = express.Router();
 
 router.use(requireApiKey);
 
+/** 0 or unset = unlimited. Stripe will set per-project limits later. */
+function endpointLimit() {
+  const raw = process.env.ENDPOINT_LIMIT;
+  if (raw === undefined || raw === null || raw === '') return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 /**
  * Idempotent upsert of endpoint inventory + signals.
  * Body: { endpoints: [ { method, pathTemplate, hitCount, authModes, statusCodes,
  *   contentTypes, requestSchema, responseSchema, signals, firstSeenAt, lastSeenAt } ] }
  *
  * Never accepts or stores raw request/response bodies.
+ * New endpoints may be skipped when ENDPOINT_LIMIT is exceeded (existing still update).
  */
 router.post('/upsert', async (req, res) => {
   try {
     const projectId = req.project.id;
     const endpoints = Array.isArray(req.body?.endpoints) ? req.body.endpoints : [];
+    const limit = endpointLimit();
 
     if (endpoints.length === 0) {
-      res.json({ upserted: 0 });
+      res.json({ upserted: 0, skippedNew: 0 });
       return;
     }
 
     let upserted = 0;
+    let skippedNew = 0;
+    let currentCount = null;
+
+    async function loadCount() {
+      if (currentCount === null) {
+        currentCount = await prisma.endpoint.count({ where: { projectId } });
+      }
+      return currentCount;
+    }
 
     for (const delta of endpoints) {
       const method = String(delta.method || '').toUpperCase();
@@ -35,6 +54,14 @@ router.post('/upsert', async (req, res) => {
           projectId_method_pathTemplate: { projectId, method, pathTemplate },
         },
       });
+
+      if (!existing && limit > 0) {
+        const count = await loadCount();
+        if (count >= limit) {
+          skippedNew += 1;
+          continue;
+        }
+      }
 
       const lastSeenAt = delta.lastSeenAt ? new Date(delta.lastSeenAt) : new Date();
       const firstSeenAt = delta.firstSeenAt ? new Date(delta.firstSeenAt) : lastSeenAt;
@@ -55,7 +82,6 @@ router.post('/upsert', async (req, res) => {
       const prevCt = Array.isArray(existing?.contentTypes) ? existing.contentTypes : [];
       const contentTypes = [...new Set([...prevCt, ...(delta.contentTypes || [])])];
 
-      // Prefer newest schema from agent (already merged in-memory); fall back to existing
       const requestSchema =
         delta.requestSchema !== undefined && delta.requestSchema !== null
           ? delta.requestSchema
@@ -93,6 +119,10 @@ router.post('/upsert', async (req, res) => {
         },
       });
 
+      if (!existing) {
+        currentCount = (await loadCount()) + 1;
+      }
+
       for (const signal of delta.signals || []) {
         const type = String(signal.type || 'sensitive_field');
         const fieldPath = String(signal.fieldPath || '');
@@ -128,7 +158,12 @@ router.post('/upsert', async (req, res) => {
       upserted += 1;
     }
 
-    res.json({ upserted });
+    const status = skippedNew > 0 && upserted === 0 ? 402 : 200;
+    res.status(status).json({
+      upserted,
+      skippedNew,
+      endpointLimit: limit || null,
+    });
   } catch (error) {
     console.error('Inventory upsert error:', error);
     res.status(500).json({ error: 'Failed to upsert inventory' });

@@ -78,8 +78,8 @@ export default function Projects() {
             {lastKey}
           </code>
           <p className="mt-2 text-xs text-signal-800">
-            Set this as <code>INGEST_API_KEY</code> / <code>API_SENSOR_KEY</code> and restart the
-            agent + demo app. See docs/TESTING.md.
+            Set this as <code>API_SENSOR_KEY</code> in your app. API Glimpse
+            validates it on each batch — see the integrating docs.
           </p>
         </div>
       )}

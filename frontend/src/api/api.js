@@ -1,4 +1,17 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+/**
+ * Local dev: empty VITE_API_URL → Vite proxy `/api` → core.
+ * Production (Render): set VITE_API_URL to the public core origin
+ * (e.g. https://core-xxx.up.railway.app). We append `/api` unless
+ * the value already ends with it.
+ */
+function resolveApiBase() {
+  const raw = (import.meta.env.VITE_API_URL || '').trim();
+  if (!raw) return '/api';
+  const base = raw.replace(/\/$/, '');
+  return base.endsWith('/api') ? base : `${base}/api`;
+}
+
+const API_BASE = resolveApiBase();
 
 async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -7,6 +20,7 @@ async function request(endpoint, options = {}) {
       'Content-Type': 'application/json',
       ...options.headers,
     },
+    // Required for Render → Railway cross-origin session cookies.
     credentials: 'include',
   });
 

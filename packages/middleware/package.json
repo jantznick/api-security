@@ -1,18 +1,36 @@
 {
-  "name": "@api-security/middleware",
+  "name": "@apiglimpse/middleware",
   "version": "0.1.0",
+  "description": "Express middleware that sends API samples to API Glimpse for discovery and inventory",
   "type": "module",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js"
   },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "express",
+    "middleware",
+    "api-security",
+    "discovery",
+    "observability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nick/api-security.git",
+    "directory": "packages/middleware"
+  },
   "dependencies": {
-    "@api-security/shared": "file:../shared"
+    "@apiglimpse/shared": "file:../shared"
   },
   "peerDependencies": {
     "express": ">=4"
-  },
-  "files": [
-    "src"
-  ]
+  }
 }

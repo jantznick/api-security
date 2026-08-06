@@ -7,7 +7,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@api-security/middleware": "file:../../packages/middleware",
+    "@apiglimpse/middleware": "file:../../packages/middleware",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
   }

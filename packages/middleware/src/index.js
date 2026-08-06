@@ -1,4 +1,4 @@
-import { createEnvelope, createSample } from '@api-security/shared';
+import { createEnvelope, createSample } from '@apiglimpse/shared';
 
 const DEFAULTS = {
   agentUrl: 'http://localhost:8080',
@@ -13,10 +13,11 @@ const DEFAULTS = {
 };
 
 /**
- * Fail-open Express middleware: captures request/response metadata,
- * redacts secrets, buffers, and flushes async to the platform agent.
+ * Express middleware for API Glimpse: captures request/response metadata,
+ * redacts secrets, buffers, and flushes async batches to the collector.
  *
- * Never awaits the agent on the request path. Errors are swallowed.
+ * Never awaits the collector on the request path. Errors are swallowed
+ * so sampling stays off the critical path.
  *
  * @param {object} options
  * @param {string} [options.agentUrl]

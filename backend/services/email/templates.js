@@ -1,5 +1,5 @@
-const APP_NAME = 'API Security Discovery';
-const APP_DOMAIN = 'localhost';
+const APP_NAME = 'API Glimpse';
+const APP_DOMAIN = 'apiglimpse.com';
 
 const BRAND = {
   pine900: '#24362d',

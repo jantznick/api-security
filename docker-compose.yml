@@ -26,9 +26,9 @@ services:
     environment:
       PORT: "8080"
       INGEST_URL: "http://host.docker.internal:3002"
-      # Override with a real project API key after creating one in the dashboard
-      INGEST_API_KEY: "${INGEST_API_KEY:-dev-ingest-key-replace-me}"
+      NODE_ENV: "development"
       AGENT_DEBUG_BUFFER: "false"
+      # Keys come per-request from middleware; agent validates via ingest introspect
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

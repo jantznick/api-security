@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { validateEnvelope } from '@api-security/shared';
+import { validateEnvelope } from '@apiglimpse/shared';
 import { InventoryAggregator } from './pipeline/aggregate.js';
 import { upsertInventory } from './lib/ingestClient.js';
 

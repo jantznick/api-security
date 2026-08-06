@@ -23,7 +23,7 @@ export async function sendMagicLinkEmail({ to, loginUrl, code, expiresMinutes = 
     body: JSON.stringify({
       from: process.env.RESEND_FROM_EMAIL,
       to: [to],
-      subject: 'Your sign-in link for API Security Discovery',
+      subject: 'Your sign-in link for API Glimpse',
       html,
       text,
     }),

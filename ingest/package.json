@@ -4,8 +4,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js",
+    "dev": "npm run prisma:generate && node --watch server.js",
+    "start": "npm run prisma:generate && node server.js",
+    "postinstall": "prisma generate --schema=../backend/prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema=../backend/prisma/schema.prisma"
   },
   "dependencies": {
