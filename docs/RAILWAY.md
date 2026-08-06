@@ -211,7 +211,7 @@ Follow [RENDER.md](./RENDER.md) / [DEPLOY.md](./DEPLOY.md): static site, `VITE_A
 
 ### 7. Publish middleware + smoke
 
-See [INTEGRATING.md](./INTEGRATING.md#npm-publish-maintainers), then [Launch verification](#launch-verification).
+See [NPM_PUBLISH.md](./NPM_PUBLISH.md), then [Launch verification](#launch-verification).
 
 ---
 

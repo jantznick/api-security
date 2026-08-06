@@ -157,47 +157,16 @@ If API Glimpse is unreachable, the connector drops samples and your app continue
 
 ## npm publish (maintainers)
 
-Nick runs these after Railway/Render are up. Packages are prepared in-repo (`files`, `publishConfig`, READMEs); publishing is click-ops / CLI on your machine.
+Full first-time handholding (account, 2FA, `@apiglimpse` org, publish order, verify, common errors): **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
 
-For local monorepo installs while developing packages, use `file:` deps (already wired in `package.json`). Ops / local stack notes: [TESTING.md](TESTING.md), [RAILWAY.md](RAILWAY.md), [RENDER.md](RENDER.md).
-
-### Prerequisites
-
-- npm account with permission to publish `@apiglimpse/*`
-- Logged in: `npm login`
-
-### 1. Publish `@apiglimpse/shared`
+Short version after you are logged in and the org exists:
 
 ```bash
-cd packages/shared
-npm publish --access public
+cd packages/shared && npm publish --access public
+cd ../middleware && npm run publish:npm
 ```
 
-### 2. Publish `@apiglimpse/middleware`
-
-The monorepo uses `"@apiglimpse/shared": "file:../shared"` for local installs. Before publish, point at the registry version:
-
-```bash
-cd packages/middleware
-# Edit package.json dependencies to:
-#   "@apiglimpse/shared": "^0.1.0"
-npm install
-npm publish --access public
-```
-
-Restore `file:../shared` afterward if you keep developing in the monorepo without pulling shared from npm.
-
-### 3. Verify
-
-```bash
-npm view @apiglimpse/shared version
-npm view @apiglimpse/middleware version
-# In a scratch dir:
-npm install @apiglimpse/middleware
-```
-
-Bump `version` in both `package.json` files for subsequent releases (publish **shared** before **middleware** when both change).
-
+The middleware script temporarily replaces `file:../shared` with `^0.1.0`, publishes, then restores the local `file:` dependency.
 ## Not supported yet
 
 - Runtime request blocking (planned later; not enabled today)

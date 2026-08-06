@@ -1,6 +1,8 @@
 # @apiglimpse/middleware
 
-Express middleware for API Glimpse. Captures request/response shapes, redacts secrets, and flushes async batches to API Glimpse cloud so endpoints, schemas, and signals appear in your dashboard.
+What app developers install. Express middleware that sends API traffic metadata to API Glimpse (`collect.apiglimpse.com`). This is the public SDK.
+
+It samples requests/responses, redacts secrets, and flushes async batches so endpoints, schemas, and signals show up in your dashboard. Sampling never blocks your app: if the collector is down, samples are dropped and Express keeps serving traffic.
 
 ## Install
 
@@ -33,10 +35,19 @@ API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
 API_SENSOR_KEY=ask_...
 ```
 
-If the collector is unreachable, samples are dropped and your Express app continues to serve traffic normally.
+Full customer guide: [docs/INTEGRATING.md](../../docs/INTEGRATING.md) · public docs: [docs.apiglimpse.com](https://docs.apiglimpse.com).
 
-Full guide: [docs/INTEGRATING.md](../../docs/INTEGRATING.md) · public docs: [docs.apiglimpse.com](https://docs.apiglimpse.com).
+## Dependency note
 
-## Publish (maintainers)
+In this monorepo, `package.json` uses `"@apiglimpse/shared": "file:../shared"` for local development. Publishing uses `scripts/publish.mjs`, which temporarily points at the registry version (`^0.1.0`), publishes, then restores `file:../shared`.
 
-Publish `@apiglimpse/shared` first, then this package. Before publish, change the local `file:../shared` dependency to `"@apiglimpse/shared": "^0.1.0"`. Full steps: [docs/INTEGRATING.md](../../docs/INTEGRATING.md#npm-publish-maintainers).
+## Maintainer publish
+
+Publish `@apiglimpse/shared` first, then:
+
+```bash
+cd packages/middleware
+npm run publish:npm
+```
+
+First-time npm account, org, and step-by-step: [docs/NPM_PUBLISH.md](../../docs/NPM_PUBLISH.md).

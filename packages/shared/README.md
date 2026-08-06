@@ -1,20 +1,31 @@
 # @apiglimpse/shared
 
-Shared sample envelope helpers and redaction utilities used by `@apiglimpse/middleware` and the API Glimpse collector.
+Internal helpers used by the Express middleware: request sample format and redaction.
 
-## Install
+Customers usually do **not** install this package directly. It is published so `@apiglimpse/middleware` can depend on it from the npm registry. Install the middleware instead.
+
+## What it does
+
+- Builds the sample / envelope shape sent to API Glimpse (`collect.apiglimpse.com`)
+- Redacts sensitive headers and shapes request/response bodies (structure only, not raw secrets)
+
+## Install (rare)
 
 ```bash
 npm install @apiglimpse/shared
 ```
 
-Usually you install `@apiglimpse/middleware` instead; it depends on this package.
+Prefer:
 
-## Publish (maintainers)
+```bash
+npm install @apiglimpse/middleware
+```
+
+## Maintainer publish
+
+Publish this package **before** `@apiglimpse/middleware`. Full first-time guide: [docs/NPM_PUBLISH.md](../../docs/NPM_PUBLISH.md).
 
 ```bash
 cd packages/shared
 npm publish --access public
 ```
-
-Scoped packages require `--access public` on first publish.

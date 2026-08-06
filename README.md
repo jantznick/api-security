@@ -12,8 +12,7 @@ Your Express app
   → Dashboard (session auth)
 ```
 
-**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md).
-
+**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[npm publish](docs/NPM_PUBLISH.md)** — first-time `@apiglimpse/*` publish.
 ## Quick start
 
 Nick verifies manually — see **[docs/TESTING.md](docs/TESTING.md)** for the full step-by-step.
@@ -34,8 +33,8 @@ High level:
 | `frontend/` | Dashboard (Vite + React + Tailwind v4) → **Render** → `app.apiglimpse.com` |
 | `marketing/` | Marketing site (Vite + React) → **Render** → `apiglimpse.com` |
 | `docs-site/` | Developer docs (VitePress) → **Render** → `docs.apiglimpse.com` |
-| `packages/middleware` | Express `apiSensor()` sensor (npm: `@apiglimpse/middleware`) |
-| `packages/shared` | Sample envelope + redaction |
+| `packages/middleware` | Public SDK — Express middleware (npm: `@apiglimpse/middleware`) |
+| `packages/shared` | Internal helpers for middleware (npm: `@apiglimpse/shared`) |
 | `agent/` | Dockerized collector/processor |
 | `demo/express-app/` | Sample app with one-line middleware |
 | `docker-compose.yml` | Postgres + collector only |
@@ -44,13 +43,14 @@ High level:
 
 **Customer-facing**
 
-- [Integrating into an existing app](docs/INTEGRATING.md) — Express middleware + npm publish (canonical; also published via `docs-site/`)
+- [Integrating into an existing app](docs/INTEGRATING.md) — Express middleware (canonical; also published via `docs-site/`)
 - Marketing site: `marketing/` → `apiglimpse.com`
 - Developer docs: `docs-site/` → `docs.apiglimpse.com`
 
 **Internal / ops**
 
 - **[Deploy](docs/DEPLOY.md)** — production checklist (Railway, Render, DNS, npm, verify)
+- **[npm publish](docs/NPM_PUBLISH.md)** — first-time publish of `@apiglimpse/shared` and `@apiglimpse/middleware`
 - [Railway](docs/RAILWAY.md) — Postgres / ingest / collector / core detail
 - [Render](docs/RENDER.md) — static dashboard, marketing, and docs sites
 - [Productization](docs/PRODUCTIZATION.md) — product shape, phases, launch checklist

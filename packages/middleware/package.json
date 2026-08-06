@@ -1,7 +1,7 @@
 {
   "name": "@apiglimpse/middleware",
   "version": "0.1.0",
-  "description": "Express middleware that sends API samples to API Glimpse for discovery and inventory",
+  "description": "Express middleware that sends API traffic metadata to API Glimpse",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -20,12 +20,20 @@
     "middleware",
     "api-security",
     "discovery",
-    "observability"
+    "observability",
+    "apiglimpse"
   ],
+  "homepage": "https://github.com/jantznick/api-security/tree/main/packages/middleware",
+  "bugs": {
+    "url": "https://github.com/jantznick/api-security/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nick/api-security.git",
+    "url": "git+https://github.com/jantznick/api-security.git",
     "directory": "packages/middleware"
+  },
+  "scripts": {
+    "publish:npm": "node ./scripts/publish.mjs"
   },
   "dependencies": {
     "@apiglimpse/shared": "file:../shared"

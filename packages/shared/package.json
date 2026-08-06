@@ -1,7 +1,7 @@
 {
   "name": "@apiglimpse/shared",
   "version": "0.1.0",
-  "description": "Sample envelope and redaction helpers for API security discovery",
+  "description": "Sample envelope and redaction helpers for API Glimpse middleware",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -18,11 +18,16 @@
   "keywords": [
     "api-security",
     "discovery",
-    "redaction"
+    "redaction",
+    "apiglimpse"
   ],
+  "homepage": "https://github.com/jantznick/api-security/tree/main/packages/shared",
+  "bugs": {
+    "url": "https://github.com/jantznick/api-security/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nick/api-security.git",
+    "url": "git+https://github.com/jantznick/api-security.git",
     "directory": "packages/shared"
   }
 }

@@ -153,7 +153,7 @@ Existing endpoints still update schemas/counters. Until Stripe: `ENDPOINT_LIMIT`
 | `agent` | `agent/` | Railway | `*.up.railway.app` (later `collect.apiglimpse.com`) | Multi-tenant collector |
 | `web` | `frontend/` | **Render** | `*.onrender.com` (later `app.apiglimpse.com`) | `VITE_API_URL` → core |
 
-Publish `@apiglimpse/middleware` to npm so customers don’t use `file:` paths — [INTEGRATING.md](./INTEGRATING.md#npm-publish-maintainers).
+Publish `@apiglimpse/middleware` to npm so customers don’t use `file:` paths — [NPM_PUBLISH.md](./NPM_PUBLISH.md).
 
 ---
 

@@ -49,7 +49,7 @@ export default defineConfig({
         rel: 'noopener noreferrer',
       },
       {
-        text: 'Marketing',
+        text: 'Homepage',
         link: 'https://apiglimpse.com',
         target: '_blank',
         rel: 'noopener noreferrer',

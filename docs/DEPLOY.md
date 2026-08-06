@@ -210,18 +210,16 @@ After DNS:
 
 ## 4. npm publish
 
-Publish **shared** first, then **middleware**. See [INTEGRATING.md](./INTEGRATING.md#npm-publish-maintainers).
+First-time account, org, 2FA, and click-by-click steps: **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
+
+Publish **shared** first, then **middleware** (script swaps `file:../shared` → registry range, publishes, restores `file:`):
 
 ```bash
 cd packages/shared
 npm publish --access public
 
 cd ../middleware
-# Monorepo uses "file:../shared" — before publish, point at the registry version:
-#   "@apiglimpse/shared": "^0.1.0"
-npm install
-npm publish --access public
-# Restore file:../shared for local monorepo work if desired
+npm run publish:npm
 ```
 
 Verify:
@@ -230,7 +228,6 @@ Verify:
 npm view @apiglimpse/shared version
 npm view @apiglimpse/middleware version
 ```
-
 ---
 
 ## 5. Verify
@@ -250,5 +247,6 @@ npm view @apiglimpse/middleware version
 
 - [RAILWAY.md](./RAILWAY.md) — Railway detail + tenancy
 - [RENDER.md](./RENDER.md) — Render static site settings
-- [INTEGRATING.md](./INTEGRATING.md) — Express connector + npm publish
+- [INTEGRATING.md](./INTEGRATING.md) — Express connector
+- [NPM_PUBLISH.md](./NPM_PUBLISH.md) — first-time npm publish
 - [TESTING.md](./TESTING.md) — local verification
