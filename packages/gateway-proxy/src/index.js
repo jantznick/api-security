@@ -101,11 +101,6 @@ export function createGatewayProxy(options = {}) {
     return out;
   }
 
-  /**
-   * Buffer stream up to `limit`. Resolves with { buf, truncated }.
-   * If truncated, remaining bytes are drained and discarded from `buf`
-   * (caller must not use buf as complete body).
-   */
   function readBody(stream, limit) {
     return new Promise((resolve) => {
       const chunks = [];
@@ -174,14 +169,12 @@ export function createGatewayProxy(options = {}) {
     const requestHeaders = clientReq.headers || {};
 
     let forwardBuf = Buffer.alloc(0);
-    let forwardOk = true;
     let shapeReqBuf = Buffer.alloc(0);
     let requestTruncatedForShape = false;
 
     try {
       const inbound = await readBody(clientReq, maxForwardBodyBytes);
       if (inbound.truncated) {
-        forwardOk = false;
         try {
           if (!clientRes.headersSent) {
             clientRes.writeHead(413, { 'content-type': 'application/json' });
@@ -200,10 +193,8 @@ export function createGatewayProxy(options = {}) {
         shapeReqBuf = forwardBuf;
       }
     } catch {
-      forwardOk = false;
+      /* empty body */
     }
-
-    if (!forwardOk && clientRes.writableEnded) return;
 
     const headers = filterRequestHeaders(requestHeaders);
     if (forwardBuf.length > 0) {
@@ -260,7 +251,7 @@ export function createGatewayProxy(options = {}) {
             requestBodyBuf: shapeReqBuf,
             requestTruncatedForShape,
             responseBodyBuf: Buffer.concat(resChunks),
-            responseOverCap,
+            responseOverCap: resOverCap,
           });
         });
 
@@ -329,8 +320,9 @@ export function createGatewayProxy(options = {}) {
       server.once('error', reject);
       server.listen(listenPort, listenHost, () => {
         server.removeListener('error', reject);
+        const addr = server.address();
         resolve({
-          port: listenPort,
+          port: typeof addr === 'object' && addr ? addr.port : listenPort,
           host: listenHost,
           upstream: upstreamUrl.href,
           agentUrl: sampler.cfg.agentUrl,

@@ -72,6 +72,8 @@ export default function Inventory() {
   const [events, setEvents] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [topology, setTopology] = useState(null);
+  const [posture, setPosture] = useState(null);
+  const [highRiskOnly, setHighRiskOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
   const [methodFilter, setMethodFilter] = useState('all');
@@ -82,20 +84,30 @@ export default function Inventory() {
 
   const basePath = `/projects/${projectId}/services/${serviceId}`;
 
+  const riskByEndpointId = useMemo(() => {
+    const map = new Map();
+    for (const ep of posture?.endpoints || []) {
+      if (ep?.id) map.set(ep.id, ep);
+    }
+    return map;
+  }, [posture]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e, ev, topo] = await Promise.all([
+      const [p, e, ev, topo, postureRes] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
         inventoryAPI.listEvents(serviceId, { limit: 10 }).catch(() => ({ events: [], unreadCount: 0 })),
         inventoryAPI.getTopology(serviceId).catch(() => null),
+        inventoryAPI.getPosture(serviceId).catch(() => null),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
       setEvents(ev.events || []);
       setUnreadCount(ev.unreadCount || 0);
       setTopology(topo);
+      setPosture(postureRes);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -136,21 +148,30 @@ export default function Inventory() {
   }, [endpoints]);
 
   const filtersActive =
-    methodFilter !== 'all' || hasSensitiveSignals || noAuthObserved;
+    methodFilter !== 'all' || hasSensitiveSignals || noAuthObserved || highRiskOnly;
 
   const filteredEndpoints = useMemo(() => {
     return endpoints.filter((ep) => {
       if (methodFilter !== 'all' && ep.method !== methodFilter) return false;
       if (hasSensitiveSignals && signalCount(ep) < 1) return false;
       if (noAuthObserved && !hasNoAuthObserved(ep)) return false;
+      if (highRiskOnly && riskByEndpointId.get(ep.id)?.severity !== 'high') return false;
       return true;
     });
-  }, [endpoints, methodFilter, hasSensitiveSignals, noAuthObserved]);
+  }, [
+    endpoints,
+    methodFilter,
+    hasSensitiveSignals,
+    noAuthObserved,
+    highRiskOnly,
+    riskByEndpointId,
+  ]);
 
   const clearFilters = () => {
     setMethodFilter('all');
     setHasSensitiveSignals(false);
     setNoAuthObserved(false);
+    setHighRiskOnly(false);
   };
 
   const exportOpenApi = async () => {
@@ -269,6 +290,35 @@ export default function Inventory() {
           >
             Manage keys →
           </Link>
+        </div>
+      ) : null}
+
+      {posture && endpoints.length > 0 ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-medium text-ink-900">Risk posture</span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-xs font-medium uppercase ${severityClass(posture.score)}`}
+            >
+              {posture.score}
+            </span>
+            <span className="text-ink-600">
+              <span className="text-danger-700">{posture.highCount} high</span>
+              {' · '}
+              <span className="text-warn-700">{posture.mediumCount} medium</span>
+              {' · '}
+              <span className="text-ink-700">{posture.lowCount} low</span>
+            </span>
+          </div>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-700">
+            <input
+              type="checkbox"
+              className="rounded border-ink-300 text-signal-600 focus:ring-signal-600/30"
+              checked={highRiskOnly}
+              onChange={(e) => setHighRiskOnly(e.target.checked)}
+            />
+            High risk only
+          </label>
         </div>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import express from 'express';
@@ -9,10 +9,9 @@ import { apiSensor } from '../src/index.js';
  * posted envelope sample.
  */
 async function withApp(routes, run) {
-  /** @type {{ resolve: (v: any) => void, promise: Promise<any> } | null} */
-  let pending = null;
   /** @type {any[]} */
   const envelopes = [];
+  let pending = null;
 
   const collector = http.createServer((req, res) => {
     const chunks = [];
@@ -55,10 +54,6 @@ async function withApp(routes, run) {
   const { port } = server.address();
 
   function waitForEnvelope(timeoutMs = 2000) {
-    const already = envelopes[envelopes.length - 1];
-    if (already && !pending) {
-      // Prefer a fresh wait for the next POST after the request.
-    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending = null;
@@ -81,15 +76,7 @@ async function withApp(routes, run) {
       body,
     });
     const text = await res.text();
-    let envelope;
-    try {
-      envelope = await envelopePromise;
-    } catch (err) {
-      // Some cases (fail-open) may not post; rethrow with context
-      err.status = res.status;
-      err.bodyText = text;
-      throw err;
-    }
+    const envelope = await envelopePromise;
     return { res, text, envelope, sample: envelope.samples?.[0] };
   }
 

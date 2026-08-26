@@ -43,5 +43,7 @@
   "peerDependencies": {
     "fastify": ">=4"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "fastify": "^4.28.0"
+  }
 }

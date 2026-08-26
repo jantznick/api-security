@@ -189,6 +189,14 @@ docker exec -it api-security-db psql -U postgres -d api_security -c \
 
 There is **no** table for raw request/response bodies. `requestSchema` / `responseSchema` are JSON Schema-ish fragments only.
 
+### Response capture limitations (connectors)
+
+Connectors sample response **shapes**, not full payloads:
+
+- JSON via framework helpers (`res.json`, Fastify objects, FastAPI JSON, Go `Write` of JSON) → `response.bodyShape` + `responseBodyCaptured: true`
+- Empty bodies, binary (`octet-stream` / images), SSE/streaming, and bodies over the ~64 KiB client cap → not shaped (`responseBodyCaptured: false`)
+- Fail-open: if the collector is down, the app response path is unchanged
+
 ## 9. Fail-open check
 
 1. Stop the agent: `docker-compose stop agent`
