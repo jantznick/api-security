@@ -22,7 +22,8 @@ All connectors speak the same [wire protocol](./WIRE_PROTOCOL.md). There is one 
 | NestJS | Coming soon | — |
 | Next.js (Route Handlers / API routes) | Coming soon | — |
 | Hono | Coming soon | — |
-| Proxy / gateway | Coming soon | — |
+| [Node gateway sidecar](#node-gateway-sidecar) | Available (sidecar) | Run `@apiglimpse/gateway-proxy` in front of your app |
+| Kong / Nginx / Envoy | Coming soon | — |
 
 > **Note:** npm / PyPI / Go module versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths.
 

@@ -55,6 +55,19 @@ Same language as middleware/shared for one envelope type and fast iteration. Rev
 
 Blocking is designed for (local policy cache, fail-open default) but **not implemented** in v0. See [PROTECT_MODE.md](./PROTECT_MODE.md).
 
+## ADR: First gateway connector = Node reverse-proxy sidecar (SF5)
+
+**Status:** Accepted (locked for SF5 agent).  
+**Context:** Enterprises object to “install middleware in every service.” SF5 needs traffic discovery at a gateway/proxy without app changes. Options were (A) access-log shipper, (B) Kong/Nginx Lua / Envoy WASM, (C) Cloudflare Worker / API Gateway logs, or a thin Node sidecar that reuses Express capture patterns.
+
+**Decision:** Ship **`@apiglimpse/gateway-proxy`** — a thin Node HTTP reverse-proxy sidecar under `packages/gateway-proxy`. It forwards to `API_SENSOR_UPSTREAM`, samples method/path/status/latency + JSON req/res shapes when possible, and POSTs envelope **v1** to `/v1/samples` via `@apiglimpse/shared` (`createSample` / `createEnvelope`). Same env vars as app connectors (`API_SENSOR_AGENT_URL`, `API_SENSOR_KEY`, optional `API_SENSOR_SAMPLE_RATE`) plus **`API_SENSOR_UPSTREAM`**. Fail-open with the same circuit-breaker pattern as Express middleware.
+
+**Body capture limits:** Shape JSON bodies only up to **64 KiB** (`API_SENSOR_MAX_BODY_BYTES`). Oversized / non-JSON / binary bodies still contribute inventory metadata (method, path, status, latency, redacted headers) but skip `bodyShape`. Request bodies over a separate forward ceiling (default 10 MiB) get `413` from the proxy — not silently truncated upstream.
+
+**Follow-ups (not in this ship):** Kong plugin, Nginx Lua / `njs` filter, Envoy WASM, Cloudflare Worker. Document those as next gateway targets once the sidecar proves the envelope path without app middleware. Do **not** mark Kong (or other gateways) “available” on marketing until a publishable connector exists for that target.
+
+**Consequences:** Fastest path to “inventory without middleware”; customers put the sidecar in front of one or more services. Native Kong/Nginx remain the enterprise packaging follow-up.
+
 ## Out of scope for v0
 
 - Runtime blocking / ModSecurity / Wallarm in-path

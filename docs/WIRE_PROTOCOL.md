@@ -56,6 +56,7 @@ Non-JS connectors **reimplement** redaction/shaping to match envelope v1 (do not
 
 - Shared helpers: `@apiglimpse/shared` (`createSample`, `createEnvelope`, `validateEnvelope`)
 - Express: `@apiglimpse/middleware` · Fastify: `@apiglimpse/fastify`
+- Node gateway sidecar: `@apiglimpse/gateway-proxy` (`API_SENSOR_UPSTREAM`)
 - Python: `apiglimpse` (PyPI) · Go: `github.com/jantznick/api-security/connectors/go/apiglimpse`
 - Product install guide: [INTEGRATING.md](./INTEGRATING.md)
 - Maintainer publish (npm / PyPI / Go tags): [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)
