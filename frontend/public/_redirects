@@ -1,1 +1,4 @@
+# Copied into dist/ for Netlify-compatible hosts only.
+# Render Static Sites IGNORE this file — SPA fallback is Blueprint routes in
+# repo-root render.yaml (see docs/RENDER.md). Do not treat this as the Render fix.
 /*    /index.html   200

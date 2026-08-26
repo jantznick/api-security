@@ -1,1 +1,3 @@
+# Copied into dist/ for Netlify-compatible hosts only.
+# Render ignores this file — SPA fallback is Blueprint routes in render.yaml.
 /*    /index.html   200
