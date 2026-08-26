@@ -156,10 +156,13 @@ export default function Admin() {
   const [drafts, setDrafts] = useState([]);
   const [users, setUsers] = useState([]);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [leads, setLeads] = useState([]);
+  const [leadsTotal, setLeadsTotal] = useState(0);
   const [userQuery, setUserQuery] = useState('');
   const [userPlanFilter, setUserPlanFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [leadsLoading, setLeadsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [assigningUserId, setAssigningUserId] = useState(null);
 
@@ -192,12 +195,26 @@ export default function Admin() {
     }
   }, []);
 
+  const loadLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    try {
+      const data = await adminAPI.listLeads({ limit: 100 });
+      setLeads(data.leads || []);
+      setLeadsTotal(data.total ?? 0);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load leads');
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.isAdmin) {
       loadOverviewAndPlans();
       loadUsers();
+      loadLeads();
     }
-  }, [user?.isAdmin, loadOverviewAndPlans, loadUsers]);
+  }, [user?.isAdmin, loadOverviewAndPlans, loadUsers, loadLeads]);
 
   const planFilterOptions = useMemo(() => {
     const fromOverview = (overview?.plans || []).map((p) => p.slug);
@@ -298,6 +315,7 @@ export default function Admin() {
             onClick={() => {
               loadOverviewAndPlans();
               loadUsers({ q: userQuery, plan: userPlanFilter });
+              loadLeads();
             }}
             disabled={loading}
           >
@@ -444,6 +462,67 @@ export default function Admin() {
                 </div>
               ))}
             </dl>
+          </Section>
+
+          <Section
+            title="Sales leads"
+            description={`${formatInt(leadsTotal)} contact-sales inquiries — who filled out the form.`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-ink-200 text-ink-500">
+                    <th className="py-2 pr-3 font-medium">When</th>
+                    <th className="py-2 pr-3 font-medium">Name</th>
+                    <th className="py-2 pr-3 font-medium">Email</th>
+                    <th className="py-2 pr-3 font-medium">Company</th>
+                    <th className="py-2 pr-3 font-medium">Plan</th>
+                    <th className="py-2 pr-3 font-medium">Source</th>
+                    <th className="py-2 font-medium">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-ink-500">
+                        {leadsLoading
+                          ? 'Loading leads…'
+                          : 'No inquiries yet. They’ll show up when someone submits Contact sales.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    leads.map((lead) => (
+                      <tr key={lead.id} className="border-b border-ink-100 align-top">
+                        <td className="whitespace-nowrap py-2.5 pr-3 text-ink-600">
+                          {formatDate(lead.createdAt)}
+                        </td>
+                        <td className="py-2.5 pr-3 font-medium text-ink-900">{lead.name}</td>
+                        <td className="py-2.5 pr-3">
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="text-signal-600 hover:text-signal-800"
+                          >
+                            {lead.email}
+                          </a>
+                        </td>
+                        <td className="py-2.5 pr-3 text-ink-700">{lead.company || '—'}</td>
+                        <td className="py-2.5 pr-3 font-mono text-xs text-ink-700">
+                          {lead.planSlug || '—'}
+                        </td>
+                        <td className="py-2.5 pr-3 text-ink-600">{lead.source || '—'}</td>
+                        <td className="max-w-xs py-2.5 text-ink-600">
+                          {lead.message ? (
+                            <span className="line-clamp-3 whitespace-pre-wrap">{lead.message}</span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </Section>
 
           <Section
@@ -745,12 +824,9 @@ export default function Admin() {
               </table>
             </div>
             <p className="mt-3 text-xs text-ink-500">
-              Empty endpoint limit = unlimited. Contact-sales plans never open Checkout; leave
-              Contact URL blank to fall back to{' '}
-              <code className="font-mono">mailto:ADMIN_EMAIL</code> (or{' '}
-              <code className="font-mono">CONTACT_SALES_EMAIL</code> /{' '}
-              <code className="font-mono">CONTACT_SALES_URL</code> on Railway). Self-serve paid
-              plans need a <code className="font-mono">stripePriceId</code>.
+              Empty endpoint limit = unlimited. Contact-sales plans never open Checkout; their CTA
+              opens an in-app form and leads appear under Sales leads above. Self-serve paid plans
+              need a <code className="font-mono">stripePriceId</code>.
             </p>
           </>
         )}

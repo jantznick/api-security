@@ -100,6 +100,45 @@ router.put('/users/:id/plan', async (req, res) => {
   }
 });
 
+/** GET /api/admin/leads — contact-sales inquiries (newest first) */
+router.get('/leads', async (req, res) => {
+  try {
+    const take = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);
+    const skip = Math.max(Number(req.query.offset) || 0, 0);
+    const plan = String(req.query.plan || '')
+      .trim()
+      .toLowerCase();
+
+    const where = plan ? { planSlug: plan } : {};
+
+    const [total, leads] = await Promise.all([
+      prisma.contactLead.count({ where }),
+      prisma.contactLead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          company: true,
+          message: true,
+          planSlug: true,
+          userId: true,
+          source: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    res.json({ total, limit: take, offset: skip, leads });
+  } catch (error) {
+    console.error('Admin list leads error:', error);
+    res.status(500).json({ error: 'Failed to list leads' });
+  }
+});
+
 /** GET /api/admin/plans — all plans (including inactive) */
 router.get('/plans', async (_req, res) => {
   try {

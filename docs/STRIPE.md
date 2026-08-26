@@ -92,8 +92,11 @@ Without `STRIPE_SECRET_KEY`, `POST /api/billing/checkout` and `/portal` return *
 ### Contact-sales / Enterprise flow
 
 1. Plan has **Contact sales** checked → Checkout is disabled for that slug.
-2. Billing + marketing pricing show **Contact sales** (uses plan `contactUrl`, else `CONTACT_SALES_URL` / `CONTACT_SALES_EMAIL` / `ADMIN_EMAIL`).
-3. After you close a deal, open Admin → **Users** → **Assign plan** → `enterprise` (syncs their project endpoint limits).
+2. Billing + marketing pricing show **Contact sales**, which opens a short form (name, email, company, message).
+3. Submissions land in Admin → **Sales leads** (mini inbox table).
+4. After you close a deal, open Admin → **Users** → **Assign plan** → `enterprise` (syncs their service endpoint limits).
+
+Optional: set plan **Contact URL** only if you want an external override; the in-app form is the default CTA.
 
 ---
 
@@ -103,11 +106,13 @@ Without `STRIPE_SECRET_KEY`, `POST /api/billing/checkout` and `/portal` return *
 | --- | --- | --- | --- |
 | GET | `/api/billing/plans` | Public | Active plans only (includes `contactSales` / `contactUrl`) |
 | GET | `/api/billing/me` | Session | Plan, usage, limits, checkout/portal flags |
+| POST | `/api/billing/contact-sales` | Public | Submit Enterprise / contact-sales lead form |
 | POST | `/api/billing/checkout` | Session | Checkout Session URL (400 if contact-sales; 503 if no secret) |
 | POST | `/api/billing/portal` | Session | Customer Portal URL |
 | POST | `/api/billing/webhook` | Stripe sig | Raw body; mounted before JSON parser in `server.js` |
 | GET | `/api/admin/overview` | Admin | SaaS KPIs: users, MRR estimate, usage, signup trend |
 | GET | `/api/admin/users` | Admin | Paginated user directory (`?q=&plan=&limit=&offset=`) |
+| GET | `/api/admin/leads` | Admin | Contact-sales inquiries (mini CRM table) |
 | PUT | `/api/admin/users/:id/plan` | Admin | Manually assign plan (Enterprise after sales) |
 | GET/PUT | `/api/admin/plans` | Admin | Create/edit limits / prices / `stripePriceId` / contact-sales |
 
@@ -122,5 +127,6 @@ Dashboard: **`/admin`** (owner overview + plans) and **`/billing`** (user billin
 - [ ] Test mode keys on Railway core  
 - [ ] Webhook endpoint + secret  
 - [ ] Test Checkout from `/billing` for Pro  
-- [ ] Confirm Contact sales CTA for Enterprise  
+- [ ] Confirm Contact sales form on `/billing` + marketing `/pricing`  
+- [ ] Confirm lead appears in Admin → Sales leads  
 - [ ] Confirm project `endpointLimit` updates after subscribe / admin assign  

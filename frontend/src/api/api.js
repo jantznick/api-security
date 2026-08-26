@@ -126,6 +126,11 @@ export const billingAPI = {
     request('/billing/checkout', { method: 'POST', body: JSON.stringify(body) }),
   portal: (body = {}) =>
     request('/billing/portal', { method: 'POST', body: JSON.stringify(body) }),
+  contactSales: (body = {}) =>
+    request('/billing/contact-sales', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 /**
@@ -152,6 +157,14 @@ export const adminAPI = {
       method: 'PUT',
       body: JSON.stringify({ planSlug }),
     }),
+  listLeads: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.plan) qs.set('plan', params.plan);
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    if (params.offset != null) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request(`/admin/leads${suffix}`);
+  },
   listPlans: () => request('/admin/plans'),
   updatePlans: (plans) =>
     request('/admin/plans', { method: 'PUT', body: JSON.stringify({ plans }) }),

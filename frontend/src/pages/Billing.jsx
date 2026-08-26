@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ApiError, billingAPI } from '../api/api';
+import useAuthStore from '../store/authStore';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import ContactSalesForm from '../components/ContactSalesForm';
 import PageHeader from '../components/PageHeader';
 
 function formatLimit(limit) {
@@ -96,10 +98,12 @@ function billingUnavailableToast(err) {
 }
 
 export default function Billing() {
+  const { user } = useAuthStore();
   const [me, setMe] = useState(null);
   const [plans, setPlans] = useState([]);
   const [status, setStatus] = useState('loading'); // loading | ready | coming_soon | error
   const [busy, setBusy] = useState(null);
+  const [contactPlan, setContactPlan] = useState(null);
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -359,18 +363,13 @@ export default function Billing() {
                 ) : null}
                 <div className="mt-4">
                   {p.contactSales ? (
-                    p.contactUrl ? (
-                      <a
-                        href={p.contactUrl}
-                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-800 transition-colors hover:bg-ink-50"
-                      >
-                        Contact sales
-                      </a>
-                    ) : (
-                      <p className="text-xs text-ink-500">
-                        Contact sales URL not configured yet.
-                      </p>
-                    )
+                    <Button
+                      variant="secondary"
+                      className="min-h-9 px-3 py-1.5"
+                      onClick={() => setContactPlan(p)}
+                    >
+                      Contact sales
+                    </Button>
                   ) : p.hasStripePrice && me?.planSlug !== p.slug ? (
                     <Button
                       variant="secondary"
@@ -389,6 +388,15 @@ export default function Billing() {
           </ul>
         </div>
       ) : null}
+
+      <ContactSalesForm
+        open={Boolean(contactPlan)}
+        planSlug={contactPlan?.slug || 'enterprise'}
+        planName={contactPlan?.name || 'Enterprise'}
+        source="billing"
+        defaultEmail={user?.email || me?.email || ''}
+        onClose={() => setContactPlan(null)}
+      />
     </AppLayout>
   );
 }

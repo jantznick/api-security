@@ -58,4 +58,9 @@ export const authAPI = {
 /** Public plan catalog — W3/W4 contract. */
 export const billingAPI = {
   plans: () => request('/billing/plans'),
+  contactSales: (body = {}) =>
+    request('/billing/contact-sales', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };

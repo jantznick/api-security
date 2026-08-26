@@ -47,6 +47,7 @@ function normalizePlans(data) {
   const list = Array.isArray(data?.plans) ? data.plans : Array.isArray(data) ? data : [];
   return list.map((p) => ({
     id: p.slug || p.id || p.name,
+    slug: p.slug || p.id,
     name: p.name || p.slug || 'Plan',
     endpointLimit: p.endpointLimit ?? p.limit ?? null,
     description: p.description || null,
@@ -61,8 +62,148 @@ function normalizePlans(data) {
     currency: p.currency || 'usd',
     hasStripePrice: Boolean(p.hasStripePrice),
     contactSales: Boolean(p.contactSales),
-    contactUrl: p.contactUrl || null,
   }));
+}
+
+function ContactSalesModal({ plan, open, onClose }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [company, setCompany] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName('');
+      setEmail('');
+      setCompany('');
+      setMessage('');
+      setError('');
+      setDone(false);
+    }
+  }, [open]);
+
+  if (!open || !plan) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await billingAPI.contactSales({
+        name: name.trim(),
+        email: email.trim(),
+        company: company.trim() || undefined,
+        message: message.trim() || undefined,
+        planSlug: plan.slug || plan.id,
+        source: 'marketing',
+      });
+      setDone(true);
+    } catch (err) {
+      setError(err.message || 'Could not send your request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mkt-contact-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-lg border border-line bg-canvas p-5 sm:p-6">
+        {done ? (
+          <div>
+            <h2 id="mkt-contact-title" className="font-display text-xl font-bold text-ink">
+              Request received
+            </h2>
+            <p className="mt-2 text-[0.975rem] text-muted">
+              Thanks for your interest in {plan.name}. We’ll follow up soon.
+            </p>
+            <button type="button" className="btn btn-primary mt-6 w-full" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <h2 id="mkt-contact-title" className="font-display text-xl font-bold text-ink">
+              Contact sales — {plan.name}
+            </h2>
+            <p className="mt-1 text-[0.975rem] text-muted">
+              Tell us a bit about your team and we’ll get back to you.
+            </p>
+            <div className="mt-5 space-y-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink">Name</span>
+                <input
+                  required
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink">Work email</span>
+                <input
+                  required
+                  type="email"
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink">Company</span>
+                <input
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  autoComplete="organization"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-ink">What are you looking for?</span>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Team size, API volume, timeline…"
+                />
+              </label>
+            </div>
+            {error ? (
+              <p className="mt-3 text-sm" style={{ color: '#b91c1c' }}>
+                {error}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button type="submit" className="btn btn-primary flex-1" disabled={submitting}>
+                {submitting ? 'Sending…' : 'Send request'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function Pricing() {
@@ -70,6 +211,7 @@ export default function Pricing() {
   const [plans, setPlans] = useState(FALLBACK_PLANS);
   const [source, setSource] = useState('fallback'); // api | fallback
   const [loading, setLoading] = useState(hasConfiguredApiUrl());
+  const [contactPlan, setContactPlan] = useState(null);
 
   useEffect(() => {
     if (!hasConfiguredApiUrl()) {
@@ -126,7 +268,10 @@ export default function Pricing() {
           {plans.map((plan) => {
             const price = formatPrice(plan);
             return (
-              <li key={plan.id} className="border-t border-line pt-8 sm:border-t-0 sm:border-l sm:border-line sm:pl-8 sm:pt-0 first:border-l-0 first:pl-0">
+              <li
+                key={plan.id}
+                className="border-t border-line pt-8 sm:border-t-0 sm:border-l sm:border-line sm:pl-8 sm:pt-0 first:border-l-0 first:pl-0"
+              >
                 <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
                   {plan.name}
                 </h2>
@@ -148,11 +293,15 @@ export default function Pricing() {
                     Cap: {formatLimit(plan.endpointLimit)}
                   </p>
                 ) : null}
-                {plan.contactSales && plan.contactUrl ? (
+                {plan.contactSales ? (
                   <p className="mt-5">
-                    <a href={plan.contactUrl} className="btn btn-secondary">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setContactPlan(plan)}
+                    >
                       Contact sales
-                    </a>
+                    </button>
                   </p>
                 ) : null}
               </li>
@@ -183,6 +332,12 @@ export default function Pricing() {
           Setup guide →
         </Link>
       </div>
+
+      <ContactSalesModal
+        plan={contactPlan}
+        open={Boolean(contactPlan)}
+        onClose={() => setContactPlan(null)}
+      />
     </div>
   );
 }
