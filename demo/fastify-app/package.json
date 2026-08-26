@@ -1,0 +1,14 @@
+{
+  "name": "demo-fastify-app",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@apiglimpse/fastify": "file:../../packages/fastify",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@apiglimpse/fastify",
+  "version": "0.1.0",
+  "description": "Fastify plugin that sends API traffic metadata to API Glimpse",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "fastify",
+    "plugin",
+    "middleware",
+    "api-security",
+    "discovery",
+    "observability",
+    "apiglimpse"
+  ],
+  "homepage": "https://github.com/jantznick/api-security/tree/main/packages/fastify",
+  "bugs": {
+    "url": "https://github.com/jantznick/api-security/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jantznick/api-security.git",
+    "directory": "packages/fastify"
+  },
+  "scripts": {
+    "publish:npm": "node ./scripts/publish.mjs"
+  },
+  "dependencies": {
+    "@apiglimpse/shared": "file:../shared"
+  },
+  "peerDependencies": {
+    "fastify": ">=4"
+  }
+}
