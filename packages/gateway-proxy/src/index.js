@@ -251,7 +251,7 @@ export function createGatewayProxy(options = {}) {
             requestBodyBuf: shapeReqBuf,
             requestTruncatedForShape,
             responseBodyBuf: Buffer.concat(resChunks),
-            responseOverCap,
+            responseOverCap: resOverCap,
           });
         });
 

@@ -19,7 +19,10 @@ export const DEFAULTS = {
  * Never blocks the proxied request path.
  */
 export function createSampler(options = {}) {
-  const cfg = { ...DEFAULTS, ...options };
+  const cleaned = Object.fromEntries(
+    Object.entries(options).filter(([, v]) => v !== undefined),
+  );
+  const cfg = { ...DEFAULTS, ...cleaned };
   const buffer = [];
   let flushing = false;
   let consecutiveFailures = 0;
