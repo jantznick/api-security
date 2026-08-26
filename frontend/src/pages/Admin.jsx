@@ -1,11 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { adminAPI } from '../api/api';
 import useAuthStore from '../store/authStore';
 import AppLayout from '../components/AppLayout';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'leads', label: 'Leads' },
+  { id: 'users', label: 'Users' },
+  { id: 'plans', label: 'Plans' },
+];
+
+const TAB_IDS = new Set(TABS.map((t) => t.id));
+
+const TAB_DESCRIPTIONS = {
+  overview: 'Accounts, revenue, signups, and platform usage.',
+  leads: 'Contact-sales inquiries from the Enterprise form.',
+  users: 'Search accounts and assign plans.',
+  plans: 'Configure self-serve and contact-sales plans.',
+};
 
 function emptyDraft(plan) {
   return {
@@ -81,9 +97,9 @@ function Kpi({ label, value, hint }) {
   );
 }
 
-function Section({ title, description, children, actions }) {
+function Section({ title, description, children, actions, className = '' }) {
   return (
-    <section className="mt-10">
+    <section className={className || 'mt-8'}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-bold tracking-tight text-ink-900">{title}</h2>
@@ -93,6 +109,49 @@ function Section({ title, description, children, actions }) {
       </div>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+function AdminTabs({ active, onChange, leadsTotal }) {
+  return (
+    <div
+      className="mt-6 flex gap-1 overflow-x-auto border-b border-ink-200"
+      role="tablist"
+      aria-label="Admin sections"
+    >
+      {TABS.map((tab) => {
+        const selected = active === tab.id;
+        const count =
+          tab.id === 'leads' && leadsTotal > 0 ? formatInt(leadsTotal) : null;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            id={`admin-tab-${tab.id}`}
+            className={`relative shrink-0 px-3 py-2.5 text-sm font-medium transition-colors ${
+              selected
+                ? 'text-ink-900'
+                : 'text-ink-500 hover:text-ink-800'
+            }`}
+            onClick={() => onChange(tab.id)}
+          >
+            <span className="inline-flex items-center gap-2">
+              {tab.label}
+              {count ? (
+                <span className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-ink-600">
+                  {count}
+                </span>
+              ) : null}
+            </span>
+            {selected ? (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-ink-900" />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -152,6 +211,14 @@ function StatusPill({ ok, yes = 'Yes', no = 'No' }) {
 
 export default function Admin() {
   const { user, isLoading } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = TAB_IDS.has(tabParam) ? tabParam : 'overview';
+
+  const setActiveTab = (id) => {
+    setSearchParams(id === 'overview' ? {} : { tab: id }, { replace: true });
+  };
+
   const [overview, setOverview] = useState(null);
   const [drafts, setDrafts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -304,169 +371,206 @@ export default function Admin() {
   const revenue = overview?.revenue;
   const usage = overview?.usage;
 
+  const handleRefresh = () => {
+    if (activeTab === 'overview' || activeTab === 'plans') {
+      loadOverviewAndPlans();
+    }
+    if (activeTab === 'users') {
+      loadUsers({ q: userQuery, plan: userPlanFilter });
+    }
+    if (activeTab === 'leads') {
+      loadLeads();
+    }
+    if (activeTab === 'overview') {
+      loadLeads();
+      loadUsers({ q: userQuery, plan: userPlanFilter });
+    }
+  };
+
   return (
     <AppLayout>
       <PageHeader
         title="Admin"
-        description="Platform pulse — accounts, orgs, revenue, and product usage. Billing is still per user until org billing (S5)."
+        description={TAB_DESCRIPTIONS[activeTab]}
         actions={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              loadOverviewAndPlans();
-              loadUsers({ q: userQuery, plan: userPlanFilter });
-              loadLeads();
-            }}
-            disabled={loading}
-          >
+          <Button variant="secondary" onClick={handleRefresh} disabled={loading}>
             Refresh
           </Button>
         }
       />
 
-      {loading && !overview ? (
-        <p className="mt-8 text-sm text-ink-500">Loading overview…</p>
-      ) : (
-        <>
-          <Section title="At a glance" description="Core SaaS health for owners.">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-8 border-y border-ink-200 py-6 sm:grid-cols-3 lg:grid-cols-6">
-              <Kpi
-                label="Users"
-                value={formatInt(accounts?.totalUsers)}
-                hint={`+${formatInt(accounts?.newUsers7d)} this week`}
-              />
-              <Kpi
-                label="Paid"
-                value={formatInt(accounts?.paidUsers)}
-                hint={`${formatInt(accounts?.subscribedUsers)} with Stripe sub`}
-              />
-              <Kpi
-                label="MRR"
-                value={formatMoney(revenue?.mrrCents)}
-                hint={`${formatMoney(revenue?.arrCents)} ARR est.`}
-              />
-              <Kpi
-                label="Services"
-                value={formatInt(usage?.totalServices ?? usage?.totalProjects)}
-                hint={`${formatInt(accounts?.organizations)} orgs · ${formatInt(usage?.totalProjects)} projects`}
-              />
-              <Kpi
-                label="Endpoints"
-                value={formatInt(usage?.totalEndpoints)}
-                hint={`${formatInt(usage?.totalHits)} hits observed`}
-              />
-              <Kpi
-                label="Signals"
-                value={formatInt(usage?.totalSignals)}
-                hint={`${formatInt(usage?.activeApiKeys)} live API keys`}
-              />
-            </div>
-            <p className="mt-3 text-xs text-ink-500">
-              Tenancy is Organization → Project → Service. Billing remains per user until org billing
-              (S5). {revenue?.note}
-            </p>
-          </Section>
+      <AdminTabs active={activeTab} onChange={setActiveTab} leadsTotal={leadsTotal} />
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-2">
-            <Section
-              title="Signups"
-              description="New accounts per day (last 30 days, UTC)."
-            >
-              <SignupChart series={overview?.signupsByDay} />
-              <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="text-ink-500">Last 7 days</dt>
-                  <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
-                    {formatInt(accounts?.newUsers7d)}
-                  </dd>
+      <div
+        className="mt-6"
+        role="tabpanel"
+        aria-labelledby={`admin-tab-${activeTab}`}
+      >
+        {activeTab === 'overview' ? (
+          loading && !overview ? (
+            <p className="text-sm text-ink-500">Loading overview…</p>
+          ) : (
+            <>
+              <Section
+                title="At a glance"
+                description="Core SaaS health for owners."
+                className="mt-0"
+              >
+                <div className="grid grid-cols-2 gap-x-6 gap-y-8 border-y border-ink-200 py-6 sm:grid-cols-3 lg:grid-cols-6">
+                  <Kpi
+                    label="Users"
+                    value={formatInt(accounts?.totalUsers)}
+                    hint={`+${formatInt(accounts?.newUsers7d)} this week`}
+                  />
+                  <Kpi
+                    label="Paid"
+                    value={formatInt(accounts?.paidUsers)}
+                    hint={`${formatInt(accounts?.subscribedUsers)} with Stripe sub`}
+                  />
+                  <Kpi
+                    label="MRR"
+                    value={formatMoney(revenue?.mrrCents)}
+                    hint={`${formatMoney(revenue?.arrCents)} ARR est.`}
+                  />
+                  <Kpi
+                    label="Services"
+                    value={formatInt(usage?.totalServices ?? usage?.totalProjects)}
+                    hint={`${formatInt(accounts?.organizations)} orgs · ${formatInt(usage?.totalProjects)} projects`}
+                  />
+                  <Kpi
+                    label="Endpoints"
+                    value={formatInt(usage?.totalEndpoints)}
+                    hint={`${formatInt(usage?.totalHits)} hits observed`}
+                  />
+                  <Kpi
+                    label="Signals"
+                    value={formatInt(usage?.totalSignals)}
+                    hint={`${formatInt(usage?.activeApiKeys)} live API keys`}
+                  />
                 </div>
-                <div>
-                  <dt className="text-ink-500">Last 30 days</dt>
-                  <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
-                    {formatInt(accounts?.newUsers30d)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-ink-500">Stripe customers</dt>
-                  <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
-                    {formatInt(accounts?.stripeCustomers)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-ink-500">No projects yet</dt>
-                  <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
-                    {formatInt(accounts?.usersWithoutProjects)}
-                  </dd>
-                </div>
-              </dl>
-            </Section>
+                <p className="mt-3 text-xs text-ink-500">
+                  Tenancy is Organization → Project → Service. Billing remains per user until org
+                  billing (S5). {revenue?.note}
+                </p>
+              </Section>
 
-            <Section title="Plan mix" description="Users and estimated MRR by plan.">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-ink-200 text-ink-500">
-                      <th className="py-2 pr-3 font-medium">Plan</th>
-                      <th className="py-2 pr-3 font-medium">Users</th>
-                      <th className="py-2 pr-3 font-medium">Price</th>
-                      <th className="py-2 font-medium">MRR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(overview?.plans || []).map((plan) => (
-                      <tr key={plan.slug} className="border-b border-ink-100">
-                        <td className="py-2.5 pr-3">
-                          <span className="font-medium text-ink-900">{plan.name}</span>
-                          <span className="ml-2 font-mono text-xs text-ink-400">{plan.slug}</span>
-                          {!plan.active ? (
-                            <span className="ml-2 text-xs text-warn-700">inactive</span>
-                          ) : null}
-                        </td>
-                        <td className="py-2.5 pr-3 tabular-nums">{formatInt(plan.userCount)}</td>
-                        <td className="py-2.5 pr-3 tabular-nums">
-                          {formatMoney(plan.priceCentsMonthly)}
-                          <span className="text-ink-400">/mo</span>
-                        </td>
-                        <td className="py-2.5 tabular-nums font-medium">
-                          {formatMoney(plan.mrrCents)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mt-8 grid gap-8 lg:grid-cols-2">
+                <Section
+                  title="Signups"
+                  description="New accounts per day (last 30 days, UTC)."
+                  className="mt-0"
+                >
+                  <SignupChart series={overview?.signupsByDay} />
+                  <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <dt className="text-ink-500">Last 7 days</dt>
+                      <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
+                        {formatInt(accounts?.newUsers7d)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-ink-500">Last 30 days</dt>
+                      <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
+                        {formatInt(accounts?.newUsers30d)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-ink-500">Stripe customers</dt>
+                      <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
+                        {formatInt(accounts?.stripeCustomers)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-ink-500">No projects yet</dt>
+                      <dd className="mt-0.5 font-medium tabular-nums text-ink-900">
+                        {formatInt(accounts?.usersWithoutProjects)}
+                      </dd>
+                    </div>
+                  </dl>
+                </Section>
+
+                <Section
+                  title="Plan mix"
+                  description="Users and estimated MRR by plan."
+                  className="mt-0"
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-ink-200 text-ink-500">
+                          <th className="py-2 pr-3 font-medium">Plan</th>
+                          <th className="py-2 pr-3 font-medium">Users</th>
+                          <th className="py-2 pr-3 font-medium">Price</th>
+                          <th className="py-2 font-medium">MRR</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(overview?.plans || []).map((plan) => (
+                          <tr key={plan.slug} className="border-b border-ink-100">
+                            <td className="py-2.5 pr-3">
+                              <span className="font-medium text-ink-900">{plan.name}</span>
+                              <span className="ml-2 font-mono text-xs text-ink-400">
+                                {plan.slug}
+                              </span>
+                              {!plan.active ? (
+                                <span className="ml-2 text-xs text-warn-700">inactive</span>
+                              ) : null}
+                            </td>
+                            <td className="py-2.5 pr-3 tabular-nums">
+                              {formatInt(plan.userCount)}
+                            </td>
+                            <td className="py-2.5 pr-3 tabular-nums">
+                              {formatMoney(plan.priceCentsMonthly)}
+                              <span className="text-ink-400">/mo</span>
+                            </td>
+                            <td className="py-2.5 tabular-nums font-medium">
+                              {formatMoney(plan.mrrCents)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Section>
               </div>
-            </Section>
-          </div>
 
-          <Section title="Platform usage" description="Inventory and ingest activity across all projects.">
-            <dl className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-              {[
-                { label: 'Organizations', value: accounts?.organizations },
-                { label: 'Projects', value: usage?.totalProjects },
-                { label: 'Services', value: usage?.totalServices },
-                { label: 'Discovered endpoints', value: usage?.totalEndpoints },
-                { label: 'Total traffic hits', value: usage?.totalHits },
-                { label: 'Security signals', value: usage?.totalSignals },
-                { label: 'API keys (active)', value: usage?.activeApiKeys },
-                { label: 'API keys (revoked)', value: usage?.revokedApiKeys },
-                { label: 'Free users', value: accounts?.freeUsers },
-                { label: 'Paid users', value: accounts?.paidUsers },
-              ].map((item) => (
-                <div key={item.label}>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-ink-500">
-                    {item.label}
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold tabular-nums text-ink-900">
-                    {formatInt(item.value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </Section>
+              <Section
+                title="Platform usage"
+                description="Inventory and ingest activity across the platform."
+              >
+                <dl className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+                  {[
+                    { label: 'Organizations', value: accounts?.organizations },
+                    { label: 'Projects', value: usage?.totalProjects },
+                    { label: 'Services', value: usage?.totalServices },
+                    { label: 'Discovered endpoints', value: usage?.totalEndpoints },
+                    { label: 'Total traffic hits', value: usage?.totalHits },
+                    { label: 'Security signals', value: usage?.totalSignals },
+                    { label: 'API keys (active)', value: usage?.activeApiKeys },
+                    { label: 'API keys (revoked)', value: usage?.revokedApiKeys },
+                    { label: 'Free users', value: accounts?.freeUsers },
+                    { label: 'Paid users', value: accounts?.paidUsers },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-ink-500">
+                        {item.label}
+                      </dt>
+                      <dd className="mt-1 text-xl font-semibold tabular-nums text-ink-900">
+                        {formatInt(item.value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </Section>
+            </>
+          )
+        ) : null}
 
+        {activeTab === 'leads' ? (
           <Section
             title="Sales leads"
-            description={`${formatInt(leadsTotal)} contact-sales inquiries — who filled out the form.`}
+            description={`${formatInt(leadsTotal)} contact-sales inquiries.`}
+            className="mt-0"
           >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
@@ -524,10 +628,13 @@ export default function Admin() {
               </table>
             </div>
           </Section>
+        ) : null}
 
+        {activeTab === 'users' ? (
           <Section
             title="Users"
             description={`${formatInt(usersTotal)} accounts — search and filter by plan.`}
+            className="mt-0"
           >
             <form
               onSubmit={handleUserSearch}
@@ -626,211 +733,217 @@ export default function Admin() {
               </table>
             </div>
           </Section>
-        </>
-      )}
+        ) : null}
 
-      <Section
-        title="Plan configuration"
-        description="Add self-serve or contact-sales plans. Contact-sales plans skip Stripe Checkout and show a Contact CTA. After a sales chat, assign the plan on a user below (or in Users)."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              onClick={() =>
-                addPlanRow({
-                  slug: 'new-plan',
-                  name: 'New plan',
-                  endpointLimit: 1000,
-                  priceCentsMonthly: 0,
-                  sortOrder: 50,
-                })
-              }
-              disabled={saving}
-            >
-              Add plan
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                addPlanRow({
-                  slug: 'enterprise',
-                  name: 'Enterprise',
-                  description:
-                    'Custom limits, dedicated support, and onboarding. Contact us for pricing.',
-                  endpointLimit: '',
-                  priceCentsMonthly: 0,
-                  contactSales: true,
-                  sortOrder: 100,
-                })
-              }
-              disabled={saving || drafts.some((d) => d.slug === 'enterprise')}
-            >
-              Add Enterprise
-            </Button>
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? 'Saving…' : 'Save plans'}
-            </Button>
-          </div>
-        }
-      >
-        {loading && drafts.length === 0 ? (
-          <p className="text-sm text-ink-500">Loading plans…</p>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-ink-200 text-ink-500">
-                    <th className="py-2 pr-3 font-medium">Slug</th>
-                    <th className="py-2 pr-3 font-medium">Name</th>
-                    <th className="py-2 pr-3 font-medium">Description</th>
-                    <th className="py-2 pr-3 font-medium">Endpoint limit</th>
-                    <th className="py-2 pr-3 font-medium">Price (¢/mo)</th>
-                    <th className="py-2 pr-3 font-medium">Contact sales</th>
-                    <th className="py-2 pr-3 font-medium">Contact URL</th>
-                    <th className="py-2 pr-3 font-medium">Stripe price id</th>
-                    <th className="py-2 pr-3 font-medium">Active</th>
-                    <th className="py-2 font-medium">Sort</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {drafts.map((row, index) => (
-                    <tr key={row.id || `draft-${row.slug}-${index}`} className="border-b border-ink-100 align-top">
-                      <td className="py-2 pr-3">
-                        {row.slugEditable ? (
-                          <input
-                            className="w-28 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
-                            value={row.slug}
-                            onChange={(e) =>
-                              updateDraft(index, {
-                                slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                              })
-                            }
-                            aria-label="Plan slug"
-                          />
-                        ) : (
-                          <span className="font-mono text-ink-700">{row.slug}</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          className="w-full min-w-[6rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 text-ink-900"
-                          value={row.name}
-                          onChange={(e) => updateDraft(index, { name: e.target.value })}
-                          aria-label={`Name for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 text-ink-900"
-                          value={row.description}
-                          onChange={(e) =>
-                            updateDraft(index, { description: e.target.value })
-                          }
-                          placeholder="Optional blurb"
-                          aria-label={`Description for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="∞"
-                          className="w-24 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
-                          value={row.endpointLimit}
-                          onChange={(e) =>
-                            updateDraft(index, { endpointLimit: e.target.value })
-                          }
-                          aria-label={`Endpoint limit for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-28 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
-                          value={row.priceCentsMonthly}
-                          onChange={(e) =>
-                            updateDraft(index, { priceCentsMonthly: e.target.value })
-                          }
-                          disabled={row.contactSales}
-                          aria-label={`Price cents for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="checkbox"
-                          checked={row.contactSales}
-                          onChange={(e) =>
-                            updateDraft(index, {
-                              contactSales: e.target.checked,
-                              stripePriceId: e.target.checked ? '' : row.stripePriceId,
-                              priceCentsMonthly: e.target.checked
-                                ? '0'
-                                : row.priceCentsMonthly,
-                            })
-                          }
-                          aria-label={`Contact sales ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
-                          value={row.contactUrl}
-                          onChange={(e) =>
-                            updateDraft(index, { contactUrl: e.target.value })
-                          }
-                          placeholder="mailto:… or https://…"
-                          disabled={!row.contactSales}
-                          aria-label={`Contact URL for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
-                          value={row.stripePriceId}
-                          onChange={(e) =>
-                            updateDraft(index, { stripePriceId: e.target.value })
-                          }
-                          placeholder="price_…"
-                          disabled={row.contactSales}
-                          aria-label={`Stripe price id for ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="checkbox"
-                          checked={row.active}
-                          onChange={(e) =>
-                            updateDraft(index, { active: e.target.checked })
-                          }
-                          aria-label={`Active ${row.slug}`}
-                        />
-                      </td>
-                      <td className="py-2">
-                        <input
-                          type="number"
-                          className="w-16 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
-                          value={row.sortOrder}
-                          onChange={(e) =>
-                            updateDraft(index, { sortOrder: e.target.value })
-                          }
-                          aria-label={`Sort order for ${row.slug}`}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-xs text-ink-500">
-              Empty endpoint limit = unlimited. Contact-sales plans never open Checkout; their CTA
-              opens an in-app form and leads appear under Sales leads above. Self-serve paid plans
-              need a <code className="font-mono">stripePriceId</code>.
-            </p>
-          </>
-        )}
-      </Section>
+        {activeTab === 'plans' ? (
+          <Section
+            title="Plan configuration"
+            description="Add self-serve or contact-sales plans. Contact-sales skips Checkout and uses the inquiry form. After a deal, assign the plan under Users."
+            className="mt-0"
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    addPlanRow({
+                      slug: 'new-plan',
+                      name: 'New plan',
+                      endpointLimit: 1000,
+                      priceCentsMonthly: 0,
+                      sortOrder: 50,
+                    })
+                  }
+                  disabled={saving}
+                >
+                  Add plan
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    addPlanRow({
+                      slug: 'enterprise',
+                      name: 'Enterprise',
+                      description:
+                        'Custom limits, dedicated support, and onboarding. Contact us for pricing.',
+                      endpointLimit: '',
+                      priceCentsMonthly: 0,
+                      contactSales: true,
+                      sortOrder: 100,
+                    })
+                  }
+                  disabled={saving || drafts.some((d) => d.slug === 'enterprise')}
+                >
+                  Add Enterprise
+                </Button>
+                <Button onClick={handleSave} disabled={saving || loading}>
+                  {saving ? 'Saving…' : 'Save plans'}
+                </Button>
+              </div>
+            }
+          >
+            {loading && drafts.length === 0 ? (
+              <p className="text-sm text-ink-500">Loading plans…</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-ink-200 text-ink-500">
+                        <th className="py-2 pr-3 font-medium">Slug</th>
+                        <th className="py-2 pr-3 font-medium">Name</th>
+                        <th className="py-2 pr-3 font-medium">Description</th>
+                        <th className="py-2 pr-3 font-medium">Endpoint limit</th>
+                        <th className="py-2 pr-3 font-medium">Price (¢/mo)</th>
+                        <th className="py-2 pr-3 font-medium">Contact sales</th>
+                        <th className="py-2 pr-3 font-medium">Contact URL</th>
+                        <th className="py-2 pr-3 font-medium">Stripe price id</th>
+                        <th className="py-2 pr-3 font-medium">Active</th>
+                        <th className="py-2 font-medium">Sort</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drafts.map((row, index) => (
+                        <tr
+                          key={row.id || `draft-${row.slug}-${index}`}
+                          className="border-b border-ink-100 align-top"
+                        >
+                          <td className="py-2 pr-3">
+                            {row.slugEditable ? (
+                              <input
+                                className="w-28 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                                value={row.slug}
+                                onChange={(e) =>
+                                  updateDraft(index, {
+                                    slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                                  })
+                                }
+                                aria-label="Plan slug"
+                              />
+                            ) : (
+                              <span className="font-mono text-ink-700">{row.slug}</span>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              className="w-full min-w-[6rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 text-ink-900"
+                              value={row.name}
+                              onChange={(e) => updateDraft(index, { name: e.target.value })}
+                              aria-label={`Name for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 text-ink-900"
+                              value={row.description}
+                              onChange={(e) =>
+                                updateDraft(index, { description: e.target.value })
+                              }
+                              placeholder="Optional blurb"
+                              aria-label={`Description for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="∞"
+                              className="w-24 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
+                              value={row.endpointLimit}
+                              onChange={(e) =>
+                                updateDraft(index, { endpointLimit: e.target.value })
+                              }
+                              aria-label={`Endpoint limit for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min="0"
+                              className="w-28 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
+                              value={row.priceCentsMonthly}
+                              onChange={(e) =>
+                                updateDraft(index, { priceCentsMonthly: e.target.value })
+                              }
+                              disabled={row.contactSales}
+                              aria-label={`Price cents for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="checkbox"
+                              checked={row.contactSales}
+                              onChange={(e) =>
+                                updateDraft(index, {
+                                  contactSales: e.target.checked,
+                                  stripePriceId: e.target.checked ? '' : row.stripePriceId,
+                                  priceCentsMonthly: e.target.checked
+                                    ? '0'
+                                    : row.priceCentsMonthly,
+                                })
+                              }
+                              aria-label={`Contact sales ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                              value={row.contactUrl}
+                              onChange={(e) =>
+                                updateDraft(index, { contactUrl: e.target.value })
+                              }
+                              placeholder="optional override"
+                              disabled={!row.contactSales}
+                              aria-label={`Contact URL for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                              value={row.stripePriceId}
+                              onChange={(e) =>
+                                updateDraft(index, { stripePriceId: e.target.value })
+                              }
+                              placeholder="price_…"
+                              disabled={row.contactSales}
+                              aria-label={`Stripe price id for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="checkbox"
+                              checked={row.active}
+                              onChange={(e) =>
+                                updateDraft(index, { active: e.target.checked })
+                              }
+                              aria-label={`Active ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2">
+                            <input
+                              type="number"
+                              className="w-16 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
+                              value={row.sortOrder}
+                              onChange={(e) =>
+                                updateDraft(index, { sortOrder: e.target.value })
+                              }
+                              aria-label={`Sort order for ${row.slug}`}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-ink-500">
+                  Empty endpoint limit = unlimited. Contact-sales plans use the inquiry form; leads
+                  appear under the Leads tab. Self-serve paid plans need a{' '}
+                  <code className="font-mono">stripePriceId</code>.
+                </p>
+              </>
+            )}
+          </Section>
+        ) : null}
+      </div>
     </AppLayout>
   );
 }
