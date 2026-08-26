@@ -42,15 +42,17 @@ Protect / blocking is **explicitly out of this bar**. North-star security platfo
 - Key create / revoke / rotate + install snippet + empty-state onboarding
 - Billing scaffold: plans catalog, `/billing`, checkout/portal/webhook code paths
 - Orgs / invites / RBAC largely in repo (solo path is enough for first marketing)
-- Connectors **in repo**: Express, Fastify, FastAPI, Go (chi)
+- Connectors **in repo (Available):** Express, Fastify, NestJS, Next.js, FastAPI, Django, Flask, Go (chi), Spring Boot, ASP.NET Core, Nginx/OpenResty, Kong, Node gateway sidecar (`@apiglimpse/gateway-proxy`)
+- **Coming soon:** Hono, Envoy
+- Source of truth: [INTEGRATING.md](./INTEGRATING.md) · dashboard `frontend/src/lib/installSnippets.js`
 
 ### What still blocks “almost ready”
 
 | Kind | Gap |
 | --- | --- |
 | **Nick ops** | Resend; publish connectors to npm/PyPI/Go; Stripe Price IDs if advertising Pro Checkout; E2E smoke; migrate org plan snapshots if not deployed |
-| **Dev (truth)** | ~~Marketing Express-only~~ → sync to code connectors (R1) |
-| **Dev (activation)** | ~~Express-only install snippet~~ → multi-stack (R2) |
+| **Dev (truth)** | ~~Marketing Express-only~~ → ~~four-stack sync~~ → **keep aligned with INTEGRATING** (R1 ongoing) |
+| **Dev (activation)** | ~~Express-only install snippet~~ → multi-stack `installSnippets.js` (R2 largely done; include new stacks when they ship) |
 | **Dev (monetization honesty)** | Soft-gate paid CTAs when `hasStripePrice` is false (R3); explain catalog vs org snapshots |
 | **Dev (docs polish)** | Architecture + Service glossary + publish note (R4) |
 | **GTM (separate)** | Analytics, LPs, creatives — [MARKETING_PLAN.md](./MARKETING_PLAN.md) |
@@ -85,8 +87,8 @@ GTM wave (parallel once truth lands): **M1 ∥ M2** then **M3**.
 ### N-R2 — Publish connectors
 
 **Doc:** [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md) · [NPM_PUBLISH.md](./NPM_PUBLISH.md)  
-Publish `@apiglimpse/shared` → `middleware` → `fastify`; PyPI `apiglimpse`; Go module tag.  
-**Done when:** Fresh machine can install every stack docs mark “Available.”
+Publish `@apiglimpse/shared` → `middleware` → `fastify` → `nestjs` → `next`; PyPI `apiglimpse`; Go module tag; Maven/NuGet when ready; Kong/Nginx packaging notes in [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md).  
+**Done when:** Fresh machine can install every stack docs mark “Available” (or docs clearly say local/monorepo path until publish).
 
 ### N-R3 — Stripe live (only if marketing Pro $)
 
@@ -118,9 +120,9 @@ Register → service → key → published connector → inventory; bad key → 
 
 **Tasks:**
 
-1. If packages **are published:** set marketing Available = Express, Fastify, FastAPI, Go (chi); remove those from “Coming soon.”  
-2. **Code is source of truth for availability** — list connectors that exist in-repo as Available even before registry publish, and keep the publish caveat on docs (match `docs/INTEGRATING.md`).  
-3. Nest / Next / Hono / proxy stay “Coming soon.”  
+1. **Code is source of truth for availability** — list connectors that exist in-repo as Available even before registry publish, and keep the publish caveat on docs (match `docs/INTEGRATING.md`).  
+2. Marketing Available must include Nest, Next, Django, Flask, Spring, ASP.NET, Nginx, Kong, and Node gateway sidecar (not only Express/Fastify/FastAPI/Go).  
+3. **Coming soon only:** Hono, Envoy (and anything not in INTEGRATING).  
 4. Soft-launch honesty: no protect / blocking language.
 5. Pricing copy: catalog limits apply to **new** assignments; orgs keep snapshotted limits ([ORG_PLAN_LIMITS.md](./ORG_PLAN_LIMITS.md)).
 
@@ -142,11 +144,11 @@ Register → service → key → published connector → inventory; bad key → 
 
 **Tasks:**
 
-1. Install panel: tab or select for Express / Fastify / FastAPI / Go with correct package + snippet.  
+1. Install panel: tab or select for every stack in `INSTALL_STACKS` (`installSnippets.js`) with correct package + snippet.  
 2. `API_SENSOR_AGENT_URL` / key placeholders use `https://collect.apiglimpse.com`.  
-3. Don’t invent Nest/Next snippets.
+3. Don’t invent snippets for Coming-soon stacks (Hono, Envoy).
 
-**Out of scope:** New connectors; protect options in snippet.
+**Out of scope:** Protect options in snippet.
 
 **Done when:** A FastAPI or Go user can copy a working snippet without leaving the app for the basic path.
 
@@ -208,7 +210,7 @@ Register → service → key → published connector → inventory; bad key → 
 
 1. Walk soft-launch checklist as code review: missing key warning, empty inventory CTA, revoke behavior docs.  
 2. Fix any broken deep links from marketing auth → app services list.  
-3. Add a short **internal** smoke markdown checklist update in [TESTING.md](./TESTING.md) for four connectors (even if Nick runs it).
+3. Add a short **internal** smoke markdown checklist update in [TESTING.md](./TESTING.md) for multiple connectors (Express + at least one non-JS stack; even if Nick runs it).
 
 **Out of scope:** Full lifecycle email product (M8); protect.
 
@@ -272,7 +274,7 @@ Hand off to MARKETING_PLAN M1/M2/M3 for ads readiness
 > Execute `docs/MARKETING_READY.md` stream **R1** only. Make marketing + docs-site connector/install claims match registry reality. If packages are unpublished, prefer one honest story (don’t leave docs saying npm install works when it 404s). No protect language. No Prisma.
 
 **R2:**  
-> Execute **R2** only: multi-stack install snippets in the dashboard (Express, Fastify, FastAPI, Go) per MARKETING_READY. Link to docs for detail. Don’t add Nest/Next. Don’t touch billing schema.
+> Execute **R2** only: keep dashboard install snippets in sync with `INSTALL_STACKS` / `docs/INTEGRATING.md` (all Available stacks). Link to docs for detail. Don’t invent Hono/Envoy snippets. Don’t touch billing schema.
 
 **R3:**  
 > Execute **R3** only: soft-gate paid Checkout/Upgrade when `hasStripePrice` is false on marketing Pricing and app Billing. Keep catalog as price source of truth.
@@ -281,7 +283,7 @@ Hand off to MARKETING_PLAN M1/M2/M3 for ads readiness
 > Execute **R4** only: docs-site architecture + glossary consistency for multi-connector and Service naming. No theme redesign.
 
 **R5:**  
-> Execute **R5** only: verify/fix activation empty states and update TESTING.md smoke for four connectors. No lifecycle email product.
+> Execute **R5** only: verify/fix activation empty states and update TESTING.md smoke for multiple connectors (Express + at least one other). No lifecycle email product.
 
 ---
 
@@ -301,7 +303,7 @@ Hand off to MARKETING_PLAN M1/M2/M3 for ads readiness
 
 - Protect / blocking implementation  
 - Advertising “API security platform” as current state  
-- Nest / Next / Hono / proxy connectors  
+- New connectors beyond [INTEGRATING.md](./INTEGRATING.md) (Hono / Envoy remain coming soon)  
 - Password reset  
 - Org billing migration (S5) as a soft-launch blocker  
 - Content mill / competitor attack pages  

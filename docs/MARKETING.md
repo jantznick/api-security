@@ -15,7 +15,9 @@ Product truth: [PRODUCTIZATION.md](./PRODUCTIZATION.md). Install detail: [INTEGR
 
 Deploy settings: [RENDER.md](./RENDER.md). Nick deploys to Render; this doc is **site IA + content/design truth**. Demand gen, paid ads, and channel strategy live in [MARKETING_PLAN.md](./MARKETING_PLAN.md).
 
-Traffic-based **observe → inventory → risk**: connector (Express / Fastify / FastAPI / Go, …) → API Glimpse cloud → dashboard inventory / schemas / signals. Async sampling, schemas and signals (not raw bodies), API-key gated.
+Traffic-based **observe → inventory → risk**: connector (Express / Fastify / Nest / Next / FastAPI / Django / Flask / Go / Spring / ASP.NET / Nginx / Kong / Node sidecar, …) → API Glimpse cloud → dashboard inventory / schemas / signals. Async sampling, schemas and signals (not raw bodies), API-key gated.
+
+**Connector source of truth:** [INTEGRATING.md](./INTEGRATING.md) (and dashboard `installSnippets.js`). Site copy must match that list — **Hono** and **Envoy** remain coming soon.
 
 ---
 

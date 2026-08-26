@@ -1,18 +1,18 @@
 # API Glimpse
 
-Traffic-based **observe → inventory → risk**: Express middleware samples live traffic, API Glimpse cloud builds inventory, and the dashboard shows endpoints, schemas, and signals.
+Traffic-based **observe → inventory → risk**: language/gateway **connectors** sample live traffic, API Glimpse cloud builds inventory, and the dashboard shows endpoints, schemas, and signals.
 
 **Brand:** [API Glimpse](https://apiglimpse.com) · dashboard `app.apiglimpse.com` · collector `collect.apiglimpse.com` · API `api.apiglimpse.com`.
 
 ```
-Your Express app
-  → API Glimpse middleware (samples + API key)
-    → API Glimpse cloud (validate key, per-project aggregate)
+Your app (or gateway)
+  → Connector (samples + API key)
+    → API Glimpse cloud (validate key, per-service aggregate)
   → Inventory store (schemas + signals — not raw bodies)
   → Dashboard (session auth)
 ```
 
-**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[npm publish](docs/NPM_PUBLISH.md)** — first-time `@apiglimpse/*` publish.
+**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[Connector publish](docs/CONNECTOR_PUBLISH.md)** — npm / PyPI / Go / Maven / NuGet / gateways.
 ## Quick start
 
 Nick verifies manually — see **[docs/TESTING.md](docs/TESTING.md)** for the full step-by-step. Short local-dev notes: **[docs/DEPLOY.md#local-dev](docs/DEPLOY.md#local-dev)**.
@@ -47,18 +47,21 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 | `frontend/` | Dashboard (Vite + React + Tailwind v4) → **Render** → `app.apiglimpse.com` |
 | `marketing/` | Marketing site (Vite + React) → **Render** → `apiglimpse.com` |
 | `docs-site/` | Developer docs (VitePress) → **Render** → `docs.apiglimpse.com` |
-| `packages/middleware` | Public SDK — Express middleware (npm: `@apiglimpse/middleware`) |
-| `packages/shared` | Internal helpers for middleware (npm: `@apiglimpse/shared`) |
-| `packages/gateway-proxy` | Node reverse-proxy sidecar — discover traffic without app middleware |
+| `packages/middleware` | Express SDK (`@apiglimpse/middleware`) |
+| `packages/fastify` / `nestjs` / `next` | Other Node SDKs |
+| `packages/shared` | Envelope + redaction helpers (`@apiglimpse/shared`) |
+| `packages/gateway-proxy` | Node reverse-proxy sidecar |
+| `connectors/` | Python, Go, Java, .NET, Nginx, Kong |
 | `agent/` | Dockerized collector/processor |
-| `demo/express-app/` | Sample app with one-line middleware |
+| `demo/*` | Sample apps per connector |
 | `docker-compose.yml` | Postgres + collector only |
 
 ## Docs
 
 **Customer-facing**
 
-- [Integrating into an existing app](docs/INTEGRATING.md) — Express middleware (canonical; also published via `docs-site/`)
+- [Integrating into an existing app](docs/INTEGRATING.md) — all connectors (canonical; also published via `docs-site/`)
+- [Connector publish](docs/CONNECTOR_PUBLISH.md) — maintainer registry playbook
 - Marketing site: `marketing/` → `apiglimpse.com`
 - Developer docs: `docs-site/` → `docs.apiglimpse.com`
 

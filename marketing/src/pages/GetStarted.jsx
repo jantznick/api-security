@@ -12,7 +12,7 @@ const steps = [
   {
     n: '02',
     title: 'Add a connector',
-    body: 'Install a connector for Express, Fastify, FastAPI, or Go (chi). Set your API key and API Glimpse URL, then mount it. Details are in the docs.',
+    body: 'Install a connector for your stack (Express, Nest, FastAPI, Spring, ASP.NET, Nginx/Kong, and more). Set your API key and API Glimpse URL, then mount it. Details are in the docs.',
     cta: { href: integratingDocsUrl, label: 'Install guide →' },
   },
   {
@@ -33,7 +33,7 @@ export default function GetStarted() {
       </h1>
       <p className="anim-rise-delay-2 mt-5 text-lg leading-relaxed text-muted">
         Sign up, add a connector, then open the dashboard. Full install steps
-        for Express, Fastify, FastAPI, and Go are in the docs.
+        for every supported stack are in the docs.
       </p>
 
       <ol className="mt-16 space-y-12">
@@ -72,9 +72,9 @@ export default function GetStarted() {
           Need install details?
         </h2>
         <p className="mt-2.5 text-[0.975rem] leading-relaxed text-muted">
-          The Connect your app guide covers Express, Fastify, FastAPI, and Go —
-          package names, env vars, and how to check that endpoints show up in
-          your service inventory.
+          The Connect your app guide covers all supported stacks — package
+          names, env vars, and how to check that endpoints show up in your
+          service inventory.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href={integratingDocsUrl} className="btn btn-primary">

@@ -14,7 +14,7 @@ Your app
 
 | Piece | Role |
 | --- | --- |
-| **Connector** | Samples requests in your app; sends batches in the background. Express, Fastify, FastAPI, and Go (chi) are available now; more connectors are coming. |
+| **Connector** | Samples requests in your app (or at the gateway); sends batches in the background. Supported stacks today include Express, Fastify, NestJS, Next.js, FastAPI, Django, Flask, Go (chi), Spring Boot, ASP.NET Core, Nginx/OpenResty, Kong, and a Node gateway sidecar. See [Connectors](/integrating#connectors). |
 | **API Glimpse** (`collect.apiglimpse.com`) | Accepts batches with your service API key; aggregates per service |
 | **API and store** | Saves endpoints, schemas, and tags; serves the dashboard and APIs |
 | **Dashboard** (`app.apiglimpse.com`) | Orgs, projects, services, API keys, endpoints, endpoint detail |
