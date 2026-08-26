@@ -13,15 +13,6 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 
-/** API failure with HTTP status (billing uses 404 / 503). */
-export class ApiError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
-}
-
 async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
@@ -35,7 +26,7 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new ApiError(error.error || 'Request failed', response.status);
+    throw new Error(error.error || 'Request failed');
   }
   if (response.status === 204) return null;
   return response.json();
@@ -82,20 +73,4 @@ export const inventoryAPI = {
     request(`/inventory/${projectId}/endpoints/${endpointId}`),
   /** OpenAPI 3.0 JSON document for the project inventory */
   exportOpenApi: (projectId) => request(`/inventory/${projectId}/openapi`),
-};
-
-/**
- * Billing contract (W3/W4) — resilient if routes are not mounted yet.
- * GET  /billing/me       → plan, usage, checkout/portal availability
- * GET  /billing/plans    → public catalog (Plan rows)
- * POST /billing/checkout → { url } (503 if Stripe not configured)
- * POST /billing/portal   → { url } (503 if Stripe not configured)
- */
-export const billingAPI = {
-  me: () => request('/billing/me'),
-  plans: () => request('/billing/plans'),
-  checkout: (body = {}) =>
-    request('/billing/checkout', { method: 'POST', body: JSON.stringify(body) }),
-  portal: (body = {}) =>
-    request('/billing/portal', { method: 'POST', body: JSON.stringify(body) }),
 };
