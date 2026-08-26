@@ -50,18 +50,20 @@ Later / optional: **W6, W7, W8**.
 
 ### N3 — Stripe account + keys
 
-Create Stripe account; decide test vs live; create Products/Prices for Free/Pro (or only Pro paid); provide for Railway **core**:
+**Doc:** [STRIPE.md](./STRIPE.md) (Railway core variables + webhook URL + Admin plans).
+
+Create Stripe account; use **Test mode** first; create Pro product/price; set on Railway **core**:
 
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_PRO` (or similar)
-- Optional: `STRIPE_PUBLISHABLE_KEY` if Checkout.js needed client-side  
+- `ADMIN_EMAIL` (your app login email — enables `/admin`)
+- Plan Stripe Price IDs via **Admin → Plans** (or `STRIPE_PRICE_PRO`)
 
-**Done when:** Keys in Railway (or ready for W3/W4 agents). **Do not paste secrets in chat.**
+**Done when:** Keys in Railway (never paste into chat). Webhook points at `https://api.apiglimpse.com/api/billing/webhook`.
 
 ### N4 — Soft-launch smoke
 
-After N1–N2 (+ PR #3 deploy): register/login → project → key → middleware → inventory; revoke key → traffic rejected.  
+After N1–N2 (+ Phase A deploy): register/login → project → key → middleware → inventory; revoke key → traffic rejected.  
 **Doc:** [TESTING.md](./TESTING.md) / [LAUNCH_NEXT.md](./LAUNCH_NEXT.md).
 
 ---
