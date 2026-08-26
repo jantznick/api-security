@@ -14,21 +14,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgRole {
+  owner
+  admin
+  member
+  viewer
+}
+
 model User {
-  id                   String    @id @default(uuid())
-  email                String    @unique
+  id                   String       @id @default(uuid())
+  email                String       @unique
   password             String?
   /// Optional public display name (not unique)
   displayName          String?
   /// Stripe Customer id (cus_…); set on first Checkout
-  stripeCustomerId     String?   @unique
+  stripeCustomerId     String?      @unique
   /// Active subscription id (sub_…) when subscribed
   stripeSubscriptionId String?
   /// Matches Plan.slug — free | pro | …
-  planSlug             String    @default("free")
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  projects             Project[]
+  planSlug             String       @default("free")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  memberships          Membership[]
+  orgInvitesSent       OrgInvite[]  @relation("OrgInviteInviter")
 
   @@index([planSlug])
 }
@@ -37,8 +45,10 @@ model Plan {
   id                String   @id @default(uuid())
   slug              String   @unique
   name              String
-  /// Cap applied to each of the user's projects on plan change. null = unlimited.
+  /// Cap applied to each of the user's services on plan change. null = unlimited.
   endpointLimit     Int?
+  /// Max org members including owner. null = unlimited. Free = 3 (D11).
+  seatLimit         Int?
   priceCentsMonthly Int      @default(0)
   /// Stripe Price id (price_…) for Checkout; null for free / unpaid plans
   stripePriceId     String?
@@ -68,26 +78,89 @@ model Session {
   @@index([expire])
 }
 
-model Project {
-  id        String     @id @default(uuid())
-  name      String
-  ownerId   String
-  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  /// Cap on *new* endpoints for this project. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
-  /// Stripe webhooks / plan changes set this from the owner's Plan.endpointLimit.
-  endpointLimit Int?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  apiKeys   ApiKey[]
-  endpoints Endpoint[]
+model Organization {
+  id                   String       @id @default(uuid())
+  name                 String
+  slug                 String       @unique
+  /// Personal orgs are 1:1 with a user; always created on signup
+  isPersonal           Boolean      @default(false)
+  /// Copied from User for future S5 org billing; User.stripe* remains source of truth until then
+  stripeCustomerId     String?      @unique
+  stripeSubscriptionId String?
+  planSlug             String       @default("free")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  memberships          Membership[]
+  projects             Project[]
+  invites              OrgInvite[]
 
-  @@index([ownerId])
+  @@index([planSlug])
+}
+
+model Membership {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(member)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model OrgInvite {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole      @default(member)
+  tokenHash      String       @unique
+  invitedById    String
+  invitedBy      User         @relation("OrgInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, email])
+}
+
+/// Named grouping of related services (e.g. "Payments"). Not today's inventory unit.
+model Project {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  services       Service[]
+
+  @@index([organizationId])
+}
+
+/// One middleware-connected API (today's Project). Keys + endpoints live here.
+model Service {
+  id            String     @id @default(uuid())
+  projectId     String
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  /// Cap on *new* endpoints for this service. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
+  endpointLimit Int?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  apiKeys       ApiKey[]
+  endpoints     Endpoint[]
+
+  @@index([projectId])
 }
 
 model ApiKey {
   id         String    @id @default(uuid())
-  projectId  String
-  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   name       String    @default("default")
   /// SHA-256 hex of the full API key (key never stored plaintext)
   keyHash    String    @unique
@@ -98,13 +171,13 @@ model ApiKey {
   /// Soft revoke — key hash retained; ingest rejects when set
   revokedAt  DateTime?
 
-  @@index([projectId])
+  @@index([serviceId])
 }
 
 model Endpoint {
   id           String   @id @default(uuid())
-  projectId    String
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   method       String
   pathTemplate String
   firstSeenAt  DateTime @default(now())
@@ -124,8 +197,8 @@ model Endpoint {
   updatedAt    DateTime @updatedAt
   signals      Signal[]
 
-  @@unique([projectId, method, pathTemplate])
-  @@index([projectId])
+  @@unique([serviceId, method, pathTemplate])
+  @@index([serviceId])
   @@index([lastSeenAt])
 }
 
