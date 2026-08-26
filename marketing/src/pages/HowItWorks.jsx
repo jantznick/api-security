@@ -31,7 +31,9 @@ const connectors = [
   { name: 'Spring Boot', status: 'Available now' },
   { name: 'ASP.NET Core', status: 'Available now' },
   { name: 'Nginx / Kong', status: 'Available now' },
+  { name: 'Node gateway sidecar', status: 'Available now' },
   { name: 'Hono', status: 'Coming soon' },
+  { name: 'Envoy', status: 'Coming soon' },
 ];
 
 const whatYouGet = [

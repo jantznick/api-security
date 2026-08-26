@@ -16,6 +16,7 @@ export const INSTALL_STACKS = [
   { id: 'aspnet', label: 'ASP.NET Core', packageName: 'ApiGlimpse.AspNetCore' },
   { id: 'nginx', label: 'Nginx (OpenResty)', packageName: 'connectors/nginx' },
   { id: 'kong', label: 'Kong', packageName: 'kong-plugin-apiglimpse' },
+  { id: 'gateway-proxy', label: 'Node gateway sidecar', packageName: '@apiglimpse/gateway-proxy' },
 ];
 
 /**
@@ -177,6 +178,16 @@ curl -X POST http://localhost:8001/plugins \\
   --data "config.service_name=${svc}"
 
 # See docs/GATEWAY_KONG.md`;
+
+    case 'gateway-proxy':
+      return `# Run in front of your app (no app SDK)
+API_SENSOR_UPSTREAM=http://127.0.0.1:3000
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+cd packages/gateway-proxy && npm start
+# Point clients at the proxy (default :9080)`;
 
     case 'express':
     default:

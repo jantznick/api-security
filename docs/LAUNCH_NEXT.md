@@ -32,7 +32,7 @@ Quick test sender before domain verify: Resend’s `onboarding@resend.dev` only 
 
 ## 2. Publish connectors (npm / PyPI / Go)
 
-Customers need public packages — same role as `npm install` for Express, but also Fastify, FastAPI (`pip`), and Go (`go get`).
+Customers need public packages — same role as `npm install` for Express, plus Fastify/Nest/Next, FastAPI/Django/Flask (`pip`), Go (`go get`), and later Maven/NuGet / gateway packaging. Full matrix: **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)**.
 
 - **All languages:** **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)**
 - **npm deep dive (account / org / 2FA):** **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**
@@ -101,5 +101,5 @@ Local checklist details: [TESTING.md](./TESTING.md).
 
 - Password reset / change-password flows  
 - Stripe live keys / soft-launch Checkout (scaffold + Admin plans are in-repo — see [STRIPE.md](./STRIPE.md))  
-- Extra connectors beyond Express / Fastify / FastAPI / Go (Nest, Next, Hono, proxy)  
+- Extra connectors beyond [INTEGRATING.md](./INTEGRATING.md) Available set (Hono, Envoy, …)  
 

@@ -1,18 +1,18 @@
 # API Glimpse
 
-Traffic-based **observe → inventory → risk**: Express middleware samples live traffic, API Glimpse cloud builds inventory, and the dashboard shows endpoints, schemas, and signals.
+Traffic-based **observe → inventory → risk**: language/gateway **connectors** sample live traffic, API Glimpse cloud builds inventory, and the dashboard shows endpoints, schemas, and signals.
 
 **Brand:** [API Glimpse](https://apiglimpse.com) · dashboard `app.apiglimpse.com` · collector `collect.apiglimpse.com` · API `api.apiglimpse.com`.
 
 ```
-Your Express app
-  → API Glimpse middleware (samples + API key)
-    → API Glimpse cloud (validate key, per-project aggregate)
+Your app (or gateway)
+  → Connector (samples + API key)
+    → API Glimpse cloud (validate key, per-service aggregate)
   → Inventory store (schemas + signals — not raw bodies)
   → Dashboard (session auth)
 ```
 
-**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[npm publish](docs/NPM_PUBLISH.md)** — first-time `@apiglimpse/*` publish.
+**[Deploy](docs/DEPLOY.md)** — end-to-end Railway + Render + DNS + npm. Detail: [RAILWAY.md](docs/RAILWAY.md), [RENDER.md](docs/RENDER.md). **[Connector publish](docs/CONNECTOR_PUBLISH.md)** — npm / PyPI / Go / Maven / NuGet / gateways.
 ## Quick start
 
 Nick verifies manually — see **[docs/TESTING.md](docs/TESTING.md)** for the full step-by-step. Short local-dev notes: **[docs/DEPLOY.md#local-dev](docs/DEPLOY.md#local-dev)**.

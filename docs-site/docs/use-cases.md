@@ -26,4 +26,4 @@ Each endpoint records observed **auth modes** (`bearer`, `cookie`, `none`). Filt
 
 - [Quick start](/quick-start) — account → connector → dashboard
 - [Concepts](/concepts) — schemas, signals, OpenAPI export
-- [Connect your app](/integrating) — Express, Fastify, FastAPI, Go
+- [Connect your app](/integrating) — all supported connectors

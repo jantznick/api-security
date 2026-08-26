@@ -8,7 +8,7 @@ const steps = [
   {
     n: '01',
     title: 'Add a connector',
-    body: 'Install a connector for Express, Fastify, FastAPI, or Go. Set your API key and API Glimpse URL.',
+    body: 'Install a connector for your stack—Express, Nest, FastAPI, Spring, ASP.NET, Nginx/Kong, and more. Set your API key and API Glimpse URL.',
   },
   {
     n: '02',
@@ -33,9 +33,10 @@ const connectorsAvailable = [
   { name: 'Spring Boot' },
   { name: 'ASP.NET Core' },
   { name: 'Nginx / Kong' },
+  { name: 'Node gateway sidecar' },
 ];
 
-const connectorsSoon = ['Hono'];
+const connectorsSoon = ['Hono', 'Envoy'];
 
 const whatYouSee = [
   {

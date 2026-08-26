@@ -34,7 +34,7 @@ Soft-launch infra is live (`apiglimpse.com` / `app` / `docs` / `api` / `collect`
 | --- | --- |
 | Brand | **API Glimpse** locked; forest-teal site; Syne + Figtree + IBM Plex Mono |
 | Positioning line | “See what your API actually serves” / endpoints, schemas, field types from real traffic |
-| Connectors (docs) | Express + Fastify + FastAPI + Go (chi) available; Nest/Next/Hono/proxy soon |
+| Connectors (docs / code) | **Available in-repo:** Express, Fastify, NestJS, Next.js, FastAPI, Django, Flask, Go (chi), Spring Boot, ASP.NET Core, Nginx/OpenResty, Kong, Node gateway sidecar. **Coming soon:** Hono, Envoy. Truth: [INTEGRATING.md](./INTEGRATING.md) |
 | Marketing site | Landing, how-it-works, get-started, pricing, privacy, terms |
 | Pricing page | Live catalog via `GET /api/billing/plans` when API wired; no invented $ |
 | Docs | VitePress at `docs.apiglimpse.com` |
@@ -105,7 +105,7 @@ Plant the future **without lying**:
 
 ### Elevator (≈20s, current)
 
-Docs and OpenAPI drift. Shadow and forgotten routes pile up. Drop a connector into Express, Fastify, FastAPI, or Go; API Glimpse builds a live inventory of methods, paths, schemas, and sensitive-field tags—without keeping raw bodies. Fail-open: your app keeps serving if we don’t. (Quietly: same path is designed for optional local protect later.)
+Docs and OpenAPI drift. Shadow and forgotten routes pile up. Drop a connector into Express, Nest, FastAPI, Spring, ASP.NET, Nginx/Kong, or another supported stack; API Glimpse builds a live inventory of methods, paths, schemas, and sensitive-field tags—without keeping raw bodies. Fail-open: your app keeps serving if we don’t. (Quietly: same path is designed for optional local protect later.)
 
 ### Positioning statement (internal)
 
@@ -154,7 +154,7 @@ Campaign variants may A/B secondary headlines; do not replace the brand-first he
 | Attribute | Target |
 | --- | --- |
 | Company | B2B SaaS / platform; 5–200 engineers |
-| Stack | Node (Express/Fastify) **or** Python FastAPI **or** Go chi services |
+| Stack | Node (Express/Fastify/Nest/Next), Python (FastAPI/Django/Flask), Go (chi), Java (Spring Boot), .NET (ASP.NET Core), or gateway (Nginx/Kong / Node sidecar) |
 | Pain | Undocumented / drifted APIs; “what do we actually expose?”; prep for security review without buying enterprise API security |
 | Buyer | Staff/Lead engineer, Platform, or AppSec-curious Eng Manager |
 | Budget | Self-serve Free → Pro (~$29 placeholder until Nick locks); not six-figure RFP |
@@ -174,7 +174,7 @@ Campaign variants may A/B secondary headlines; do not replace the brand-first he
 
 - Teams that need **blocking / WAF** on day one → **become ICP after PM2** (retarget with protect LP)
 - Enterprises that require **SSO/SAML + RFP** before trial (until Enterprise plan + sales motion exist)
-- Stacks with **no connector** (Nest/Next/Hono/proxy) unless campaign is waitlist-only
+- Stacks with **no connector** (Hono, Envoy) unless campaign is waitlist-only
 - “Store and replay all traffic” buyers
 
 Keep a CRM/note list of “needs protect” signups for the PM2 launch wave.
@@ -256,7 +256,7 @@ Do **not** run meaningful Google/LinkedIn spend before: [MARKETING_READY.md](./M
 
 | Change | Why |
 | --- | --- |
-| Sync connector list with docs (Express/Fastify/FastAPI/Go available) | Site still reads Express-only / “coming soon” for stacks that shipped |
+| Sync connector list with docs | **Done for wave-2 stacks** — keep Home / How-it-works / Get started / docs-site aligned with [INTEGRATING.md](./INTEGRATING.md) when new connectors land |
 | Soft-launch honesty refresh | Billing exists; avoid “billing later” stale lines where wrong |
 | Campaign LPs (`/lp/...`) | Ads need single-message pages (hero + one CTA + proof) |
 | OG / Twitter cards + sitemap + canonicals | Share + SEO hygiene |
@@ -472,7 +472,7 @@ Approve first-wave ad copy and LP screenshots; set search/LinkedIn daily caps.
 - Invented customer logos or ROI %
 - Invented prices not returned by billing API
 - “Stores full request bodies for analysis”
-- Support for Nest/Next/Hono/proxy as GA before connectors exist
+- Invented “Available” connectors that are not in [INTEGRATING.md](./INTEGRATING.md) (today Hono / Envoy are coming soon — do not advertise as GA)
 
 **Out of scope:** Implementing LPs or ads UI.
 
@@ -508,7 +508,7 @@ Approve first-wave ad copy and LP screenshots; set search/LinkedIn daily caps.
 
 **Tasks:**
 
-1. Update Home / How it works / Get started connector lists to match docs (Express, Fastify, FastAPI, Go available).  
+1. Keep Home / How it works / Get started connector lists matched to [INTEGRATING.md](./INTEGRATING.md) (full Available set + Hono/Envoy soon).  
 2. Refresh any “billing later / Express-only” stale copy.  
 3. Add OG title/description/image; Twitter card tags.  
 4. Add `sitemap.xml` + `robots.txt`.  
@@ -653,7 +653,7 @@ N-M2 launch readiness                M4 Google   M5 LinkedIn
 > Implement analytics/conversion instrumentation per `docs/MARKETING_PLAN.md` workstream M1 only. Env-gate vendor snippets; fire CTA events on the marketing site; update RENDER/docs for env vars. Do not launch ads or invent pixels without env placeholders.
 
 **M2:**  
-> Update the marketing site per `docs/MARKETING_PLAN.md` M2: sync connector availability with docs-site (Express, Fastify, FastAPI, Go), fix stale soft-launch billing copy, add OG tags + sitemap/robots. Keep brand-first design constraints in `docs/MARKETING.md`. No new blog.
+> Update the marketing site per `docs/MARKETING_PLAN.md` M2: sync connector availability with `docs/INTEGRATING.md` (all Available stacks; Hono/Envoy soon), fix stale soft-launch billing copy, add OG tags + sitemap/robots. Keep brand-first design constraints in `docs/MARKETING.md`. No new blog.
 
 **M3:**  
 > Add campaign landing pages per `docs/MARKETING_PLAN.md` M3 (`/lp/api-inventory`, `/lp/shadow-api`, `/lp/linkedin`). One composition, one primary CTA (Sign up). Do not edit billing/Prisma.
