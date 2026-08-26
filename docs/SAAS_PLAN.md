@@ -54,8 +54,8 @@ Non-goals for this epic (keep deferred):
 | D5b | Org switcher | **Personal org always visible**; clear **Add organization** affordance in the switcher |
 | D6 | Billing unit after orgs | **Organization** subscription (Stripe customer on org); owner/admin manage billing |
 | D7 | Until orgs ship | Keep current **user-level** Stripe wiring; migrate customer id to org in S5 |
-| D8 | Roles (v1) | Org-scoped: `owner` · `admin` · `member` · `viewer` |
-| D9 | Project/service roles | **Deferred** — org role applies to all projects/services in v1 |
+| D8 | Roles | **System** `owner` · `admin` · `member` · `viewer` (built-in, not deletable) **plus org-scoped custom roles** with a permission flag set. Owner keeps special rules (billing transfer, delete org, last-owner). |
+| D9 | Project/service roles | **Deferred** — org role (system or custom) applies to all projects/services in v1; permission flags gate create/manage/keys/inventory |
 | D10 | Endpoint limits | Still **per Service** (same semantics as today’s per-project cap) |
 | D11 | Seat limits | **Free = 3 total members** (owner counts). Pro seat cap TBD (treat as higher/unlimited until priced) |
 | D12 | Invites | Email invite + token link (Resend); accept creates membership; enforce seat cap on invite/accept |
@@ -324,7 +324,7 @@ model Service {
 
 ## S3 — Authorization layer (RBAC)
 
-### Permission matrix (v1)
+### Permission matrix (v1 system roles)
 
 | Action | owner | admin | member | viewer |
 | --- | --- | --- | --- | --- |
@@ -332,11 +332,34 @@ model Service {
 | Create/rename project or service | ✓ | ✓ | ✓ | |
 | Manage API keys (create/revoke/rotate) | ✓ | ✓ | ✓ | |
 | Invite / change roles / remove members | ✓ | ✓ | | |
+| Create / edit / delete **custom roles** | ✓ | ✓ | | |
 | Transfer ownership / delete org | ✓ | | | |
-| Billing checkout / portal | ✓ | ✓ | | |
+| Billing checkout / portal | ✓ | | | |
 | View usage | ✓ | ✓ | ✓ | ✓ |
 
 Platform `/admin` stays separate (`ADMIN_EMAIL`).
+
+### Custom roles
+
+Org **owners** and **admins** (anyone with `org.manage_roles`) can create custom roles scoped to their organization. Membership assigns either a **system role** (`Membership.role` enum, `customRoleId` null) or a **custom role** (`Membership.customRoleId` → `OrgRoleDefinition`). Invites support the same.
+
+**Schema:** global system templates in `OrgRoleDefinition` (`organizationId = null`, `isSystem = true`) plus per-org custom rows. Permissions are a **Json string array** of flags. Built-in mapping lives in `backend/lib/permissions.js` (single source of truth); DB seeds mirror it.
+
+**Permission flags:**
+
+| Flag | Meaning |
+| --- | --- |
+| `org.manage_members` | Invite, remove, change member roles |
+| `org.manage_roles` | Create / edit / delete custom roles |
+| `org.manage_settings` | Rename org / org settings |
+| `org.manage_billing` | Billing (owner-only by default until S5) |
+| `project.create` / `project.manage` | Projects |
+| `service.create` / `service.manage` / `service.manage_keys` | Services & API keys |
+| `inventory.read` / `inventory.export` | Inventory & OpenAPI |
+
+Hard-coded `role === 'admin'` checks are replaced by `requirePermission` / `membershipHasPermission` in `authz.js`. Owner-only product rules (last owner, ownership transfer) stay role-based.
+
+UI: **Team** page (`/orgs/:orgId/members`) — role dropdown includes system + custom; **Roles** section lists built-ins, create/edit permission checkboxes, delete blocked while members are assigned.
 
 ### Implementation pattern
 
@@ -344,10 +367,11 @@ Replace `ownedProject(projectId, userId)` with:
 
 ```text
 requireOrgRole(orgId, userId, minRole)
-requireServiceAccess(serviceId, userId, minRole)
+requirePermission(orgId, userId, 'service.manage_keys')
+requireServiceAccess(serviceId, userId, permission)
 ```
 
-Centralize in `backend/lib/authz.js`. Every core route that today filters `ownerId` must use membership joins.
+Centralize in `backend/lib/authz.js` + `backend/lib/permissions.js`. Every core route that today filters `ownerId` must use membership joins.
 
 Session payload can cache `activeOrgId` later; v1 can pass org in URL and verify membership each request.
 
@@ -356,6 +380,7 @@ Session payload can cache `activeOrgId` later; v1 can pass org in URL and verify
 - Non-members get 404/403 on org and service routes.
 - Viewer cannot mint keys.
 - Owner cannot be removed without transfer (enforce in API).
+- Custom roles can grant `org.manage_roles` / `org.manage_members` without being system admin.
 
 ---
 
@@ -478,7 +503,7 @@ Do not block Stripe user-billing (current W3/W4) on this epic — **S5 migrates*
 2. **Switcher** — Personal org always visible + easy Add organization. ✅  
 3. **Free seats** — Up to **3 total team members** (owner included). ✅  
 4. **Display name** — Include in S0 (optional field). ✅  
-5. **Extra roles** — No `billing`-only role in v1; owner/admin cover billing. ✅  
+5. **Extra roles** — Custom org roles with permission flags ship after S4; system owner/admin/member/viewer remain. Billing permission stays owner-default until S5. ✅  
 
 **Still open:** Pro plan seat cap (number or unlimited) when pricing is finalized.
 

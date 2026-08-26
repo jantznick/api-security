@@ -15,6 +15,7 @@ export default function AppLayout({ children }) {
   const { user, logout } = useAuthStore();
   const { orgs, activeOrg, activeOrgId, setActiveOrgId } = useActiveOrg();
   const membersPath = activeOrgId ? `/orgs/${activeOrgId}/members` : '/account';
+  const teamPath = membersPath;
 
   const handleLogout = async () => {
     try {
@@ -58,8 +59,8 @@ export default function AppLayout({ children }) {
               <NavLink to="/projects" className={navLinkClass} end={false}>
                 Projects
               </NavLink>
-              <NavLink to={membersPath} className={navLinkClass}>
-                Members
+              <NavLink to={teamPath} className={navLinkClass}>
+                Team
               </NavLink>
               <NavLink to="/usage" className={navLinkClass}>
                 Usage
@@ -119,8 +120,8 @@ export default function AppLayout({ children }) {
           <NavLink to="/projects" className={navLinkClass}>
             Projects
           </NavLink>
-          <NavLink to={membersPath} className={navLinkClass}>
-            Members
+          <NavLink to={teamPath} className={navLinkClass}>
+            Team
           </NavLink>
           <NavLink to="/usage" className={navLinkClass}>
             Usage

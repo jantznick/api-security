@@ -142,9 +142,10 @@ export const usageAPI = {
 };
 
 /**
- * Org members & invites (S4).
+ * Org members, invites & custom roles.
  * GET/PATCH/DELETE /orgs/:orgId/members[/:userId]
  * GET/POST/DELETE /orgs/:orgId/invites[/:inviteId]
+ * GET/POST/PATCH/DELETE /orgs/:orgId/roles[/:roleId]
  * GET /invites/:token · POST /invites/:token/accept
  */
 export const orgsAPI = {
@@ -164,6 +165,19 @@ export const orgsAPI = {
     }),
   revokeInvite: (orgId, inviteId) =>
     request(`/orgs/${orgId}/invites/${inviteId}`, { method: 'DELETE' }),
+  listRoles: (orgId) => request(`/orgs/${orgId}/roles`),
+  createRole: (orgId, body) =>
+    request(`/orgs/${orgId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateRole: (orgId, roleId, body) =>
+    request(`/orgs/${orgId}/roles/${roleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteRole: (orgId, roleId) =>
+    request(`/orgs/${orgId}/roles/${roleId}`, { method: 'DELETE' }),
 };
 
 export const invitesAPI = {

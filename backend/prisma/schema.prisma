@@ -105,53 +105,85 @@ model Session {
 }
 
 model Organization {
-  id                   String       @id @default(uuid())
+  id                   String              @id @default(uuid())
   name                 String
-  slug                 String       @unique
+  slug                 String              @unique
   /// Personal orgs are 1:1 with a user; always created on signup
-  isPersonal           Boolean      @default(false)
+  isPersonal           Boolean             @default(false)
   /// Copied from User for future S5 org billing; User.stripe* remains source of truth until then
-  stripeCustomerId     String?      @unique
+  stripeCustomerId     String?             @unique
   stripeSubscriptionId String?
-  planSlug             String       @default("free")
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  planSlug             String              @default("free")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
   memberships          Membership[]
   projects             Project[]
   invites              OrgInvite[]
+  roleDefinitions      OrgRoleDefinition[]
 
   @@index([planSlug])
 }
 
+/// Built-in system roles are global templates (organizationId = null, isSystem = true).
+/// Custom roles are per-org rows (organizationId set, isSystem = false).
+model OrgRoleDefinition {
+  id             String        @id @default(uuid())
+  /// null = global system template (owner/admin/member/viewer)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Stable slug: owner|admin|member|viewer or org-unique custom key
+  key            String
+  name           String
+  description    String?
+  isSystem       Boolean       @default(false)
+  /// Permission flags as Json string array (see backend/lib/permissions.js)
+  permissions    Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  memberships    Membership[]
+  invites        OrgInvite[]
+
+  @@index([organizationId])
+}
+
 model Membership {
-  id             String       @id @default(uuid())
+  id             String             @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           OrgRole      @default(member)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// System role when customRoleId is null. Kept for owner special-casing + migration.
+  role           OrgRole            @default(member)
+  /// When set, effective permissions come from this custom role (role enum unused for authz).
+  customRoleId   String?
+  customRole     OrgRoleDefinition? @relation(fields: [customRoleId], references: [id], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@unique([organizationId, userId])
   @@index([userId])
+  @@index([customRoleId])
 }
 
 model OrgInvite {
-  id             String       @id @default(uuid())
+  id             String             @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email          String
-  role           OrgRole      @default(member)
-  tokenHash      String       @unique
+  /// System role when customRoleId is null
+  role           OrgRole            @default(member)
+  customRoleId   String?
+  customRole     OrgRoleDefinition? @relation(fields: [customRoleId], references: [id], onDelete: Restrict)
+  tokenHash      String             @unique
   invitedById    String
-  invitedBy      User         @relation("OrgInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedBy      User               @relation("OrgInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
   expiresAt      DateTime
   acceptedAt     DateTime?
   revokedAt      DateTime?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime           @default(now())
 
   @@index([organizationId, email])
+  @@index([customRoleId])
 }
 
 /// Named grouping of related services (e.g. "Payments"). Not today's inventory unit.

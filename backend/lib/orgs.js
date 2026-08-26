@@ -101,11 +101,24 @@ export async function getPersonalDefaultProject(user) {
 
 /**
  * Membership check: user can access this organization.
+ * Includes customRole when assigned (for permission resolution).
  */
 export async function getMembership(organizationId, userId) {
   return prisma.membership.findUnique({
     where: {
       organizationId_userId: { organizationId, userId },
+    },
+    include: {
+      customRole: {
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          permissions: true,
+          isSystem: true,
+          organizationId: true,
+        },
+      },
     },
   });
 }

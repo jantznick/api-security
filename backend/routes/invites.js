@@ -27,15 +27,21 @@ async function findInviteByRawToken(rawToken) {
         select: { id: true, name: true, slug: true, isPersonal: true, planSlug: true },
       },
       invitedBy: { select: { id: true, email: true, displayName: true } },
+      customRole: { select: { id: true, key: true, name: true } },
     },
   });
 }
 
 function invitePublicView(invite) {
+  const roleName = invite.customRole?.name || invite.role;
   return {
     id: invite.id,
     email: invite.email,
-    role: invite.role,
+    role: invite.customRoleId ? null : invite.role,
+    customRoleId: invite.customRoleId || null,
+    roleKey: invite.customRoleId ? invite.customRole?.key || null : invite.role,
+    roleName,
+    roleRef: invite.customRoleId ? `custom:${invite.customRoleId}` : invite.role,
     expiresAt: invite.expiresAt,
     acceptedAt: invite.acceptedAt,
     revokedAt: invite.revokedAt,
@@ -172,12 +178,28 @@ router.post('/:token/accept', requireAuth, async (req, res) => {
       });
     }
 
+    if (invite.customRoleId) {
+      const customRole = await prisma.orgRoleDefinition.findFirst({
+        where: {
+          id: invite.customRoleId,
+          organizationId: invite.organizationId,
+          isSystem: false,
+        },
+      });
+      if (!customRole) {
+        return res.status(410).json({
+          error: 'The role on this invite no longer exists. Ask an admin to send a new invite.',
+        });
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const membership = await tx.membership.create({
         data: {
           organizationId: invite.organizationId,
           userId: user.id,
           role: invite.role,
+          customRoleId: invite.customRoleId || null,
         },
       });
       await tx.orgInvite.update({
@@ -192,7 +214,9 @@ router.post('/:token/accept', requireAuth, async (req, res) => {
         id: result.id,
         organizationId: result.organizationId,
         userId: result.userId,
-        role: result.role,
+        role: result.customRoleId ? null : result.role,
+        customRoleId: result.customRoleId || null,
+        roleRef: result.customRoleId ? `custom:${result.customRoleId}` : result.role,
       },
       organization: invite.organization,
       alreadyMember: false,
