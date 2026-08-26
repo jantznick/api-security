@@ -198,29 +198,42 @@ func (s *sensor) enqueue(r *http.Request, rw *captureWriter, reqBody []byte, sta
 	}
 	var resParsed any
 	hasRes := false
-	if len(rw.body) > 0 {
-		if err := json.Unmarshal(rw.body, &resParsed); err == nil {
-			hasRes = true
+	resCT := strings.ToLower(resHeaders["content-type"])
+	// Prefer JSON Content-Type; still accept bodies that parse as JSON when CT unset.
+	// Skip obvious binary / streaming content types.
+	skipRes := strings.Contains(resCT, "octet-stream") ||
+		strings.Contains(resCT, "event-stream") ||
+		strings.HasPrefix(resCT, "image/") ||
+		strings.HasPrefix(resCT, "audio/") ||
+		strings.HasPrefix(resCT, "video/") ||
+		strings.Contains(resCT, "multipart/")
+	if !skipRes && len(rw.body) > 0 {
+		if resCT == "" || strings.Contains(resCT, "application/json") || strings.Contains(resCT, "+json") {
+			if err := json.Unmarshal(rw.body, &resParsed); err == nil {
+				hasRes = true
+			}
 		}
 	}
 	path := r.URL.Path
 	if path == "" {
 		path = "/"
 	}
+	captured := hasRes
 	sample := CreateSample(SampleInput{
-		Method:              r.Method,
-		Path:                path,
-		StatusCode:          rw.status,
-		LatencyMs:           time.Since(start).Milliseconds(),
-		RequestHeaders:      reqHeaders,
-		ResponseHeaders:     resHeaders,
-		RequestHeaderNames:  headerNamesFromHTTP(r.Header),
-		ResponseHeaderNames: headerNamesFromHTTP(rw.Header()),
-		RequestBody:         reqParsed,
-		ResponseBody:        resParsed,
-		HasRequestBody:      hasReq,
-		HasResponseBody:     hasRes,
-		AuthObserved:        ObserveAuth(reqHeaders),
+		Method:               r.Method,
+		Path:                 path,
+		StatusCode:           rw.status,
+		LatencyMs:            time.Since(start).Milliseconds(),
+		RequestHeaders:       reqHeaders,
+		ResponseHeaders:      resHeaders,
+		RequestHeaderNames:   headerNamesFromHTTP(r.Header),
+		ResponseHeaderNames:  headerNamesFromHTTP(rw.Header()),
+		RequestBody:          reqParsed,
+		ResponseBody:         resParsed,
+		HasRequestBody:       hasReq,
+		HasResponseBody:      hasRes,
+		ResponseBodyCaptured: &captured,
+		AuthObserved:         ObserveAuth(reqHeaders),
 	})
 	s.buffer = append(s.buffer, sample)
 	if len(s.buffer) >= s.cfg.MaxBatchSize {

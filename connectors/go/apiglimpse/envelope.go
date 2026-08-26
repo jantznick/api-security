@@ -7,14 +7,15 @@ import (
 
 // Sample is one traffic observation in envelope v1.
 type Sample struct {
-	Method       string `json:"method"`
-	Path         string `json:"path"`
-	StatusCode   int    `json:"statusCode"`
-	LatencyMs    int64  `json:"latencyMs"`
-	AuthObserved string `json:"authObserved"`
-	Timestamp    string `json:"timestamp"`
-	Request      IOSide `json:"request"`
-	Response     IOSide `json:"response"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	StatusCode            int    `json:"statusCode"`
+	LatencyMs             int64  `json:"latencyMs"`
+	AuthObserved          string `json:"authObserved"`
+	Timestamp             string `json:"timestamp"`
+	ResponseBodyCaptured  *bool  `json:"responseBodyCaptured,omitempty"`
+	Request               IOSide `json:"request"`
+	Response              IOSide `json:"response"`
 }
 
 // IOSide is the request or response half of a sample.
@@ -46,10 +47,11 @@ type SampleInput struct {
 	ResponseHeaderNames []string
 	RequestBody         any
 	ResponseBody        any
-	HasRequestBody      bool
-	HasResponseBody     bool
-	AuthObserved        string
-	Timestamp           string
+	HasRequestBody         bool
+	HasResponseBody        bool
+	ResponseBodyCaptured   *bool
+	AuthObserved           string
+	Timestamp              string
 }
 
 // CreateSample builds one traffic sample with redacted headers and shaped bodies.
@@ -103,12 +105,13 @@ func CreateSample(in SampleInput) Sample {
 	}
 
 	return Sample{
-		Method:       method,
-		Path:         path,
-		StatusCode:   in.StatusCode,
-		LatencyMs:    in.LatencyMs,
-		AuthObserved: auth,
-		Timestamp:    ts,
+		Method:               method,
+		Path:                 path,
+		StatusCode:           in.StatusCode,
+		LatencyMs:            in.LatencyMs,
+		AuthObserved:         auth,
+		Timestamp:            ts,
+		ResponseBodyCaptured: in.ResponseBodyCaptured,
 		Request: IOSide{
 			ContentType: contentType(reqHeaders),
 			HeaderNames: reqNames,

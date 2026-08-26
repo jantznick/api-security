@@ -12,9 +12,18 @@ const DEFAULTS = {
   circuitOpenMs: 15000,
 };
 
+/** Max bytes we will attempt to parse from onSend string/Buffer payloads. */
+const MAX_RESPONSE_CAPTURE_BYTES = 64 * 1024;
+
 const kSkip = Symbol('apiglimpse.skip');
 const kStart = Symbol('apiglimpse.start');
 const kResponseBody = Symbol('apiglimpse.responseBody');
+
+function isJsonContentType(contentType) {
+  return String(contentType || '')
+    .toLowerCase()
+    .includes('application/json');
+}
 
 /**
  * Fastify plugin for API Glimpse: captures request/response metadata,
@@ -80,10 +89,13 @@ export function apiSensor(options = {}) {
     }
   }
 
-  function parseResponsePayload(payload) {
+  function parseResponsePayload(payload, contentType) {
     if (payload === undefined || payload === null) return undefined;
     try {
       if (typeof payload === 'string') {
+        if (Buffer.byteLength(payload, 'utf8') > MAX_RESPONSE_CAPTURE_BYTES) {
+          return undefined;
+        }
         try {
           return JSON.parse(payload);
         } catch {
@@ -91,9 +103,18 @@ export function apiSensor(options = {}) {
         }
       }
       if (Buffer.isBuffer(payload)) {
-        return undefined;
+        // Only attempt Buffer JSON when Content-Type is JSON; skip binary.
+        if (!isJsonContentType(contentType)) return undefined;
+        if (payload.length > MAX_RESPONSE_CAPTURE_BYTES) return undefined;
+        try {
+          return JSON.parse(payload.toString('utf8'));
+        } catch {
+          return undefined;
+        }
       }
       if (typeof payload === 'object') {
+        // Skip streams / readable-like payloads
+        if (typeof payload.pipe === 'function') return undefined;
         return payload;
       }
     } catch {
@@ -157,11 +178,15 @@ export function apiSensor(options = {}) {
       }
     });
 
-    fastify.addHook('onSend', async (request, _reply, payload) => {
+    fastify.addHook('onSend', async (request, reply, payload) => {
       try {
         if (request[kSkip]) return payload;
         if (request[kResponseBody] === undefined) {
-          request[kResponseBody] = parseResponsePayload(payload);
+          const ct =
+            reply.getHeader?.('content-type') ||
+            reply.getHeader?.('Content-Type') ||
+            '';
+          request[kResponseBody] = parseResponsePayload(payload, ct);
         }
       } catch {
         /* fail-open */
@@ -180,6 +205,9 @@ export function apiSensor(options = {}) {
         const requestBody =
           request.body && typeof request.body === 'object' ? request.body : undefined;
 
+        const responseBody = request[kResponseBody];
+        const responseBodyCaptured = responseBody !== undefined;
+
         const sample = createSample({
           method: request.method,
           path: (request.url || '/').split('?')[0] || '/',
@@ -188,7 +216,8 @@ export function apiSensor(options = {}) {
           requestHeaders: request.headers || {},
           responseHeaders: reply.getHeaders?.() || {},
           requestBody,
-          responseBody: request[kResponseBody],
+          responseBody,
+          responseBodyCaptured,
           authObserved: observeAuth(request),
         });
         buffer.push(sample);

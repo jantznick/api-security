@@ -105,4 +105,36 @@ describe('createSample + redaction stable shapes', () => {
     assert.equal(typeof env.sentAt, 'string');
     assert.deepEqual(validateEnvelope(env), { ok: true });
   });
+
+  it('includes responseBodyCaptured only when explicitly provided', () => {
+    const without = createSample({
+      method: 'GET',
+      path: '/',
+      statusCode: 200,
+      latencyMs: 1,
+      responseBody: { ok: true },
+    });
+    assert.equal('responseBodyCaptured' in without, false);
+
+    const captured = createSample({
+      method: 'GET',
+      path: '/',
+      statusCode: 200,
+      latencyMs: 1,
+      responseBody: { ok: true },
+      responseBodyCaptured: true,
+    });
+    assert.equal(captured.responseBodyCaptured, true);
+    assert.equal(captured.response.bodyShape?.type, 'object');
+
+    const skipped = createSample({
+      method: 'GET',
+      path: '/',
+      statusCode: 200,
+      latencyMs: 1,
+      responseBodyCaptured: false,
+    });
+    assert.equal(skipped.responseBodyCaptured, false);
+    assert.equal(skipped.response.bodyShape, null);
+  });
 });

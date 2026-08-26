@@ -86,3 +86,39 @@ def test_create_sample_omits_body_when_undefined():
     )
     assert sample["request"]["bodyShape"] is None
     assert sample["response"]["bodyShape"] is None
+
+
+def test_response_body_captured_optional():
+    without = create_sample(
+        method="GET",
+        path="/",
+        status_code=200,
+        request_headers={},
+        response_headers={},
+        response_body={"ok": True},
+    )
+    assert "responseBodyCaptured" not in without
+
+    captured = create_sample(
+        method="GET",
+        path="/",
+        status_code=200,
+        request_headers={},
+        response_headers={"content-type": "application/json"},
+        response_body={"ok": True},
+        response_body_captured=True,
+    )
+    assert captured["responseBodyCaptured"] is True
+    assert captured["response"]["bodyShape"]["type"] == "object"
+
+    skipped = create_sample(
+        method="GET",
+        path="/",
+        status_code=200,
+        request_headers={},
+        response_headers={},
+        response_body_captured=False,
+    )
+    assert skipped["responseBodyCaptured"] is False
+    assert skipped["response"]["bodyShape"] is None
+

@@ -29,6 +29,8 @@ DEFAULTS = {
     "circuit_open_ms": 15000,
 }
 
+MAX_RESPONSE_CAPTURE_BYTES = 64 * 1024
+
 
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
@@ -252,20 +254,38 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
             raise
 
         try:
-            # Capture JSON response body without breaking streaming consumers
+            # Capture JSON response body without breaking streaming consumers.
+            # Skip binary / non-JSON / oversized bodies (shapes only, never raw store).
             resp_ct = (response.headers.get("content-type") or "").lower()
+            response_body_captured = False
             if "application/json" in resp_ct and hasattr(response, "body_iterator"):
                 chunks: list[bytes] = []
+                total = 0
+                oversized = False
                 async for chunk in response.body_iterator:
                     if isinstance(chunk, str):
-                        chunks.append(chunk.encode("utf-8"))
+                        chunk = chunk.encode("utf-8")
+                    total += len(chunk)
+                    if total > MAX_RESPONSE_CAPTURE_BYTES:
+                        oversized = True
+                    if not oversized:
+                        chunks.append(chunk)
                     else:
+                        # Still drain the iterator so the client gets the full body
                         chunks.append(chunk)
                 body_bytes = b"".join(chunks)
-                response_body = _parse_json_bytes(body_bytes)
-
-                async def body_iter():
-                    yield body_bytes
+                if not oversized:
+                    parsed = _parse_json_bytes(body_bytes)
+                    if parsed is not None:
+                        response_body = parsed
+                        response_body_captured = True
+                    elif body_bytes:
+                        # Empty-parseable or invalid JSON — not captured
+                        response_body = None
+                    else:
+                        response_body = None
+                else:
+                    response_body = None
 
                 response = Response(
                     content=body_bytes,
@@ -274,6 +294,9 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
                     media_type=response.media_type,
                     background=response.background,
                 )
+            elif "application/json" not in resp_ct:
+                # Binary / text / streaming content-types are not shaped
+                response_body = None
 
             latency_ms = (time.time() - start) * 1000.0
             path = request.url.path or "/"
@@ -284,8 +307,9 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
                 latency_ms=latency_ms,
                 request_headers=_headers_dict(request.headers),
                 response_headers=_headers_dict(response.headers),
-                request_body=request_body,
-                response_body=response_body,
+                request_body=request_body if request_body is not None else ...,
+                response_body=response_body if response_body_captured else ...,
+                response_body_captured=response_body_captured,
                 auth_observed=_observe_auth(_headers_dict(request.headers)),
             )
             self._enqueue(sample)

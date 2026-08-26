@@ -12,6 +12,56 @@ const DEFAULTS = {
   circuitOpenMs: 15000,
 };
 
+/** Max bytes we will attempt to parse from res.end / stringified JSON. */
+const MAX_RESPONSE_CAPTURE_BYTES = 64 * 1024;
+
+function isJsonContentType(res) {
+  try {
+    const ct = res.getHeader?.('content-type') || res.getHeader?.('Content-Type') || '';
+    return String(ct).toLowerCase().includes('application/json');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse a string/Buffer as JSON when under the capture cap.
+ * Skips streams, oversized bodies, and non-JSON.
+ * @returns {any|undefined} Parsed value, or undefined if not capturable.
+ */
+function tryParseJsonChunk(chunk) {
+  try {
+    if (chunk == null || chunk === '') return undefined;
+    // Functions are callbacks for res.end(cb) — not a body.
+    if (typeof chunk === 'function') return undefined;
+    // Never treat streams / readers as capturable bodies.
+    if (typeof chunk === 'object' && !Buffer.isBuffer(chunk) && typeof chunk.pipe === 'function') {
+      return undefined;
+    }
+
+    if (typeof chunk === 'string') {
+      if (Buffer.byteLength(chunk, 'utf8') > MAX_RESPONSE_CAPTURE_BYTES) return undefined;
+      try {
+        return JSON.parse(chunk);
+      } catch {
+        return undefined;
+      }
+    }
+
+    if (Buffer.isBuffer(chunk)) {
+      if (chunk.length > MAX_RESPONSE_CAPTURE_BYTES) return undefined;
+      try {
+        return JSON.parse(chunk.toString('utf8'));
+      } catch {
+        return undefined;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
 /**
  * Express middleware for API Glimpse: captures request/response metadata,
  * redacts secrets, buffers, and flushes async batches to the collector.
@@ -117,6 +167,7 @@ export function apiSensor(options = {}) {
       const start = Date.now();
       const originalJson = res.json.bind(res);
       const originalSend = res.send.bind(res);
+      const originalEnd = res.end.bind(res);
       let responseBody;
 
       res.json = (body) => {
@@ -128,21 +179,39 @@ export function apiSensor(options = {}) {
         if (responseBody === undefined) {
           try {
             if (typeof body === 'string') {
-              try {
-                responseBody = JSON.parse(body);
-              } catch {
-                responseBody = undefined;
-              }
+              const parsed = tryParseJsonChunk(body);
+              if (parsed !== undefined) responseBody = parsed;
             } else if (Buffer.isBuffer(body)) {
-              // skip binary
-            } else {
-              responseBody = body;
+              // Binary / opaque buffers skipped here; res.end may still capture
+              // when Content-Type is application/json.
+            } else if (body !== undefined && typeof body !== 'function') {
+              if (typeof body === 'object' && body !== null && typeof body.pipe === 'function') {
+                // stream — skip
+              } else {
+                responseBody = body;
+              }
             }
           } catch {
             /* ignore */
           }
         }
         return originalSend(body);
+      };
+
+      // Capture JSON written via res.end(string|Buffer) when Content-Type is JSON.
+      // Skip streams/binary; never throw into the app.
+      res.end = function apiglimpseEnd(chunk, encoding, cb) {
+        try {
+          if (responseBody === undefined && chunk != null && typeof chunk !== 'function') {
+            if (isJsonContentType(res)) {
+              const parsed = tryParseJsonChunk(chunk);
+              if (parsed !== undefined) responseBody = parsed;
+            }
+          }
+        } catch {
+          /* fail-open */
+        }
+        return originalEnd(chunk, encoding, cb);
       };
 
       // Capture request body if express.json already parsed it
@@ -154,6 +223,7 @@ export function apiSensor(options = {}) {
             buffer.shift();
           }
 
+          const responseBodyCaptured = responseBody !== undefined;
           const sample = createSample({
             method: req.method,
             path: req.originalUrl?.split('?')[0] || req.path || '/',
@@ -163,6 +233,7 @@ export function apiSensor(options = {}) {
             responseHeaders: res.getHeaders?.() || {},
             requestBody,
             responseBody,
+            responseBodyCaptured,
             authObserved: observeAuth(req),
           });
           buffer.push(sample);

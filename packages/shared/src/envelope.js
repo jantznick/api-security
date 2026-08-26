@@ -3,6 +3,11 @@ import { ENVELOPE_VERSION, redactHeaders, shapeBody } from './redaction.js';
 /**
  * Build one traffic sample for the agent.
  * Bodies are shape-only; sensitive headers are redacted.
+ *
+ * @param {object} input
+ * @param {boolean} [input.responseBodyCaptured] When set, recorded on the sample
+ *   so inventory can tell whether a response schema came from a captured body.
+ *   Omitted from the payload when not provided (backward-compatible fixtures).
  */
 export function createSample({
   method,
@@ -13,6 +18,7 @@ export function createSample({
   responseHeaders = {},
   requestBody,
   responseBody,
+  responseBodyCaptured,
   authObserved = 'none',
   timestamp = new Date().toISOString(),
 }) {
@@ -25,7 +31,7 @@ export function createSample({
     responseHeaders['Content-Type'] ||
     null;
 
-  return {
+  const sample = {
     method: String(method || 'GET').toUpperCase(),
     path: String(path || '/'),
     statusCode: Number(statusCode) || 0,
@@ -45,6 +51,12 @@ export function createSample({
       bodyShape: responseBody !== undefined ? shapeBody(responseBody) : null,
     },
   };
+
+  if (typeof responseBodyCaptured === 'boolean') {
+    sample.responseBodyCaptured = responseBodyCaptured;
+  }
+
+  return sample;
 }
 
 export function createEnvelope({ apiKey, samples }) {
