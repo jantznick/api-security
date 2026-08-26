@@ -171,38 +171,102 @@ function SecuritySection({ onLogout }) {
   );
 }
 
+function roleLabel(role) {
+  if (!role) return null;
+  const s = String(role);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function OrganizationsSection({ user }) {
-  const plan = planLabel(user?.planSlug);
+  const orgs = Array.isArray(user?.orgs) ? user.orgs : [];
+  const accountPlan = planLabel(user?.planSlug);
 
   return (
     <Card className="p-6">
       <h2 className="font-display text-lg font-bold text-ink-900">Organizations</h2>
       <p className="mt-1 text-sm text-ink-500">
-        Team organizations are coming soon. For now you work in a personal workspace.
+        Your personal workspace is ready — projects and services live here. Inviting
+        teammates to share an org is next; Free plans include up to 3 seats (you count
+        as one).
       </p>
 
-      <div className="mt-6 border-t border-ink-100 pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-ink-900">Personal workspace</p>
-            <p className="mt-0.5 text-sm text-ink-500">Your projects and API inventory</p>
+      {orgs.length > 0 ? (
+        <ul className="mt-6 divide-y divide-ink-100 border-t border-ink-100">
+          {orgs.map((org) => {
+            const orgPlan = planLabel(org.planSlug || user?.planSlug);
+            const role = roleLabel(org.role);
+            return (
+              <li
+                key={org.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-ink-900">
+                      {org.name || 'Organization'}
+                    </p>
+                    {org.isPersonal ? (
+                      <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2 py-0.5 text-xs font-medium text-ink-700">
+                        Personal
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-sm text-ink-500">
+                    {[role ? `${role}` : null, orgPlan ? `${orgPlan} plan` : null]
+                      .filter(Boolean)
+                      .join(' · ') || 'Member'}
+                  </p>
+                </div>
+                <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
+                  {orgPlan}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="mt-6 border-t border-ink-100 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-ink-900">Personal workspace</p>
+              <p className="mt-0.5 text-sm text-ink-500">
+                Created automatically for your account
+              </p>
+            </div>
+            <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
+              {accountPlan}
+            </span>
           </div>
-          <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
-            {plan}
-          </span>
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link to="/billing">
-            <Button type="button" variant="secondary">
-              Billing
-            </Button>
-          </Link>
-          <Link to="/usage">
-            <Button type="button" variant="secondary">
-              Usage
-            </Button>
-          </Link>
-        </div>
+      )}
+
+      <div className="mt-6 rounded-lg border border-dashed border-ink-200 bg-ink-50/60 px-4 py-4 text-sm text-ink-600">
+        <p className="font-medium text-ink-800">Invite teammates — coming next</p>
+        <p className="mt-1">
+          Email invites, roles, and seat enforcement are on the roadmap. Check{' '}
+          <Link to="/usage" className="font-medium text-signal-600 hover:text-signal-800">
+            Usage
+          </Link>{' '}
+          for current seat limits on your plan.
+        </p>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link to="/projects">
+          <Button type="button" variant="secondary">
+            Projects
+          </Button>
+        </Link>
+        <Link to="/usage">
+          <Button type="button" variant="secondary">
+            Usage & seats
+          </Button>
+        </Link>
+        <Link to="/billing">
+          <Button type="button" variant="secondary">
+            Billing
+          </Button>
+        </Link>
       </div>
     </Card>
   );

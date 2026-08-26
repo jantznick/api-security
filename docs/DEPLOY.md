@@ -212,7 +212,7 @@ Three **Static Site** services. Connect the same GitHub repo.
 | Root directory | `frontend` |
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
-| SPA rewrite | **`/*` → `/index.html`** (required; [`frontend/public/_redirects`](../frontend/public/_redirects)) |
+| SPA rewrite | **`/*` → `/index.html`** (**Rewrite** in Render Dashboard or Blueprint — required; see [RENDER.md](./RENDER.md)) |
 
 | Build env | Value |
 | --- | --- |
@@ -232,7 +232,7 @@ Then set Railway core `FRONTEND_URL` to the dashboard origin and redeploy core i
 | Root directory | `marketing` |
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
-| SPA rewrite | **`/*` → `/index.html`** (required) |
+| SPA rewrite | **`/*` → `/index.html`** (**Rewrite** in Dashboard or Blueprint — required) |
 
 | Build env | Value |
 | --- | --- |

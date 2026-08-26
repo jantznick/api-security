@@ -1,1 +1,4 @@
+# Netlify-compatible SPA fallback (copied into dist/).
+# Render Static Sites do NOT apply this file — configure Dashboard Redirects/Rewrites
+# or Blueprint routes (see docs/RENDER.md and render.yaml).
 /*    /index.html   200

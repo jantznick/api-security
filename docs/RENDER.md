@@ -25,7 +25,18 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
 | Environment | Build-time `VITE_API_URL` |
-| SPA rewrite | `/*` → `/index.html` (**required**) — shipped as [`frontend/public/_redirects`](../frontend/public/_redirects) |
+| SPA rewrite | `/*` → `/index.html` (**Rewrite**, **required**) — configure in Dashboard or Blueprint (see below) |
+
+### SPA hard refresh (critical)
+
+**Render does not read Netlify-style `_redirects` files.** Without a rewrite rule, hard refresh on `/projects`, `/admin`, `/billing`, etc. returns Render’s plain-text `404 Not Found` (browsers may download it as a file).
+
+Configure **one** of:
+
+1. **Dashboard (immediate):** Static Site → **Redirects/Rewrites** → Source `/*` → Destination `/index.html` → Action **Rewrite**
+2. **Blueprint:** adopt root [`render.yaml`](../render.yaml) (match service `name:` to existing services) so `routes` ship the same rewrite
+
+[`frontend/public/_redirects`](../frontend/public/_redirects) (`/*    /index.html   200`) is still copied into `dist/` for hosts that honor Netlify redirects; it is **not** what fixes `app.apiglimpse.com` on Render.
 
 ### Executable runbook
 
@@ -34,9 +45,9 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 3. **Root Directory:** `frontend`
 4. **Build Command:** `npm install && npm run build`
 5. **Publish Directory:** `dist`
-6. Confirm SPA rewrite: either `dist/_redirects` after build, or Redirects/Rewrites → `/*` → `/index.html` (**Rewrite**)
+6. **Redirects/Rewrites** → `/*` → `/index.html` (**Rewrite**) — or link Blueprint from [`render.yaml`](../render.yaml)
 
-Without this, deep links like `/projects` return plain-text `404 Not Found` (browsers may download it as a file).
+Without this, deep links like `/projects` return plain-text `404 Not Found`.
 
 ### Build environment
 
@@ -113,7 +124,7 @@ Copy from [`marketing/.env.example`](../marketing/.env.example). Until DNS is li
 
 ### SPA rewrite (required)
 
-Client-side routes (`/how-it-works`, `/privacy`, etc.) need a **Rewrite** on the Render static site:
+Client-side routes (`/how-it-works`, `/privacy`, etc.) need a **Rewrite** on the Render static site (Dashboard **Redirects/Rewrites**, or Blueprint [`render.yaml`](../render.yaml)). Render does **not** apply `marketing/public/_redirects`.
 
 | Source | Destination | Action |
 | --- | --- | --- |

@@ -1,1 +1,3 @@
+# Netlify-compatible SPA fallback (copied into dist/).
+# Render does NOT apply this file — use Dashboard Redirects/Rewrites or render.yaml.
 /*    /index.html   200

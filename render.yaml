@@ -1,0 +1,35 @@
+# Optional Render Blueprint for static SPAs.
+#
+# Render does NOT apply Netlify-style `_redirects` files. SPA hard-refresh needs
+# either Dashboard → Redirects/Rewrites, or Blueprint `routes` as below.
+#
+# If these static sites already exist in the Render Dashboard without Blueprint,
+# either:
+#   1. Add Source `/*` → Destination `/index.html` → Action Rewrite on each site, or
+#   2. Adopt this Blueprint and rename `name:` fields to match existing services
+#      so Render updates them instead of creating duplicates.
+#
+# Docs/docs-site is omitted (VitePress has real paths; no SPA catch-all needed).
+
+services:
+  - type: web
+    name: apiglimpse-dashboard
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: apiglimpse-marketing
+    runtime: static
+    rootDir: marketing
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -85,8 +85,8 @@ Local checklist details: [TESTING.md](./TESTING.md).
 
 | Check | If wrong |
 | --- | --- |
-| Marketing deep link (e.g. `/how-it-works` refresh) 404s | Render → Marketing → **Redirects/Rewrites** → `/*` → `/index.html` (Rewrite) |
-| Dashboard `/projects` 404s / downloads a text file | Same rewrite on the **Dashboard** static site (or merge `frontend/public/_redirects`) |
+| Marketing deep link (e.g. `/how-it-works` refresh) 404s | Render → Marketing → **Redirects/Rewrites** → `/*` → `/index.html` (Rewrite). `_redirects` alone does not fix Render. |
+| Dashboard `/projects` 404s / downloads a text file | Same rewrite on the **Dashboard** static site (Dashboard or [`render.yaml`](../render.yaml)) |
 | Login works on marketing but cookie missing on app | Confirm both built with `VITE_API_URL=https://api.apiglimpse.com` and core has `COOKIE_DOMAIN=.apiglimpse.com` |
 | Magic link URL points at wrong host | Core `MARKETING_URL=https://apiglimpse.com` |
 
