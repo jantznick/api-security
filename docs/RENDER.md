@@ -12,6 +12,10 @@ Three **Static Site** services on **Render**. Core API, agent, ingest, and Postg
 
 Platform URLs (`*.onrender.com`) work until custom domains are attached.
 
+### SPA rewrite
+
+Durable source of truth: root [`render.yaml`](../render.yaml) Blueprint `routes` (`/*` → `/index.html`) on the dashboard and marketing services. A matching Redirects/Rewrites entry in the Render Dashboard is fine as a backup if sites were created outside Blueprint. Render ignores Netlify-style `_redirects`.
+
 ---
 
 ## Dashboard (`frontend/`)
@@ -25,7 +29,7 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
 | Environment | Build-time `VITE_API_URL` |
-| SPA rewrite | `/*` → `/index.html` (**required**) — shipped as [`frontend/public/_redirects`](../frontend/public/_redirects) |
+| SPA rewrite | `/*` → `/index.html` (**required**) — see [`render.yaml`](../render.yaml) |
 
 ### Executable runbook
 
@@ -34,7 +38,7 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 3. **Root Directory:** `frontend`
 4. **Build Command:** `npm install && npm run build`
 5. **Publish Directory:** `dist`
-6. Confirm SPA rewrite: either `dist/_redirects` after build, or Redirects/Rewrites → `/*` → `/index.html` (**Rewrite**)
+6. Confirm SPA rewrite via Blueprint (`render.yaml`) or Dashboard Redirects/Rewrites → `/*` → `/index.html` (**Rewrite**)
 
 Without this, deep links like `/projects` return plain-text `404 Not Found` (browsers may download it as a file).
 
@@ -113,13 +117,7 @@ Copy from [`marketing/.env.example`](../marketing/.env.example). Until DNS is li
 
 ### SPA rewrite (required)
 
-Client-side routes (`/how-it-works`, `/privacy`, etc.) need a **Rewrite** on the Render static site:
-
-| Source | Destination | Action |
-| --- | --- | --- |
-| `/*` | `/index.html` | **Rewrite** |
-
-Without this, deep links 404 on refresh.
+Client-side routes (`/how-it-works`, `/privacy`, etc.) need `/*` → `/index.html` (**Rewrite**) — configured in [`render.yaml`](../render.yaml) (Dashboard rewrite OK as backup). Without this, deep links 404 on refresh.
 
 ### Local
 

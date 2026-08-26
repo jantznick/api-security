@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { authAPI } from './api/api';
 import useAuthStore from './store/authStore';
 import AuthModal from './components/AuthModal';
@@ -18,6 +18,7 @@ import Usage from './pages/Usage';
 import Admin from './pages/Admin';
 import OrgMembers from './pages/OrgMembers';
 import AcceptInvite from './pages/AcceptInvite';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -142,7 +143,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthModalProvider>
   );
