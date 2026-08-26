@@ -74,8 +74,8 @@ model Session {
   sess   Json     @db.JsonB
   expire DateTime @db.Timestamp(6)
 
-  @@map("session")
   @@index([expire])
+  @@map("session")
 }
 
 model Organization {
@@ -175,27 +175,27 @@ model ApiKey {
 }
 
 model Endpoint {
-  id           String   @id @default(uuid())
-  serviceId    String
-  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  method       String
-  pathTemplate String
-  firstSeenAt  DateTime @default(now())
-  lastSeenAt   DateTime @default(now())
-  hitCount     Int      @default(0)
+  id             String   @id @default(uuid())
+  serviceId      String
+  service        Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  method         String
+  pathTemplate   String
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  hitCount       Int      @default(0)
   /// Observed auth modes: bearer, cookie, none (JSON array)
-  authModes    Json     @default("[]")
+  authModes      Json     @default("[]")
   /// Status code histogram: { "200": 12, "404": 1 }
-  statusCodes  Json     @default("{}")
+  statusCodes    Json     @default("{}")
   /// Merged request body schema fragment (JSON Schema-ish)
   requestSchema  Json?
   /// Merged response body schema fragment
   responseSchema Json?
   /// Request/response content types seen
-  contentTypes Json     @default("[]")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  signals      Signal[]
+  contentTypes   Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  signals        Signal[]
 
   @@unique([serviceId, method, pathTemplate])
   @@index([serviceId])
