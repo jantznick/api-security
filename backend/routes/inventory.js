@@ -98,4 +98,108 @@ router.get('/:serviceId/endpoints/:endpointId', async (req, res) => {
   }
 });
 
+
+/**
+ * SF2 — list inventory drift events for a service.
+ * Query: unread=1 | unread=true → only unread; limit (default 50, max 200)
+ * GET /api/inventory/:serviceId/events
+ */
+router.get('/:serviceId/events', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const unreadOnly =
+      req.query.unread === '1' ||
+      String(req.query.unread || '').toLowerCase() === 'true';
+    const limitRaw = Number(req.query.limit);
+    const take = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.floor(limitRaw), 1), 200)
+      : 50;
+
+    const where = {
+      serviceId: service.id,
+      ...(unreadOnly ? { readAt: null } : {}),
+    };
+
+    const [events, unreadCount] = await Promise.all([
+      prisma.inventoryEvent.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take,
+        include: {
+          endpoint: {
+            select: { id: true, method: true, pathTemplate: true },
+          },
+        },
+      }),
+      prisma.inventoryEvent.count({
+        where: { serviceId: service.id, readAt: null },
+      }),
+    ]);
+
+    res.json({ events, unreadCount });
+  } catch (error) {
+    console.error('List inventory events error:', error);
+    res.status(500).json({ error: 'Failed to list events' });
+  }
+});
+
+/**
+ * Mark one event read.
+ * POST /api/inventory/:serviceId/events/:eventId/read
+ */
+router.post('/:serviceId/events/:eventId/read', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const existing = await prisma.inventoryEvent.findFirst({
+      where: { id: req.params.eventId, serviceId: service.id },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const event = existing.readAt
+      ? existing
+      : await prisma.inventoryEvent.update({
+          where: { id: existing.id },
+          data: { readAt: new Date() },
+        });
+
+    res.json({ event });
+  } catch (error) {
+    console.error('Mark event read error:', error);
+    res.status(500).json({ error: 'Failed to mark event read' });
+  }
+});
+
+/**
+ * Mark all unread events for the service as read.
+ * POST /api/inventory/:serviceId/events/read-all
+ */
+router.post('/:serviceId/events/read-all', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const result = await prisma.inventoryEvent.updateMany({
+      where: { serviceId: service.id, readAt: null },
+      data: { readAt: new Date() },
+    });
+
+    res.json({ updated: result.count });
+  } catch (error) {
+    console.error('Mark all events read error:', error);
+    res.status(500).json({ error: 'Failed to mark events read' });
+  }
+});
+
 export default router;

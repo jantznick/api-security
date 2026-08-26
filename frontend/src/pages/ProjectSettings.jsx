@@ -32,6 +32,8 @@ export default function ProjectSettings() {
   const [rawKey, setRawKey] = useState(null);
   const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
   const [installStack, setInstallStack] = useState('express');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [savingWebhook, setSavingWebhook] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +41,10 @@ export default function ProjectSettings() {
       setLoading(true);
       try {
         const data = await projectsAPI.getService(projectId, serviceId);
-        if (!cancelled) setService(data.service);
+        if (!cancelled) {
+          setService(data.service);
+          setWebhookUrl(data.service?.webhookUrl || '');
+        }
       } catch (err) {
         toast.error(err.message);
       } finally {
@@ -55,8 +60,26 @@ export default function ProjectSettings() {
     try {
       const data = await projectsAPI.getService(projectId, serviceId);
       setService(data.service);
+      setWebhookUrl(data.service?.webhookUrl || '');
     } catch (err) {
       toast.error(err.message);
+    }
+  };
+
+  const saveWebhook = async (event) => {
+    event.preventDefault();
+    setSavingWebhook(true);
+    try {
+      const data = await projectsAPI.updateService(projectId, serviceId, {
+        webhookUrl: webhookUrl.trim() || null,
+      });
+      setService(data.service);
+      setWebhookUrl(data.service?.webhookUrl || '');
+      toast.success(data.service?.webhookUrl ? 'Webhook URL saved' : 'Webhook URL cleared');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingWebhook(false);
     }
   };
 
@@ -305,6 +328,29 @@ export default function ProjectSettings() {
             Integrating docs →
           </a>
         </div>
+      </Card>
+
+      <Card className="mt-8 p-6">
+        <h2 className="font-display text-lg font-semibold text-ink-900">Drift webhook</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          Optional URL that receives a JSON POST when a new endpoint, signal, or auth regression is detected.
+          Delivery is fire-and-forget and never blocks inventory upserts.
+        </p>
+        <form onSubmit={saveWebhook} className="mt-4 flex flex-wrap items-end gap-3">
+          <FormField id="webhook-url" label="Webhook URL" className="min-w-[16rem] flex-1">
+            <input
+              id="webhook-url"
+              type="url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className={inputClassName}
+              placeholder="https://example.com/hooks/apiglimpse"
+            />
+          </FormField>
+          <Button type="submit" disabled={savingWebhook || loading}>
+            {savingWebhook ? 'Saving…' : 'Save webhook'}
+          </Button>
+        </form>
       </Card>
 
       <Card className="mt-8 p-6">

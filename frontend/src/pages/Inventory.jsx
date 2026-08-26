@@ -15,6 +15,20 @@ function severityClass(severity) {
   return 'bg-ink-100 text-ink-700';
 }
 
+function eventLabel(type) {
+  if (type === 'endpoint.discovered') return 'New endpoint';
+  if (type === 'signal.appeared') return 'New signal';
+  if (type === 'auth.regressed') return 'Auth regression';
+  return type;
+}
+
+function eventTone(type) {
+  if (type === 'auth.regressed') return 'bg-danger-50 text-danger-700';
+  if (type === 'signal.appeared') return 'bg-warn-50 text-warn-700';
+  return 'bg-signal-50 text-signal-800';
+}
+
+
 /** Near/at endpoint cap from GET /billing/me — null if billing API missing. */
 function usageCapBanner(me, serviceId) {
   if (!me || typeof me !== 'object') return null;
@@ -56,20 +70,26 @@ export default function Inventory() {
   const { projectId, serviceId } = useParams();
   const [service, setService] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
+  const [markingAll, setMarkingAll] = useState(false);
 
   const basePath = `/projects/${projectId}/services/${serviceId}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e] = await Promise.all([
+      const [p, e, ev] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
+        inventoryAPI.listEvents(serviceId, { limit: 20 }),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
+      setEvents(ev.events || []);
+      setUnreadCount(ev.unreadCount || 0);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -101,6 +121,36 @@ export default function Inventory() {
   const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
   const keyPrefix = activeKeys[0]?.keyPrefix;
   const [exporting, setExporting] = useState(false);
+
+  const markEventRead = async (eventId) => {
+    try {
+      await inventoryAPI.markEventRead(serviceId, eventId);
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id === eventId ? { ...ev, readAt: ev.readAt || new Date().toISOString() } : ev,
+        ),
+      );
+      setUnreadCount((n) => Math.max(0, n - 1));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const markAllRead = async () => {
+    setMarkingAll(true);
+    try {
+      await inventoryAPI.markAllEventsRead(serviceId);
+      setEvents((prev) =>
+        prev.map((ev) => ({ ...ev, readAt: ev.readAt || new Date().toISOString() })),
+      );
+      setUnreadCount(0);
+      toast.success('All drift events marked read');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
 
   const exportOpenApi = async () => {
     setExporting(true);
@@ -142,6 +192,14 @@ export default function Inventory() {
         description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies."
         actions={
           <>
+            {unreadCount > 0 ? (
+              <span
+                className="inline-flex items-center rounded-md bg-warn-50 px-2.5 py-1 text-xs font-semibold text-warn-700"
+                title="Unread drift events"
+              >
+                {unreadCount} new
+              </span>
+            ) : null}
             <Link to={`${basePath}/settings`}>
               <Button variant="secondary">Settings</Button>
             </Link>
@@ -198,6 +256,93 @@ export default function Inventory() {
           </Link>
         </div>
       ) : null}
+
+      <Card className="mt-8 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink-900">
+              Drift events
+              {unreadCount > 0 ? (
+                <span className="ml-2 inline-flex rounded bg-warn-50 px-1.5 py-0.5 text-xs font-semibold text-warn-700">
+                  {unreadCount} unread
+                </span>
+              ) : null}
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-500">
+              New endpoints, sensitive fields, and auth regressions from inventory upserts.
+            </p>
+          </div>
+          {unreadCount > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-9 px-3 py-1.5 text-sm"
+              onClick={markAllRead}
+              disabled={markingAll}
+            >
+              {markingAll ? 'Marking…' : 'Mark all read'}
+            </Button>
+          ) : null}
+        </div>
+        {events.length === 0 ? (
+          <p className="p-4 text-sm text-ink-500">No drift events yet. New routes appear here after the next upsert.</p>
+        ) : (
+          <ul className="divide-y divide-ink-100">
+            {events.map((ev) => {
+              const method = ev.endpoint?.method || ev.payload?.method;
+              const path = ev.endpoint?.pathTemplate || ev.payload?.pathTemplate;
+              const unread = !ev.readAt;
+              return (
+                <li
+                  key={ev.id}
+                  className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm ${
+                    unread ? 'bg-signal-50/40' : ''
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${eventTone(ev.type)}`}>
+                        {eventLabel(ev.type)}
+                      </span>
+                      {method && path ? (
+                        <code className="font-mono text-ink-800">
+                          {method} {path}
+                        </code>
+                      ) : null}
+                    </div>
+                    {ev.type === 'signal.appeared' && ev.payload?.fieldPath ? (
+                      <p className="mt-1 text-xs text-ink-600">
+                        {ev.payload.category || 'field'} at{' '}
+                        <code className="font-mono">{ev.payload.fieldPath}</code>
+                      </p>
+                    ) : null}
+                    {ev.type === 'auth.regressed' ? (
+                      <p className="mt-1 text-xs text-ink-600">
+                        Saw only <code className="font-mono">none</code> after{' '}
+                        {(ev.payload?.previousAuthModes || []).join(', ') || 'strong auth'}.
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-ink-500">
+                      {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : '—'}
+                    </p>
+                  </div>
+                  {unread ? (
+                    <button
+                      type="button"
+                      onClick={() => markEventRead(ev.id)}
+                      className="cursor-pointer text-xs font-medium text-signal-700 hover:text-signal-800"
+                    >
+                      Mark read
+                    </button>
+                  ) : (
+                    <span className="text-xs text-ink-400">Read</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
 
       <Card className="mt-8 overflow-hidden">
         {loading && endpoints.length === 0 ? (

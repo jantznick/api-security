@@ -79,6 +79,11 @@ export const projectsAPI = {
     }),
   getService: (projectId, serviceId) =>
     request(`/projects/${projectId}/services/${serviceId}`),
+  updateService: (projectId, serviceId, body) =>
+    request(`/projects/${projectId}/services/${serviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   createApiKey: (projectId, serviceId, name) =>
     request(`/projects/${projectId}/services/${serviceId}/api-keys`, {
       method: 'POST',
@@ -110,6 +115,18 @@ export const inventoryAPI = {
     request(`/inventory/${serviceId}/endpoints/${endpointId}`),
   /** OpenAPI 3.0 JSON document for the service inventory */
   exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
+  /** SF2 drift events */
+  listEvents: (serviceId, { unread, limit } = {}) => {
+    const qs = new URLSearchParams();
+    if (unread) qs.set('unread', '1');
+    if (limit != null) qs.set('limit', String(limit));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request(`/inventory/${serviceId}/events${suffix}`);
+  },
+  markEventRead: (serviceId, eventId) =>
+    request(`/inventory/${serviceId}/events/${eventId}/read`, { method: 'POST' }),
+  markAllEventsRead: (serviceId) =>
+    request(`/inventory/${serviceId}/events/read-all`, { method: 'POST' }),
 };
 
 /**

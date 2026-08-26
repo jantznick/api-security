@@ -198,6 +198,8 @@ model Project {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
+  /// Optional outbound webhook for inventory drift events (SF2). Fire-and-forget POST JSON.
+  webhookUrl     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   services       Service[]
@@ -207,16 +209,19 @@ model Project {
 
 /// One middleware-connected API (today's Project). Keys + endpoints live here.
 model Service {
-  id            String     @id @default(uuid())
+  id            String           @id @default(uuid())
   projectId     String
-  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name          String
   /// Cap on *new* endpoints for this service. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
   endpointLimit Int?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  /// Optional outbound webhook for inventory drift events (SF2). Overrides Project.webhookUrl when set.
+  webhookUrl    String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   apiKeys       ApiKey[]
   endpoints     Endpoint[]
+  events        InventoryEvent[]
 
   @@index([projectId])
 }
@@ -239,27 +244,28 @@ model ApiKey {
 }
 
 model Endpoint {
-  id             String   @id @default(uuid())
+  id             String           @id @default(uuid())
   serviceId      String
-  service        Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  service        Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   method         String
   pathTemplate   String
-  firstSeenAt    DateTime @default(now())
-  lastSeenAt     DateTime @default(now())
-  hitCount       Int      @default(0)
+  firstSeenAt    DateTime         @default(now())
+  lastSeenAt     DateTime         @default(now())
+  hitCount       Int              @default(0)
   /// Observed auth modes: bearer, cookie, none (JSON array)
-  authModes      Json     @default("[]")
+  authModes      Json             @default("[]")
   /// Status code histogram: { "200": 12, "404": 1 }
-  statusCodes    Json     @default("{}")
+  statusCodes    Json             @default("{}")
   /// Merged request body schema fragment (JSON Schema-ish)
   requestSchema  Json?
   /// Merged response body schema fragment
   responseSchema Json?
   /// Request/response content types seen
-  contentTypes   Json     @default("[]")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  contentTypes   Json             @default("[]")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   signals        Signal[]
+  events         InventoryEvent[]
 
   @@unique([serviceId, method, pathTemplate])
   @@index([serviceId])
@@ -282,4 +288,25 @@ model Signal {
 
   @@unique([endpointId, type, fieldPath, category])
   @@index([endpointId])
+}
+
+/// Drift / change alerts from inventory upserts (SF2).
+/// Types: endpoint.discovered | signal.appeared | auth.regressed
+model InventoryEvent {
+  id         String    @id @default(uuid())
+  serviceId  String
+  service    Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  endpointId String?
+  endpoint   Endpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+  /// endpoint.discovered | signal.appeared | auth.regressed
+  type       String
+  payload    Json      @default("{}")
+  createdAt  DateTime  @default(now())
+  /// Set when the user marks the event read in the UI
+  readAt     DateTime?
+
+  @@index([serviceId, createdAt])
+  @@index([serviceId, readAt])
+  @@index([endpointId])
+  @@index([type])
 }
