@@ -55,6 +55,30 @@ const whatYouSee = [
   },
 ];
 
+
+const useCases = [
+  {
+    t: 'Docs vs reality',
+    d: 'OpenAPI is a wish list. Inventory shows which methods and paths actually got hit — with hit counts you can export.',
+  },
+  {
+    t: 'PII and secrets in payloads',
+    d: 'Sensitive-field signals flag where emails, tokens, cards, and similar data appear in request or response shapes.',
+  },
+  {
+    t: 'OpenAPI bootstrap',
+    d: 'Turn live traffic into a usable OpenAPI 3.0 export in a day — paths and schemas from what your app served.',
+  },
+  {
+    t: 'Pre-audit surface map',
+    d: 'Org → project → service inventory gives a multi-service live map without reading every repo.',
+  },
+  {
+    t: 'Auth coverage gaps',
+    d: 'See endpoints that never showed bearer or cookie auth in real traffic — filter “no auth observed” in the dashboard.',
+  },
+];
+
 const privacyPoints = [
   {
     t: 'Metadata, not payloads',
@@ -139,6 +163,48 @@ export default function Home() {
 
       <section className="border-t border-line bg-surface">
         <div className="page-shell py-20 sm:py-28">
+          <p className="section-eyebrow">Use cases</p>
+          <h2 className="section-title mt-3 max-w-2xl text-3xl sm:text-4xl">
+            Five ways teams use API Glimpse today
+          </h2>
+          <p className="section-lede">
+            Same inventory you get after adding a connector — no extra products
+            to buy. Shadow routes, sensitive fields, and OpenAPI export are in
+            the dashboard now.
+          </p>
+          <ol className="mt-16 space-y-10">
+            {useCases.map((item, i) => (
+              <li
+                key={item.t}
+                className="grid gap-2 border-t border-line pt-10 first:border-t-0 first:pt-0 sm:grid-cols-[5rem_1fr] sm:gap-8"
+              >
+                <span className="font-mono text-sm tracking-wide text-signal">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <h3 className="font-display text-xl font-bold tracking-tight text-ink">
+                    {item.t}
+                  </h3>
+                  <p className="mt-2.5 max-w-xl text-[0.975rem] leading-relaxed text-muted">
+                    {item.d}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-14 flex flex-wrap items-center gap-3 sm:gap-4">
+            <Link to="/get-started" className="btn btn-primary">
+              Get started
+            </Link>
+            <Link to="/how-it-works" className="text-link">
+              How it works →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-line">
+        <div className="page-shell py-20 sm:py-28">
           <p className="section-eyebrow">How it works</p>
           <h2 className="section-title mt-3 max-w-xl text-3xl sm:text-4xl">
             Three steps
@@ -166,7 +232,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-t border-line">
+      <section className="border-t border-line bg-surface">
         <div className="page-shell py-20 sm:py-28">
           <p className="section-eyebrow">Privacy</p>
           <h2 className="section-title mt-3 max-w-2xl text-3xl sm:text-4xl">

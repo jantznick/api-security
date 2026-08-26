@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { billingAPI, inventoryAPI, projectsAPI } from '../api/api';
@@ -13,6 +13,17 @@ function severityClass(severity) {
   if (severity === 'high') return 'bg-danger-50 text-danger-700';
   if (severity === 'medium') return 'bg-warn-50 text-warn-700';
   return 'bg-ink-100 text-ink-700';
+}
+
+/** True when no bearer/cookie (or similar) auth was ever recorded — only none or empty. */
+function hasNoAuthObserved(ep) {
+  const modes = Array.isArray(ep.authModes) ? ep.authModes : [];
+  if (modes.length === 0) return true;
+  return modes.every((m) => m === 'none');
+}
+
+function signalCount(ep) {
+  return ep._count?.signals ?? 0;
 }
 
 /** Near/at endpoint cap from GET /billing/me — null if billing API missing. */
@@ -52,12 +63,18 @@ function usageCapBanner(me, serviceId) {
   return { atCap: used >= cap, used, limit: cap };
 }
 
+const filterControlClass =
+  'rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm text-ink-800 focus:border-signal-600 focus:outline-none focus:ring-2 focus:ring-signal-600/20';
+
 export default function Inventory() {
   const { projectId, serviceId } = useParams();
   const [service, setService] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [hasSensitiveSignals, setHasSensitiveSignals] = useState(false);
+  const [noAuthObserved, setNoAuthObserved] = useState(false);
 
   const basePath = `/projects/${projectId}/services/${serviceId}`;
 
@@ -102,6 +119,32 @@ export default function Inventory() {
   const keyPrefix = activeKeys[0]?.keyPrefix;
   const [exporting, setExporting] = useState(false);
 
+  const methods = useMemo(() => {
+    const set = new Set();
+    for (const ep of endpoints) {
+      if (ep.method) set.add(ep.method);
+    }
+    return [...set].sort();
+  }, [endpoints]);
+
+  const filtersActive =
+    methodFilter !== 'all' || hasSensitiveSignals || noAuthObserved;
+
+  const filteredEndpoints = useMemo(() => {
+    return endpoints.filter((ep) => {
+      if (methodFilter !== 'all' && ep.method !== methodFilter) return false;
+      if (hasSensitiveSignals && signalCount(ep) < 1) return false;
+      if (noAuthObserved && !hasNoAuthObserved(ep)) return false;
+      return true;
+    });
+  }, [endpoints, methodFilter, hasSensitiveSignals, noAuthObserved]);
+
+  const clearFilters = () => {
+    setMethodFilter('all');
+    setHasSensitiveSignals(false);
+    setNoAuthObserved(false);
+  };
+
   const exportOpenApi = async () => {
     setExporting(true);
     try {
@@ -139,7 +182,7 @@ export default function Inventory() {
           </Link>
         }
         title={service?.name || 'Inventory'}
-        description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies."
+        description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies. Export OpenAPI anytime."
         actions={
           <>
             <Link to={`${basePath}/settings`}>
@@ -199,13 +242,64 @@ export default function Inventory() {
         </div>
       ) : null}
 
+      {endpoints.length > 0 ? (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <label className="flex items-center gap-2 text-ink-700">
+            <span className="text-ink-500">Method</span>
+            <select
+              className={filterControlClass}
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              aria-label="Filter by HTTP method"
+            >
+              <option value="all">All</option>
+              {methods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-700">
+            <input
+              type="checkbox"
+              className="rounded border-ink-300 text-signal-600 focus:ring-signal-600/30"
+              checked={hasSensitiveSignals}
+              onChange={(e) => setHasSensitiveSignals(e.target.checked)}
+            />
+            Has sensitive signals
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-700">
+            <input
+              type="checkbox"
+              className="rounded border-ink-300 text-signal-600 focus:ring-signal-600/30"
+              checked={noAuthObserved}
+              onChange={(e) => setNoAuthObserved(e.target.checked)}
+            />
+            No auth observed
+          </label>
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-signal-600 hover:text-signal-800"
+            >
+              Clear filters
+            </button>
+          ) : null}
+          <p className="ml-auto text-xs text-ink-500">
+            Showing {filteredEndpoints.length} of {endpoints.length}
+          </p>
+        </div>
+      ) : null}
+
       <Card className="mt-8 overflow-hidden">
         {loading && endpoints.length === 0 ? (
           <p className="p-6 text-sm text-ink-600">Loading…</p>
         ) : endpoints.length === 0 ? (
           <EmptyState
             title="Connect middleware"
-            description="Install the connector with your service API key so traffic appears here within seconds. Copy the install snippet from service settings."
+            description="Install a connector with your service API key. As traffic arrives you’ll see live endpoints, sensitive-field signals, auth modes, and an OpenAPI export — useful for shadow routes and docs vs reality."
             action={
               <div className="flex flex-col items-center gap-4">
                 <div className="rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-left text-sm text-ink-600">
@@ -236,6 +330,16 @@ export default function Inventory() {
               </div>
             }
           />
+        ) : filteredEndpoints.length === 0 ? (
+          <EmptyState
+            title="No endpoints match these filters"
+            description="Try clearing “Has sensitive signals” or “No auth observed”, or pick another method. Sensitive fields and auth gaps show up as traffic accumulates."
+            action={
+              <Button type="button" variant="secondary" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink-200 bg-ink-50 text-ink-700">
@@ -249,7 +353,7 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {endpoints.map((ep) => (
+              {filteredEndpoints.map((ep) => (
                 <tr key={ep.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50/80">
                   <td className="px-4 py-3">
                     <Link
@@ -270,17 +374,23 @@ export default function Inventory() {
                   <td className="px-4 py-3 text-ink-700">{ep.hitCount}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(ep.authModes) ? ep.authModes : []).map((m) => (
-                        <span
-                          key={m}
-                          className={`rounded px-1.5 py-0.5 text-xs ${severityClass(m === 'none' ? 'low' : 'medium')}`}
-                        >
-                          {m}
+                      {(Array.isArray(ep.authModes) ? ep.authModes : []).length === 0 ? (
+                        <span className={`rounded px-1.5 py-0.5 text-xs ${severityClass('low')}`}>
+                          none
                         </span>
-                      ))}
+                      ) : (
+                        (Array.isArray(ep.authModes) ? ep.authModes : []).map((m) => (
+                          <span
+                            key={m}
+                            className={`rounded px-1.5 py-0.5 text-xs ${severityClass(m === 'none' ? 'low' : 'medium')}`}
+                          >
+                            {m}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-ink-700">{ep._count?.signals ?? 0}</td>
+                  <td className="px-4 py-3 text-ink-700">{signalCount(ep)}</td>
                   <td className="px-4 py-3 text-ink-600">
                     {ep.lastSeenAt ? new Date(ep.lastSeenAt).toLocaleString() : '—'}
                   </td>

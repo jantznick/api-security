@@ -36,5 +36,6 @@ For Express: `npm install @apiglimpse/middleware`. Other stacks: [Connect your a
 
 - [Quick start](/quick-start) — account → project → API key → connector
 - [Connect your app](/integrating) — Express, Fastify, FastAPI, Go
+- [Use cases](/use-cases) — shadow APIs, sensitive fields, OpenAPI export
 - [Architecture](/architecture) — how data moves
 - [Concepts](/concepts) — API keys, schemas, endpoint limits

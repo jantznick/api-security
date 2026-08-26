@@ -41,6 +41,7 @@ export default defineConfig({
     siteTitle: 'API Glimpse',
     nav: [
       { text: 'Guide', link: '/introduction' },
+      { text: 'Use cases', link: '/use-cases' },
       { text: 'Connect', link: '/integrating' },
       {
         text: 'Dashboard',
@@ -63,6 +64,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/introduction' },
           { text: 'Quick start', link: '/quick-start' },
           { text: 'Connect your app', link: '/integrating' },
+          { text: 'Use cases', link: '/use-cases' },
         ],
       },
       {

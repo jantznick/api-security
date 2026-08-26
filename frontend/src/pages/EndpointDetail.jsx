@@ -135,7 +135,7 @@ export default function EndpointDetail() {
               <Card className="mt-4">
                 <EmptyState
                   title="No signals yet"
-                  description="As more traffic is observed, field-level signals will show up here."
+                  description="As more traffic is observed, sensitive-field signals (email, token, card, and similar) will show up here — then filter for them on inventory."
                 />
               </Card>
             ) : (

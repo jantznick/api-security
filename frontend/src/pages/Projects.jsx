@@ -229,7 +229,7 @@ export default function Projects() {
         ) : rows.length === 0 ? (
           <EmptyState
             title="No services yet"
-            description="Create a service to get an API key, then connect your app so inventory can appear."
+            description="Create a service to get an API key, then connect your app. Each service builds its own live endpoint inventory — useful for a multi-service surface map."
             action={
               <a
                 href={integratingDocsUrl}
