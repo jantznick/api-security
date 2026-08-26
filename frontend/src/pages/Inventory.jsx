@@ -16,12 +16,13 @@ function severityClass(severity) {
 }
 
 /** Near/at endpoint cap from GET /billing/me — null if billing API missing. */
-function usageCapBanner(me, projectId) {
+function usageCapBanner(me, serviceId) {
   if (!me || typeof me !== 'object') return null;
 
-  // Prefer per-project usage from W3 billing/me.projects
-  if (projectId && Array.isArray(me.projects)) {
-    const row = me.projects.find((p) => p.id === projectId);
+  // Prefer per-service usage from billing/me.services (projects alias kept)
+  const rows = Array.isArray(me.services) ? me.services : me.projects;
+  if (serviceId && Array.isArray(rows)) {
+    const row = rows.find((p) => p.id === serviceId);
     if (row) {
       const used = row.endpointCount;
       const limit = row.endpointLimit;
@@ -52,27 +53,29 @@ function usageCapBanner(me, projectId) {
 }
 
 export default function Inventory() {
-  const { projectId } = useParams();
-  const [project, setProject] = useState(null);
+  const { projectId, serviceId } = useParams();
+  const [service, setService] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
+
+  const basePath = `/projects/${projectId}/services/${serviceId}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [p, e] = await Promise.all([
-        projectsAPI.get(projectId),
-        inventoryAPI.listEndpoints(projectId),
+        projectsAPI.getService(projectId, serviceId),
+        inventoryAPI.listEndpoints(serviceId),
       ]);
-      setProject(p.project);
+      setService(p.service);
       setEndpoints(e.endpoints || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, serviceId]);
 
   useEffect(() => {
     load();
@@ -85,7 +88,7 @@ export default function Inventory() {
     billingAPI
       .me()
       .then((data) => {
-        if (!cancelled) setCapBanner(usageCapBanner(data, projectId));
+        if (!cancelled) setCapBanner(usageCapBanner(data, serviceId));
       })
       .catch(() => {
         if (!cancelled) setCapBanner(null);
@@ -93,23 +96,23 @@ export default function Inventory() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [serviceId]);
 
-  const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
+  const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
   const keyPrefix = activeKeys[0]?.keyPrefix;
   const [exporting, setExporting] = useState(false);
 
   const exportOpenApi = async () => {
     setExporting(true);
     try {
-      const doc = await inventoryAPI.exportOpenApi(projectId);
+      const doc = await inventoryAPI.exportOpenApi(serviceId);
       const blob = new Blob([JSON.stringify(doc, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const safeName =
-        String(project?.name || 'api')
+        String(service?.name || 'api')
           .replace(/[^a-zA-Z0-9._-]+/g, '-')
           .replace(/^-+|-+$/g, '')
           .slice(0, 64) || 'api';
@@ -135,11 +138,11 @@ export default function Inventory() {
             ← Projects
           </Link>
         }
-        title={project?.name || 'Inventory'}
+        title={service?.name || 'Inventory'}
         description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies."
         actions={
           <>
-            <Link to={`/projects/${projectId}/settings`}>
+            <Link to={`${basePath}/settings`}>
               <Button variant="secondary">Settings</Button>
             </Link>
             <Button
@@ -188,7 +191,7 @@ export default function Inventory() {
             use the full key as <code className="font-mono">API_SENSOR_KEY</code>
           </p>
           <Link
-            to={`/projects/${projectId}/settings`}
+            to={`${basePath}/settings`}
             className="font-medium text-signal-600 hover:text-signal-800"
           >
             Manage keys →
@@ -202,7 +205,7 @@ export default function Inventory() {
         ) : endpoints.length === 0 ? (
           <EmptyState
             title="Connect middleware"
-            description="Install the connector with your project API key so traffic appears here within seconds. Copy the install snippet from project settings."
+            description="Install the connector with your service API key so traffic appears here within seconds. Copy the install snippet from service settings."
             action={
               <div className="flex flex-col items-center gap-4">
                 <div className="rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-left text-sm text-ink-600">
@@ -218,7 +221,7 @@ export default function Inventory() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Link to={`/projects/${projectId}/settings`}>
+                  <Link to={`${basePath}/settings`}>
                     <Button type="button">Open install snippet</Button>
                   </Link>
                   <a
@@ -250,7 +253,7 @@ export default function Inventory() {
                 <tr key={ep.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50/80">
                   <td className="px-4 py-3">
                     <Link
-                      to={`/projects/${projectId}/endpoints/${ep.id}`}
+                      to={`${basePath}/endpoints/${ep.id}`}
                       className="font-mono font-semibold text-ink-800"
                     >
                       {ep.method}
@@ -258,7 +261,7 @@ export default function Inventory() {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      to={`/projects/${projectId}/endpoints/${ep.id}`}
+                      to={`${basePath}/endpoints/${ep.id}`}
                       className="font-mono text-ink-900 hover:underline"
                     >
                       {ep.pathTemplate}

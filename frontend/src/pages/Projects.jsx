@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { projectsAPI } from '../api/api';
@@ -10,7 +10,7 @@ import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
 import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
-function KeyBanner({ apiKey, projectId, onDismiss }) {
+function KeyBanner({ apiKey, projectId, serviceId, onDismiss }) {
   const copyText = async (text, label) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -20,11 +20,16 @@ function KeyBanner({ apiKey, projectId, onDismiss }) {
     }
   };
 
+  const settingsPath =
+    projectId && serviceId
+      ? `/projects/${projectId}/services/${serviceId}/settings`
+      : null;
+
   return (
     <div className="mt-6 rounded-lg border border-signal-600/30 bg-signal-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-medium text-signal-800">Project created — save these now</p>
+          <p className="text-sm font-medium text-signal-800">Service created — save these now</p>
           <p className="mt-1 text-xs text-signal-800/80">
             The API key is shown once. Use it with the collect URL in middleware.
           </p>
@@ -83,14 +88,11 @@ function KeyBanner({ apiKey, projectId, onDismiss }) {
       <p className="mt-4 text-xs text-signal-800">
         Set <code className="font-mono">API_SENSOR_KEY</code> and{' '}
         <code className="font-mono">API_SENSOR_AGENT_URL</code> in your app.{' '}
-        {projectId ? (
+        {settingsPath ? (
           <>
             Full install snippet in{' '}
-            <Link
-              to={`/projects/${projectId}/settings`}
-              className="font-medium underline underline-offset-2"
-            >
-              project settings
+            <Link to={settingsPath} className="font-medium underline underline-offset-2">
+              service settings
             </Link>
             {' · '}
           </>
@@ -115,7 +117,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [lastKey, setLastKey] = useState(null);
-  const [lastProjectId, setLastProjectId] = useState(null);
+  const [lastIds, setLastIds] = useState({ projectId: null, serviceId: null });
 
   const load = async () => {
     setLoading(true);
@@ -133,22 +135,40 @@ export default function Projects() {
     load();
   }, []);
 
+  /** Flatten services for transitional list UX (S6 will nest). */
+  const rows = useMemo(() => {
+    const out = [];
+    for (const p of projects) {
+      for (const s of p.services || []) {
+        out.push({
+          ...s,
+          projectId: p.id,
+          projectName: p.name,
+        });
+      }
+    }
+    return out;
+  }, [projects]);
+
   const handleCreate = async (event) => {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error('Enter a project name');
+      toast.error('Enter a service name');
       return;
     }
     setCreating(true);
     setLastKey(null);
-    setLastProjectId(null);
+    setLastIds({ projectId: null, serviceId: null });
     try {
       const data = await projectsAPI.create(trimmed);
       setLastKey(data.apiKey);
-      setLastProjectId(data.project?.id || null);
+      setLastIds({
+        projectId: data.project?.id || data.service?.projectId || null,
+        serviceId: data.service?.id || null,
+      });
       setName('');
-      toast.success('Project created — copy the API key now');
+      toast.success('Service created — copy the API key now');
       await load();
     } catch (err) {
       toast.error(err.message);
@@ -161,12 +181,12 @@ export default function Projects() {
     <AppLayout>
       <PageHeader
         title="Projects"
-        description="Each project has an API key for the agent and middleware."
+        description="Each service has an API key for the agent and middleware. Services are grouped under projects."
         actions={
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
-            <FormField id="project-name" label="Name">
+            <FormField id="service-name" label="Service name">
               <input
-                id="project-name"
+                id="service-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="My API"
@@ -175,7 +195,7 @@ export default function Projects() {
               />
             </FormField>
             <Button type="submit" disabled={creating}>
-              {creating ? 'Creating…' : 'New project'}
+              {creating ? 'Creating…' : 'New service'}
             </Button>
           </form>
         }
@@ -184,10 +204,11 @@ export default function Projects() {
       {lastKey ? (
         <KeyBanner
           apiKey={lastKey}
-          projectId={lastProjectId}
+          projectId={lastIds.projectId}
+          serviceId={lastIds.serviceId}
           onDismiss={() => {
             setLastKey(null);
-            setLastProjectId(null);
+            setLastIds({ projectId: null, serviceId: null });
           }}
         />
       ) : null}
@@ -195,10 +216,10 @@ export default function Projects() {
       <Card className="mt-8 overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-ink-600">Loading…</p>
-        ) : projects.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
-            title="No projects yet"
-            description="Create a project to get an API key, then connect your app so inventory can appear."
+            title="No services yet"
+            description="Create a service to get an API key, then connect your app so inventory can appear."
             action={
               <a
                 href={integratingDocsUrl}
@@ -214,30 +235,32 @@ export default function Projects() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink-200 bg-ink-50 text-ink-700">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Service</th>
+                <th className="px-4 py-3 font-medium">Project</th>
                 <th className="px-4 py-3 font-medium">Endpoints</th>
                 <th className="px-4 py-3 font-medium">API key prefix</th>
                 <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>
-              {projects.map((p) => (
-                <tr key={p.id} className="border-b border-ink-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
-                  <td className="px-4 py-3 text-ink-700">{p._count?.endpoints ?? 0}</td>
+              {rows.map((s) => (
+                <tr key={s.id} className="border-b border-ink-100 last:border-0">
+                  <td className="px-4 py-3 font-medium text-ink-900">{s.name}</td>
+                  <td className="px-4 py-3 text-ink-600">{s.projectName}</td>
+                  <td className="px-4 py-3 text-ink-700">{s._count?.endpoints ?? 0}</td>
                   <td className="px-4 py-3 font-mono text-ink-600">
-                    {p.apiKeys?.[0]?.keyPrefix || '—'}…
+                    {s.apiKeys?.[0]?.keyPrefix || '—'}…
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-3">
                       <Link
-                        to={`/projects/${p.id}/settings`}
+                        to={`/projects/${s.projectId}/services/${s.id}/settings`}
                         className="font-medium text-ink-500 hover:text-ink-900"
                       >
                         Settings
                       </Link>
                       <Link
-                        to={`/projects/${p.id}`}
+                        to={`/projects/${s.projectId}/services/${s.id}`}
                         className="font-medium text-ink-700 hover:text-ink-900"
                       >
                         Inventory →

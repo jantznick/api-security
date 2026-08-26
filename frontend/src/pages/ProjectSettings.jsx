@@ -18,8 +18,9 @@ function rotatedKeyName(name) {
 }
 
 export default function ProjectSettings() {
-  const { projectId } = useParams();
-  const [project, setProject] = useState(null);
+  const { projectId, serviceId } = useParams();
+  const basePath = `/projects/${projectId}/services/${serviceId}`;
+  const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [keyName, setKeyName] = useState('default');
   const [creating, setCreating] = useState(false);
@@ -33,8 +34,8 @@ export default function ProjectSettings() {
     (async () => {
       setLoading(true);
       try {
-        const data = await projectsAPI.get(projectId);
-        if (!cancelled) setProject(data.project);
+        const data = await projectsAPI.getService(projectId, serviceId);
+        if (!cancelled) setService(data.service);
       } catch (err) {
         toast.error(err.message);
       } finally {
@@ -44,12 +45,12 @@ export default function ProjectSettings() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, serviceId]);
 
   const reload = async () => {
     try {
-      const data = await projectsAPI.get(projectId);
-      setProject(data.project);
+      const data = await projectsAPI.getService(projectId, serviceId);
+      setService(data.service);
     } catch (err) {
       toast.error(err.message);
     }
@@ -60,7 +61,7 @@ export default function ProjectSettings() {
     setCreating(true);
     setRawKey(null);
     try {
-      const data = await projectsAPI.createApiKey(projectId, keyName.trim() || 'default');
+      const data = await projectsAPI.createApiKey(projectId, serviceId, keyName.trim() || 'default');
       setRawKey(data.rawKey);
       toast.success('API key created — copy it now');
       setKeyName('default');
@@ -78,7 +79,7 @@ export default function ProjectSettings() {
     }
     setRevokingId(keyId);
     try {
-      await projectsAPI.revokeApiKey(projectId, keyId);
+      await projectsAPI.revokeApiKey(projectId, serviceId, keyId);
       toast.success('API key revoked');
       if (pendingRevokeAfterRotate === keyId) {
         setPendingRevokeAfterRotate(null);
@@ -107,11 +108,11 @@ export default function ProjectSettings() {
     setRawKey(null);
     setPendingRevokeAfterRotate(null);
     try {
-      const data = await projectsAPI.createApiKey(projectId, rotatedKeyName(key.name));
+      const data = await projectsAPI.createApiKey(projectId, serviceId, rotatedKeyName(key.name));
       setRawKey(data.rawKey);
 
       try {
-        await projectsAPI.revokeApiKey(projectId, key.id);
+        await projectsAPI.revokeApiKey(projectId, serviceId, key.id);
         setPendingRevokeAfterRotate(null);
         toast.success('Key rotated — copy the new key; old key is revoked');
       } catch (revokeErr) {
@@ -152,8 +153,8 @@ app.use(apiSensor({
   apiKey: process.env.API_SENSOR_KEY,
 }));`;
 
-  const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
-  const revokedKeys = (project?.apiKeys || []).filter((k) => k.revokedAt);
+  const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
+  const revokedKeys = (service?.apiKeys || []).filter((k) => k.revokedAt);
 
   return (
     <AppLayout>
@@ -164,18 +165,18 @@ app.use(apiSensor({
               Projects
             </Link>
             <span aria-hidden>/</span>
-            <Link to={`/projects/${projectId}`} className="hover:text-ink-900">
-              {project?.name || 'Inventory'}
+            <Link to={basePath} className="hover:text-ink-900">
+              {service?.name || 'Inventory'}
             </Link>
             <span aria-hidden>/</span>
             <span className="text-ink-700">Settings</span>
           </div>
         }
-        title="Project settings"
+        title="Service settings"
         description={
-          project
-            ? `API keys and install for ${project.name}. New keys are shown once; use Rotate to replace an active key.`
-            : 'API keys for this project.'
+          service
+            ? `API keys and install for ${service.name}. New keys are shown once; use Rotate to replace an active key.`
+            : 'API keys for this service.'
         }
       />
 
@@ -222,7 +223,7 @@ app.use(apiSensor({
         </div>
       ) : null}
 
-      {!loading && project && !activeKeys.length ? (
+      {!loading && service && !activeKeys.length ? (
         <div
           role="status"
           className="mt-6 rounded-lg border border-warn-700/25 bg-warn-50 px-4 py-3 text-sm text-warn-700"
@@ -258,11 +259,11 @@ app.use(apiSensor({
           <p>
             Collector URL:{' '}
             <code className="font-mono text-ink-700">{COLLECT_URL}</code>
-            {project?.endpointLimit ? (
+            {service?.endpointLimit ? (
               <>
                 {' '}
                 · Endpoint cap:{' '}
-                <span className="text-ink-700">{project.endpointLimit}</span> (billing)
+                <span className="text-ink-700">{service.endpointLimit}</span> (billing)
               </>
             ) : (
               <> · Endpoint cap: unlimited</>

@@ -11,6 +11,7 @@ import Projects from './pages/Projects';
 import Inventory from './pages/Inventory';
 import EndpointDetail from './pages/EndpointDetail';
 import ProjectSettings from './pages/ProjectSettings';
+import LegacyProjectRedirect from './pages/LegacyProjectRedirect';
 import Account from './pages/Account';
 import Billing from './pages/Billing';
 import Usage from './pages/Usage';
@@ -43,7 +44,7 @@ export default function App() {
           }
         />
         <Route
-          path="/projects/:projectId"
+          path="/projects/:projectId/services/:serviceId"
           element={
             <ProtectedRoute>
               <Inventory />
@@ -51,7 +52,7 @@ export default function App() {
           }
         />
         <Route
-          path="/projects/:projectId/settings"
+          path="/projects/:projectId/services/:serviceId/settings"
           element={
             <ProtectedRoute>
               <ProjectSettings />
@@ -59,10 +60,34 @@ export default function App() {
           }
         />
         <Route
-          path="/projects/:projectId/endpoints/:endpointId"
+          path="/projects/:projectId/services/:serviceId/endpoints/:endpointId"
           element={
             <ProtectedRoute>
               <EndpointDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <LegacyProjectRedirect />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/settings"
+          element={
+            <ProtectedRoute>
+              <LegacyProjectRedirect />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/endpoints/:endpointId"
+          element={
+            <ProtectedRoute>
+              <LegacyProjectRedirect />
             </ProtectedRoute>
           }
         />

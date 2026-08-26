@@ -266,7 +266,11 @@ export default function Billing() {
                   {me.projects.map((p) => (
                     <div key={p.id} className="flex flex-wrap gap-x-3 text-ink-700">
                       <Link
-                        to={`/projects/${p.id}`}
+                        to={
+                          p.projectId
+                            ? `/projects/${p.projectId}/services/${p.id}`
+                            : `/projects/${p.id}`
+                        }
                         className="font-medium text-signal-600 hover:text-signal-800"
                       >
                         {p.name}

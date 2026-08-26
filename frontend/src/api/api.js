@@ -64,26 +64,52 @@ export const authAPI = {
 
 export const projectsAPI = {
   list: () => request('/projects'),
-  create: (name) =>
-    request('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
+  /** Create a Service under personal Default (asService: true, default) or a grouping Project */
+  create: (name, { asService = true } = {}) =>
+    request('/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name, asService }),
+    }),
   get: (projectId) => request(`/projects/${projectId}`),
-  createApiKey: (projectId, name) =>
-    request(`/projects/${projectId}/api-keys`, {
+  listServices: (projectId) => request(`/projects/${projectId}/services`),
+  createService: (projectId, name) =>
+    request(`/projects/${projectId}/services`, {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
-  revokeApiKey: (projectId, keyId) =>
-    request(`/projects/${projectId}/api-keys/${keyId}/revoke`, {
+  getService: (projectId, serviceId) =>
+    request(`/projects/${projectId}/services/${serviceId}`),
+  createApiKey: (projectId, serviceId, name) =>
+    request(`/projects/${projectId}/services/${serviceId}/api-keys`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (projectId, serviceId, keyId) =>
+    request(`/projects/${projectId}/services/${serviceId}/api-keys/${keyId}/revoke`, {
+      method: 'POST',
+    }),
+};
+
+/** Flat service routes (legacy service UUID = old project UUID). */
+export const servicesAPI = {
+  get: (serviceId) => request(`/services/${serviceId}`),
+  createApiKey: (serviceId, name) =>
+    request(`/services/${serviceId}/api-keys`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (serviceId, keyId) =>
+    request(`/services/${serviceId}/api-keys/${keyId}/revoke`, {
       method: 'POST',
     }),
 };
 
 export const inventoryAPI = {
-  listEndpoints: (projectId) => request(`/inventory/${projectId}/endpoints`),
-  getEndpoint: (projectId, endpointId) =>
-    request(`/inventory/${projectId}/endpoints/${endpointId}`),
-  /** OpenAPI 3.0 JSON document for the project inventory */
-  exportOpenApi: (projectId) => request(`/inventory/${projectId}/openapi`),
+  listEndpoints: (serviceId) => request(`/inventory/${serviceId}/endpoints`),
+  getEndpoint: (serviceId, endpointId) =>
+    request(`/inventory/${serviceId}/endpoints/${endpointId}`),
+  /** OpenAPI 3.0 JSON document for the service inventory */
+  exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
 };
 
 /**

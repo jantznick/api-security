@@ -24,7 +24,8 @@ function MetaBlock({ label, children }) {
 }
 
 export default function EndpointDetail() {
-  const { projectId, endpointId } = useParams();
+  const { projectId, serviceId, endpointId } = useParams();
+  const basePath = `/projects/${projectId}/services/${serviceId}`;
   const [endpoint, setEndpoint] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +34,7 @@ export default function EndpointDetail() {
     (async () => {
       setLoading(true);
       try {
-        const data = await inventoryAPI.getEndpoint(projectId, endpointId);
+        const data = await inventoryAPI.getEndpoint(serviceId, endpointId);
         if (!cancelled) setEndpoint(data.endpoint);
       } catch (err) {
         toast.error(err.message);
@@ -44,7 +45,7 @@ export default function EndpointDetail() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, endpointId]);
+  }, [projectId, serviceId, endpointId]);
 
   return (
     <AppLayout>
@@ -55,7 +56,7 @@ export default function EndpointDetail() {
               Projects
             </Link>
             <span aria-hidden>/</span>
-            <Link to={`/projects/${projectId}`} className="hover:text-ink-900">
+            <Link to={basePath} className="hover:text-ink-900">
               Inventory
             </Link>
             <span aria-hidden>/</span>
@@ -88,7 +89,7 @@ export default function EndpointDetail() {
             description="It may have been removed, or the link is incorrect."
             action={
               <Link
-                to={`/projects/${projectId}`}
+                to={basePath}
                 className="text-sm font-medium text-signal-600 hover:text-signal-800"
               >
                 ← Back to inventory

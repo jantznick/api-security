@@ -117,14 +117,7 @@ router.get('/me', requireAuth, async (req, res) => {
     const hasCustomer = Boolean(user.stripeCustomerId);
     const planSlug = user.planSlug || DEFAULT_PLAN_SLUG;
 
-    const membershipCount = await prisma.membership.count({
-      where: {
-        organization: {
-          memberships: { some: { userId: user.id, role: 'owner' } },
-        },
-      },
-    });
-    // Seats for personal/owned orgs: count members on personal org for now
+    // Seats for personal org: count members (owner included). Enforced in S4.
     const personalMembership = await prisma.membership.findFirst({
       where: { userId: user.id, organization: { isPersonal: true } },
       select: { organizationId: true },

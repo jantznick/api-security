@@ -110,6 +110,17 @@ router.put('/plans', async (req, res) => {
       const active = row.active !== false;
       const sortOrder = Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : 0;
 
+      let seatLimit = undefined;
+      if (row.seatLimit === null || row.seatLimit === '') {
+        seatLimit = null;
+      } else if (row.seatLimit !== undefined) {
+        seatLimit = Number(row.seatLimit);
+        if (!Number.isFinite(seatLimit) || seatLimit < 0) {
+          res.status(400).json({ error: `Invalid seatLimit for plan ${slug}` });
+          return;
+        }
+      }
+
       const data = {
         name,
         endpointLimit,
@@ -117,6 +128,7 @@ router.put('/plans', async (req, res) => {
         stripePriceId,
         active,
         sortOrder,
+        ...(seatLimit !== undefined ? { seatLimit } : {}),
       };
 
       let plan;
