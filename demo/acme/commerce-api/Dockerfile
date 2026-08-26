@@ -11,4 +11,4 @@ COPY demo/acme/commerce-api/main.py .
 ENV PORT=4012
 EXPOSE 4012
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "4012"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-4012}"]

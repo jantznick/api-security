@@ -2,7 +2,8 @@
 
 Postgres, private ingest, public agent, and public core API run on **Railway**. Static sites are on **Render** — see [RENDER.md](./RENDER.md).
 
-**Start here for the full checklist:** [DEPLOY.md](./DEPLOY.md).
+**Start here for the full checklist:** [DEPLOY.md](./DEPLOY.md).  
+**Sales demo stack (5 services):** [RAILWAY_ACME_DEMO.md](./RAILWAY_ACME_DEMO.md)
 
 Platform URLs (`*.up.railway.app`) work until custom domains: `api.apiglimpse.com` (core), `collect.apiglimpse.com` (agent).
 

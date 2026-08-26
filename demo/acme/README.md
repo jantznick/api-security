@@ -82,7 +82,7 @@ Env: `STOREFRONT_URL` (default `http://localhost:4011`).
    - `web-storefront`, `storefront-api`, `commerce-api`, `fulfillment-api`, `ledger-api`
 2. Paste each service's `ask_…` key into compose env (`API_SENSOR_KEY_*`) or Railway variables.
 3. Set `API_SENSOR_AGENT_URL=https://collect.apiglimpse.com` (or local collector).
-4. Upload `baseline-topology.json` when project topology compare (SF9) ships.
+4. Upload `baseline-topology.json` on **Projects → Acme Demo → Topology**.
 
 ## AE runbook (~12 min)
 
@@ -135,7 +135,27 @@ Env: `STOREFRONT_URL` (default `http://localhost:4011`).
 
 ## Railway
 
-Deploy each folder as a separate service in one project. Public domains on **web-storefront** and **storefront-api** only. Internal URLs use `*.railway.internal` (e.g. `http://commerce-api.railway.internal:4012`).
+Full deploy runbook: **[docs/RAILWAY_ACME_DEMO.md](../../docs/RAILWAY_ACME_DEMO.md)**  
+Smoke checklist: **[docs/ACME_DEMO_SMOKE.md](../../docs/ACME_DEMO_SMOKE.md)**  
+Env template: [railway.env.example](./railway.env.example)
+
+Quick summary:
+
+1. Create Railway project **api-glimpse-acme-demo** (separate from product prod)
+2. Deploy five services bottom-up: ledger → fulfillment → commerce → storefront → web
+3. **Build context = repo root**; Dockerfiles under `demo/acme/*/Dockerfile`
+4. Public domains **only** on `storefront-api` and optional `web-storefront`
+5. Internal URLs: `http://<service-name>.railway.internal:<PORT>` (set fixed PORT per service)
+6. Point `API_SENSOR_AGENT_URL` at prod collect; one `ask_` key per dashboard Service
+
+After deploy:
+
+```bash
+export STOREFRONT_URL=https://<storefront-api>.up.railway.app
+node demo/acme/scripts/smoke-test.mjs --once
+```
+
+Set Render dashboard vars (optional): `VITE_ACME_DEMO_STOREFRONT_URL`, `VITE_ACME_DEMO_PROJECT_ID` — see RAILWAY doc.
 
 ## Synthetic data
 

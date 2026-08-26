@@ -8,6 +8,11 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
+import {
+  ACME_DEMO_PROJECT_ID,
+  ACME_DEMO_STOREFRONT_URL,
+  ACME_DEMO_WEB_URL,
+} from '../lib/urls';
 
 const STATUS_ORDER = ['missing', 'shadow', 'matched', 'stale'];
 
@@ -384,6 +389,9 @@ export default function ProjectTopology() {
 
   const projectName = project?.name || 'Project';
   const firstService = project?.services?.[0];
+  const showAcmeDemoLinks =
+    ACME_DEMO_STOREFRONT_URL &&
+    (!ACME_DEMO_PROJECT_ID || ACME_DEMO_PROJECT_ID === projectId);
 
   return (
     <AppLayout>
@@ -408,6 +416,44 @@ export default function ProjectTopology() {
           </>
         }
       />
+
+      {showAcmeDemoLinks ? (
+        <Card className="mt-6 border-signal-600/20 bg-signal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-ink-900">Acme live demo</h2>
+          <p className="mt-1 text-xs text-ink-600">
+            Hosted stack on Railway. Run traffic against storefront-api, then refresh compare above.
+          </p>
+          <ul className="mt-3 space-y-1 text-sm">
+            <li>
+              <a
+                href={ACME_DEMO_STOREFRONT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-signal-700 underline hover:text-signal-900"
+              >
+                storefront-api
+              </a>
+              <span className="text-ink-500"> — traffic target</span>
+            </li>
+            {ACME_DEMO_WEB_URL ? (
+              <li>
+                <a
+                  href={ACME_DEMO_WEB_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-signal-700 underline hover:text-signal-900"
+                >
+                  web-storefront
+                </a>
+                <span className="text-ink-500"> — browser UI</span>
+              </li>
+            ) : null}
+          </ul>
+          <p className="mt-3 font-mono text-xs text-ink-500">
+            node demo/acme/traffic.mjs --profile full --once
+          </p>
+        </Card>
+      ) : null}
 
       <Card className="mt-8 p-4">
         <h2 className="text-sm font-semibold text-ink-900">Upload baseline</h2>
