@@ -46,6 +46,7 @@ Use this as a **soft-launch / beta ops control**, not as something to explain on
 | **/** Landing | Position the product, earn trust, one primary CTA |
 | **/how-it-works** | Middleware → API Glimpse → inventory without architecture overload |
 | **/get-started** | Install summary → links to `docs.apiglimpse.com` |
+| **/pricing** | Free / Pro from `GET /api/billing/plans` when `VITE_API_URL` is set; soft placeholder (no fake $) if API missing |
 | **/docs** | Redirects to `/get-started` (canonical developer docs are on the docs site) |
 | **/privacy** | No raw bodies; what is stored (schemas/signals); retention high-level |
 | **/terms** (lightweight) | Soft-launch ToS stub while registration is open |
@@ -94,7 +95,7 @@ Landing → value + trust → **Sign up** → `app.apiglimpse.com` register → 
 **Journey B — Visitor → docs/install**  
 Landing or nav → Get started → npm + env → dashboard for key → verify inventory.
 
-**Nav (shallow):** Product / How it works / Docs / Sign in · Sign up. **No pricing** until plans exist.
+**Nav (shallow):** Product / How it works / Pricing / Docs / Sign in · Sign up. Pricing stays honest — API catalog or soft placeholder, never invented Stripe prices.
 
 ---
 
@@ -131,7 +132,7 @@ Customers configure `API_SENSOR_AGENT_URL` + `API_SENSOR_KEY`; install middlewar
 
 ## Deferred
 
-- Full **pricing** / plan comparison (Stripe + per-endpoint billing)
+- Full paid **checkout UX polish** / invoice PDFs (Stripe portal covers manage for now)
 - Blog, changelog factory, SEO content mill
 - Competitor matrices or “like X” positioning
 - Case studies, ROI calculators, enterprise RFP packs

@@ -12,6 +12,8 @@ import Inventory from './pages/Inventory';
 import EndpointDetail from './pages/EndpointDetail';
 import ProjectSettings from './pages/ProjectSettings';
 import Account from './pages/Account';
+import Billing from './pages/Billing';
+import Admin from './pages/Admin';
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -68,6 +70,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Account />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute>
+              <Billing />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Admin />
             </ProtectedRoute>
           }
         />

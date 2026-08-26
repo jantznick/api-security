@@ -9,6 +9,9 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import inventoryRoutes from './routes/inventory.js';
+import adminRoutes from './routes/admin.js';
+import billingRoutes, { stripeWebhookHandler } from './routes/billing.js';
+import { ensureDefaultPlans } from './lib/plans.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +56,14 @@ app.use(
     credentials: true,
   }),
 );
+
+// Stripe webhooks need the raw body for signature verification — mount BEFORE json parser.
+app.post(
+  '/api/billing/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeWebhookHandler,
+);
+
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
 app.use(cookieParser());
 
@@ -91,6 +102,8 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'core', date: new Date().toISOString() });
@@ -98,4 +111,7 @@ app.get('/api/health', (_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Core API running on port ${PORT}`);
+  ensureDefaultPlans().catch((err) => {
+    console.warn('ensureDefaultPlans on boot failed:', err.message);
+  });
 });

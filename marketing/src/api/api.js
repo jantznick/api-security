@@ -12,6 +12,10 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 
+export function hasConfiguredApiUrl() {
+  return Boolean((import.meta.env.VITE_API_URL || '').trim());
+}
+
 async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
@@ -24,7 +28,9 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || 'Request failed');
+    const err = new Error(error.error || 'Request failed');
+    err.status = response.status;
+    throw err;
   }
   if (response.status === 204) return null;
   return response.json();
@@ -47,4 +53,9 @@ export const authAPI = {
     }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
+};
+
+/** Public plan catalog — W3/W4 contract. */
+export const billingAPI = {
+  plans: () => request('/billing/plans'),
 };

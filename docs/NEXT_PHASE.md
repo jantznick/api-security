@@ -38,6 +38,8 @@ No Stripe account required. Unlocks paid later without a schema rewrite.
 4. Dashboard billing page (current plan, usage vs cap, manage billing)  
 5. Marketing pricing page only after plans are real  
 
+**UI (W4):** Dashboard `/billing` calls `GET /api/billing/me` (plan + usage), `POST /api/billing/checkout` and `/portal` (503 → toast if Stripe unset). Marketing `/pricing` prefers `GET /api/billing/plans` when `VITE_API_URL` is set; otherwise a soft Free/Pro placeholder with **no invented dollar amounts**. Inventory shows a soft banner when usage is near/at the cap from `/billing/me`.
+
 **Cost note:** Stripe itself has no fixed fee; Railway/Render unchanged. Adding Stripe secret keys is Nick-only.
 
 ## Phase C — Product credibility (after A, parallel with B)

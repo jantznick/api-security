@@ -32,6 +32,12 @@ export default function SiteFooter() {
             >
               Get started
             </Link>
+            <Link
+              to="/pricing"
+              className="text-muted transition-colors hover:text-ink"
+            >
+              Pricing
+            </Link>
             <a
               href={DOCS_URL}
               className="text-muted transition-colors hover:text-ink"

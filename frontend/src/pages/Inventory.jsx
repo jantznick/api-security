@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { inventoryAPI, projectsAPI } from '../api/api';
+import { billingAPI, inventoryAPI, projectsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -15,11 +15,48 @@ function severityClass(severity) {
   return 'bg-ink-100 text-ink-700';
 }
 
+/** Near/at endpoint cap from GET /billing/me — null if billing API missing. */
+function usageCapBanner(me, projectId) {
+  if (!me || typeof me !== 'object') return null;
+
+  // Prefer per-project usage from W3 billing/me.projects
+  if (projectId && Array.isArray(me.projects)) {
+    const row = me.projects.find((p) => p.id === projectId);
+    if (row) {
+      const used = row.endpointCount;
+      const limit = row.endpointLimit;
+      if (typeof used === 'number' && limit != null && limit > 0 && used >= limit * 0.8) {
+        return { atCap: used >= limit, used, limit };
+      }
+      return null;
+    }
+  }
+
+  const used =
+    me.endpointUsageTotal ??
+    me.endpointsUsed ??
+    me.endpointCount ??
+    me.usage?.endpoints ??
+    null;
+  const limit =
+    me.endpointLimitPerProject ??
+    me.endpointLimit ??
+    me.limit ??
+    me.usage?.endpointLimit ??
+    null;
+  if (typeof used !== 'number' || limit == null || limit === 0) return null;
+  const cap = Number(limit);
+  if (!Number.isFinite(cap) || cap <= 0) return null;
+  if (used < cap * 0.8) return null;
+  return { atCap: used >= cap, used, limit: cap };
+}
+
 export default function Inventory() {
   const { projectId } = useParams();
   const [project, setProject] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [capBanner, setCapBanner] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +79,21 @@ export default function Inventory() {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    billingAPI
+      .me()
+      .then((data) => {
+        if (!cancelled) setCapBanner(usageCapBanner(data, projectId));
+      })
+      .catch(() => {
+        if (!cancelled) setCapBanner(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
   const keyPrefix = activeKeys[0]?.keyPrefix;
@@ -103,6 +155,29 @@ export default function Inventory() {
           </>
         }
       />
+
+      {capBanner ? (
+        <div
+          className={`mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+            capBanner.atCap
+              ? 'border-warn-700/30 bg-warn-50 text-warn-700'
+              : 'border-ink-200 bg-white text-ink-700'
+          }`}
+          role="status"
+        >
+          <p>
+            {capBanner.atCap
+              ? `Endpoint limit reached (${capBanner.used} / ${capBanner.limit}). New endpoints may not be recorded.`
+              : `Approaching endpoint limit (${capBanner.used} / ${capBanner.limit}).`}
+          </p>
+          <Link
+            to="/billing"
+            className="font-medium text-signal-600 hover:text-signal-800"
+          >
+            View billing →
+          </Link>
+        </div>
+      ) : null}
 
       {keyPrefix ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
