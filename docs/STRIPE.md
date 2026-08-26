@@ -2,9 +2,9 @@
 
 Billing is **user-level** (one subscription per account). When the plan changes, each owned project’s `endpointLimit` is updated from the Plan row in the database (not a shared pool across projects).
 
-Plan **names, prices, endpoint caps, and Stripe Price IDs** are editable in the **Admin** dashboard (`/admin`) for the user whose email matches Railway env `ADMIN_EMAIL`.
+Plan **names, prices, endpoint caps, Stripe Price IDs, and contact-sales flags** are editable in the **Admin** dashboard (`/admin`) for the user whose email matches Railway env `ADMIN_EMAIL`.
 
-Defaults (migration seed): **Free** (25 endpoints, $0) and **Pro** (500 endpoints, $29.00 display placeholder until Nick sets real cents / `stripePriceId`).
+Defaults (migration seed): **Free** (25 endpoints, $0) and **Pro** (500 endpoints, $29.00 display placeholder until Nick sets real cents / `stripePriceId`). Add **Enterprise** (or any other plan) from Admin → **Add plan** / **Add Enterprise**.
 
 Helpers: `backend/lib/plans.js` (`applyPlanToUser`, fallback constants if DB empty).
 
@@ -54,6 +54,8 @@ Optional:
 | Variable | Notes |
 | --- | --- |
 | `STRIPE_PUBLISHABLE_KEY` | Only if we add client-side Stripe.js later (`pk_test_…`) |
+| `CONTACT_SALES_EMAIL` | Mailto target for contact-sales plans when `contactUrl` is blank (defaults to `ADMIN_EMAIL`) |
+| `CONTACT_SALES_URL` | Full URL override (Cal.com, Typeform, etc.) when plan `contactUrl` is blank |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Magic-link email ([LAUNCH_NEXT.md](./LAUNCH_NEXT.md)) |
 
 Redeploy **core** after changing variables (or rely on Railway auto-restart).
@@ -77,12 +79,24 @@ Without `STRIPE_SECRET_KEY`, `POST /api/billing/checkout` and `/portal` return *
 
 ---
 
-## 3. Admin UI
+## 3. Admin UI — add & edit plans
 
 1. Set `ADMIN_EMAIL` to your user email; redeploy core.
 2. Sign in at `https://app.apiglimpse.com`.
 3. Open **Admin** in the nav (only visible when `user.isAdmin`).
-4. Edit Free/Pro **endpoint limits** and **monthly price (cents)**; set Pro **Stripe Price ID**.
+4. Scroll to **Plan configuration**.
+5. Edit Free/Pro **endpoint limits** and **monthly price (cents)**; set Pro **Stripe Price ID**.
+6. To add another self-serve plan: **Add plan** → set slug/name/limits/price/`stripePriceId` → **Save plans**.
+7. To add Enterprise (contact sales): **Add Enterprise** (or Add plan + check **Contact sales**) → optional Contact URL → **Save plans**.
+
+### Contact-sales / Enterprise flow
+
+1. Plan has **Contact sales** checked → Checkout is disabled for that slug.
+2. Billing + marketing pricing show **Contact sales**, which opens a short form (name, email, company, message).
+3. Submissions land in Admin → **Sales leads** (mini inbox table).
+4. After you close a deal, open Admin → **Users** → **Assign plan** → `enterprise` (syncs their service endpoint limits).
+
+Optional: set plan **Contact URL** only if you want an external override; the in-app form is the default CTA.
 
 ---
 
@@ -90,14 +104,17 @@ Without `STRIPE_SECRET_KEY`, `POST /api/billing/checkout` and `/portal` return *
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| GET | `/api/billing/plans` | Public | Active plans only |
+| GET | `/api/billing/plans` | Public | Active plans only (includes `contactSales` / `contactUrl`) |
 | GET | `/api/billing/me` | Session | Plan, usage, limits, checkout/portal flags |
-| POST | `/api/billing/checkout` | Session | Checkout Session URL (503 if no secret) |
+| POST | `/api/billing/contact-sales` | Public | Submit Enterprise / contact-sales lead form |
+| POST | `/api/billing/checkout` | Session | Checkout Session URL (400 if contact-sales; 503 if no secret) |
 | POST | `/api/billing/portal` | Session | Customer Portal URL |
 | POST | `/api/billing/webhook` | Stripe sig | Raw body; mounted before JSON parser in `server.js` |
 | GET | `/api/admin/overview` | Admin | SaaS KPIs: users, MRR estimate, usage, signup trend |
 | GET | `/api/admin/users` | Admin | Paginated user directory (`?q=&plan=&limit=&offset=`) |
-| GET/PUT | `/api/admin/plans` | Admin | Edit limits / prices / `stripePriceId` |
+| GET | `/api/admin/leads` | Admin | Contact-sales inquiries (mini CRM table) |
+| PUT | `/api/admin/users/:id/plan` | Admin | Manually assign plan (Enterprise after sales) |
+| GET/PUT | `/api/admin/plans` | Admin | Create/edit limits / prices / `stripePriceId` / contact-sales |
 
 Dashboard: **`/admin`** (owner overview + plans) and **`/billing`** (user billing UI).
 
@@ -106,8 +123,10 @@ Dashboard: **`/admin`** (owner overview + plans) and **`/billing`** (user billin
 ## 5. After deploy checklist
 
 - [ ] `ADMIN_EMAIL` set; `/admin` visible  
-- [ ] Plans seeded / edited  
+- [ ] Plans seeded / edited; Enterprise added if desired  
 - [ ] Test mode keys on Railway core  
 - [ ] Webhook endpoint + secret  
-- [ ] Test Checkout from `/billing`  
-- [ ] Confirm project `endpointLimit` updates after subscribe  
+- [ ] Test Checkout from `/billing` for Pro  
+- [ ] Confirm Contact sales form on `/billing` + marketing `/pricing`  
+- [ ] Confirm lead appears in Admin → Sales leads  
+- [ ] Confirm project `endpointLimit` updates after subscribe / admin assign  

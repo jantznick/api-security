@@ -45,17 +45,43 @@ model Plan {
   id                String   @id @default(uuid())
   slug              String   @unique
   name              String
+  /// Short blurb for pricing / billing UI
+  description       String?
   /// Cap applied to each of the user's services on plan change. null = unlimited.
   endpointLimit     Int?
   /// Max org members including owner. null = unlimited. Free = 3 (D11).
   seatLimit         Int?
   priceCentsMonthly Int      @default(0)
-  /// Stripe Price id (price_…) for Checkout; null for free / unpaid plans
+  /// Stripe Price id (price_…) for Checkout; null for free / unpaid / contact-sales plans
   stripePriceId     String?
+  /// When true, Checkout is disabled — CTA opens the contact-sales form (leads in Admin)
+  contactSales      Boolean  @default(false)
+  /// Optional external URL override; when set, can still deep-link instead of the in-app form
+  contactUrl        String?
   active            Boolean  @default(true)
   sortOrder         Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+/// Contact-sales inquiries (Enterprise, etc.) — simple lead inbox for Admin
+model ContactLead {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  company   String?
+  message   String?
+  /// Plan they inquired about (e.g. enterprise)
+  planSlug  String?
+  /// Set when the submitter was logged in
+  userId    String?
+  /// marketing | billing | other
+  source    String   @default("billing")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([email])
+  @@index([planSlug])
 }
 
 model MagicToken {

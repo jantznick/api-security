@@ -8,6 +8,7 @@ import {
   getPlanBySlug,
   isStripeConfigured,
   listPlans,
+  resolveContactSalesUrl,
   resolveEndpointLimit,
   resolveStripePriceId,
   stripeUnavailableMessage,
@@ -34,14 +35,22 @@ function appBaseUrl() {
 }
 
 function publicPlan(plan) {
+  const contactSales = Boolean(plan.contactSales);
+  const hasStripePrice =
+    !contactSales &&
+    (Boolean(plan.stripePriceId) ||
+      (plan.slug === 'pro' && Boolean(process.env.STRIPE_PRICE_PRO?.trim())));
   return {
     slug: plan.slug,
     name: plan.name,
+    description: plan.description || null,
     endpointLimit: plan.endpointLimit,
     seatLimit: plan.seatLimit ?? null,
     priceCentsMonthly: plan.priceCentsMonthly,
+    contactSales,
+    contactUrl: resolveContactSalesUrl(plan),
     /** Whether Checkout can use this plan (has a Stripe price id or env fallback) */
-    hasStripePrice: Boolean(plan.stripePriceId) || (plan.slug === 'pro' && Boolean(process.env.STRIPE_PRICE_PRO?.trim())),
+    hasStripePrice,
     sortOrder: plan.sortOrder,
   };
 }
@@ -164,6 +173,67 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/billing/contact-sales — public contact form for Enterprise / contact-sales plans.
+ * Optional session: attaches userId when logged in.
+ * Body: { name, email, company?, message?, planSlug?, source? }
+ */
+router.post('/contact-sales', async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const company = String(req.body?.company || '').trim() || null;
+    const message = String(req.body?.message || '').trim() || null;
+    const planSlug = String(req.body?.planSlug || '')
+      .trim()
+      .toLowerCase() || null;
+    const sourceRaw = String(req.body?.source || 'billing').trim().toLowerCase();
+    const source = ['billing', 'marketing', 'other'].includes(sourceRaw)
+      ? sourceRaw
+      : 'billing';
+
+    if (!name || name.length > 200) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+      res.status(400).json({ error: 'A valid email is required' });
+      return;
+    }
+    if (company && company.length > 200) {
+      res.status(400).json({ error: 'Company is too long' });
+      return;
+    }
+    if (message && message.length > 5000) {
+      res.status(400).json({ error: 'Message is too long' });
+      return;
+    }
+
+    const userId = req.session?.userId || null;
+
+    const lead = await prisma.contactLead.create({
+      data: {
+        name,
+        email,
+        company,
+        message,
+        planSlug,
+        userId,
+        source,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(201).json({ ok: true, id: lead.id, createdAt: lead.createdAt });
+  } catch (error) {
+    console.error('Contact sales submit error:', error);
+    res.status(500).json({ error: 'Failed to submit contact form' });
+  }
+});
+
 /** POST /api/billing/checkout — Stripe Checkout Session (auth) */
 router.post('/checkout', requireAuth, async (req, res) => {
   try {
@@ -174,6 +244,15 @@ router.post('/checkout', requireAuth, async (req, res) => {
 
     const stripe = getStripe();
     const planSlug = String(req.body?.planSlug || 'pro').trim().toLowerCase() || 'pro';
+    const plan = await getPlanBySlug(planSlug);
+    if (plan.contactSales) {
+      res.status(400).json({
+        error:
+          'This plan requires contacting sales. Use the contact form on the billing page.',
+        contactSales: true,
+      });
+      return;
+    }
     const priceId = await resolveStripePriceId(planSlug);
     if (!priceId) {
       res.status(400).json({

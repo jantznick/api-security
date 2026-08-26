@@ -12,15 +12,37 @@ function emptyDraft(plan) {
     id: plan.id,
     slug: plan.slug,
     name: plan.name ?? '',
+    description: plan.description ?? '',
     endpointLimit:
       plan.endpointLimit === null || plan.endpointLimit === undefined
         ? ''
         : String(plan.endpointLimit),
     priceCentsMonthly: String(plan.priceCentsMonthly ?? 0),
     stripePriceId: plan.stripePriceId ?? '',
+    contactSales: Boolean(plan.contactSales),
+    contactUrl: plan.contactUrl ?? '',
     active: plan.active !== false,
     sortOrder: String(plan.sortOrder ?? 0),
+    /** New rows without a DB id can edit slug until first save */
+    slugEditable: !plan.id,
   };
+}
+
+function newPlanDraft({ slug, name, contactSales = false, ...rest } = {}) {
+  const baseSlug = (slug || 'new-plan').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+  return emptyDraft({
+    id: null,
+    slug: baseSlug,
+    name: name || 'New plan',
+    description: rest.description ?? '',
+    endpointLimit: rest.endpointLimit ?? '',
+    priceCentsMonthly: rest.priceCentsMonthly ?? 0,
+    stripePriceId: '',
+    contactSales,
+    contactUrl: rest.contactUrl ?? '',
+    active: true,
+    sortOrder: rest.sortOrder ?? 100,
+  });
 }
 
 function formatMoney(cents) {
@@ -134,11 +156,15 @@ export default function Admin() {
   const [drafts, setDrafts] = useState([]);
   const [users, setUsers] = useState([]);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [leads, setLeads] = useState([]);
+  const [leadsTotal, setLeadsTotal] = useState(0);
   const [userQuery, setUserQuery] = useState('');
   const [userPlanFilter, setUserPlanFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [leadsLoading, setLeadsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assigningUserId, setAssigningUserId] = useState(null);
 
   const loadOverviewAndPlans = useCallback(async () => {
     setLoading(true);
@@ -169,12 +195,26 @@ export default function Admin() {
     }
   }, []);
 
+  const loadLeads = useCallback(async () => {
+    setLeadsLoading(true);
+    try {
+      const data = await adminAPI.listLeads({ limit: 100 });
+      setLeads(data.leads || []);
+      setLeadsTotal(data.total ?? 0);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load leads');
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user?.isAdmin) {
       loadOverviewAndPlans();
       loadUsers();
+      loadLeads();
     }
-  }, [user?.isAdmin, loadOverviewAndPlans, loadUsers]);
+  }, [user?.isAdmin, loadOverviewAndPlans, loadUsers, loadLeads]);
 
   const planFilterOptions = useMemo(() => {
     const fromOverview = (overview?.plans || []).map((p) => p.slug);
@@ -205,9 +245,12 @@ export default function Admin() {
         id: d.id || undefined,
         slug: d.slug.trim().toLowerCase(),
         name: d.name.trim(),
+        description: d.description.trim() || null,
         endpointLimit: d.endpointLimit === '' ? null : Number(d.endpointLimit),
         priceCentsMonthly: Number(d.priceCentsMonthly || 0),
-        stripePriceId: d.stripePriceId.trim() || null,
+        stripePriceId: d.contactSales ? null : d.stripePriceId.trim() || null,
+        contactSales: Boolean(d.contactSales),
+        contactUrl: d.contactUrl.trim() || null,
         active: Boolean(d.active),
         sortOrder: Number(d.sortOrder || 0),
       }));
@@ -220,6 +263,35 @@ export default function Admin() {
       toast.error(err.message || 'Failed to save plans');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const addPlanRow = (preset) => {
+    setDrafts((prev) => {
+      const existing = new Set(prev.map((p) => p.slug));
+      let slug = preset?.slug || 'new-plan';
+      if (existing.has(slug)) {
+        let n = 2;
+        while (existing.has(`${slug}-${n}`)) n += 1;
+        slug = `${slug}-${n}`;
+      }
+      return [...prev, newPlanDraft({ ...preset, slug })];
+    });
+  };
+
+  const handleAssignPlan = async (userId, planSlug) => {
+    if (!planSlug) return;
+    setAssigningUserId(userId);
+    try {
+      await adminAPI.assignUserPlan(userId, planSlug);
+      toast.success(`Assigned ${planSlug}`);
+      await loadUsers({ q: userQuery, plan: userPlanFilter });
+      const overviewData = await adminAPI.overview();
+      setOverview(overviewData);
+    } catch (err) {
+      toast.error(err.message || 'Failed to assign plan');
+    } finally {
+      setAssigningUserId(null);
     }
   };
 
@@ -236,13 +308,14 @@ export default function Admin() {
     <AppLayout>
       <PageHeader
         title="Admin"
-        description="Platform pulse — accounts, revenue, and product usage. Billing is per user until organizations ship."
+        description="Platform pulse — accounts, orgs, revenue, and product usage. Billing is still per user until org billing (S5)."
         actions={
           <Button
             variant="secondary"
             onClick={() => {
               loadOverviewAndPlans();
               loadUsers({ q: userQuery, plan: userPlanFilter });
+              loadLeads();
             }}
             disabled={loading}
           >
@@ -392,6 +465,67 @@ export default function Admin() {
           </Section>
 
           <Section
+            title="Sales leads"
+            description={`${formatInt(leadsTotal)} contact-sales inquiries — who filled out the form.`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-ink-200 text-ink-500">
+                    <th className="py-2 pr-3 font-medium">When</th>
+                    <th className="py-2 pr-3 font-medium">Name</th>
+                    <th className="py-2 pr-3 font-medium">Email</th>
+                    <th className="py-2 pr-3 font-medium">Company</th>
+                    <th className="py-2 pr-3 font-medium">Plan</th>
+                    <th className="py-2 pr-3 font-medium">Source</th>
+                    <th className="py-2 font-medium">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-ink-500">
+                        {leadsLoading
+                          ? 'Loading leads…'
+                          : 'No inquiries yet. They’ll show up when someone submits Contact sales.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    leads.map((lead) => (
+                      <tr key={lead.id} className="border-b border-ink-100 align-top">
+                        <td className="whitespace-nowrap py-2.5 pr-3 text-ink-600">
+                          {formatDate(lead.createdAt)}
+                        </td>
+                        <td className="py-2.5 pr-3 font-medium text-ink-900">{lead.name}</td>
+                        <td className="py-2.5 pr-3">
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="text-signal-600 hover:text-signal-800"
+                          >
+                            {lead.email}
+                          </a>
+                        </td>
+                        <td className="py-2.5 pr-3 text-ink-700">{lead.company || '—'}</td>
+                        <td className="py-2.5 pr-3 font-mono text-xs text-ink-700">
+                          {lead.planSlug || '—'}
+                        </td>
+                        <td className="py-2.5 pr-3 text-ink-600">{lead.source || '—'}</td>
+                        <td className="max-w-xs py-2.5 text-ink-600">
+                          {lead.message ? (
+                            <span className="line-clamp-3 whitespace-pre-wrap">{lead.message}</span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+
+          <Section
             title="Users"
             description={`${formatInt(usersTotal)} accounts — search and filter by plan.`}
           >
@@ -431,7 +565,7 @@ export default function Admin() {
             </form>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
+              <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200 text-ink-500">
                     <th className="py-2 pr-3 font-medium">Email</th>
@@ -439,13 +573,14 @@ export default function Admin() {
                     <th className="py-2 pr-3 font-medium">Services</th>
                     <th className="py-2 pr-3 font-medium">Stripe</th>
                     <th className="py-2 pr-3 font-medium">Sub</th>
-                    <th className="py-2 font-medium">Joined</th>
+                    <th className="py-2 pr-3 font-medium">Joined</th>
+                    <th className="py-2 font-medium">Assign plan</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-6 text-ink-500">
+                      <td colSpan={7} className="py-6 text-ink-500">
                         {usersLoading ? 'Loading users…' : 'No users match.'}
                       </td>
                     </tr>
@@ -465,7 +600,25 @@ export default function Admin() {
                         <td className="py-2.5 pr-3">
                           <StatusPill ok={row.hasSubscription} />
                         </td>
-                        <td className="py-2.5 text-ink-600">{formatDate(row.createdAt)}</td>
+                        <td className="py-2.5 pr-3 text-ink-600">{formatDate(row.createdAt)}</td>
+                        <td className="py-2.5">
+                          <select
+                            className="rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                            value={row.planSlug}
+                            disabled={assigningUserId === row.id}
+                            onChange={(e) => handleAssignPlan(row.id, e.target.value)}
+                            aria-label={`Assign plan for ${row.email}`}
+                          >
+                            {planFilterOptions.map((slug) => (
+                              <option key={slug} value={slug}>
+                                {slug}
+                              </option>
+                            ))}
+                            {!planFilterOptions.includes(row.planSlug) ? (
+                              <option value={row.planSlug}>{row.planSlug}</option>
+                            ) : null}
+                          </select>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -478,11 +631,46 @@ export default function Admin() {
 
       <Section
         title="Plan configuration"
-        description="Names, per-project endpoint limits, and Stripe price IDs. Limits apply to each of a user's projects when their plan changes."
+        description="Add self-serve or contact-sales plans. Contact-sales plans skip Stripe Checkout and show a Contact CTA. After a sales chat, assign the plan on a user below (or in Users)."
         actions={
-          <Button onClick={handleSave} disabled={saving || loading}>
-            {saving ? 'Saving…' : 'Save plans'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                addPlanRow({
+                  slug: 'new-plan',
+                  name: 'New plan',
+                  endpointLimit: 1000,
+                  priceCentsMonthly: 0,
+                  sortOrder: 50,
+                })
+              }
+              disabled={saving}
+            >
+              Add plan
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                addPlanRow({
+                  slug: 'enterprise',
+                  name: 'Enterprise',
+                  description:
+                    'Custom limits, dedicated support, and onboarding. Contact us for pricing.',
+                  endpointLimit: '',
+                  priceCentsMonthly: 0,
+                  contactSales: true,
+                  sortOrder: 100,
+                })
+              }
+              disabled={saving || drafts.some((d) => d.slug === 'enterprise')}
+            >
+              Add Enterprise
+            </Button>
+            <Button onClick={handleSave} disabled={saving || loading}>
+              {saving ? 'Saving…' : 'Save plans'}
+            </Button>
+          </div>
         }
       >
         {loading && drafts.length === 0 ? (
@@ -490,13 +678,16 @@ export default function Admin() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+              <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200 text-ink-500">
                     <th className="py-2 pr-3 font-medium">Slug</th>
                     <th className="py-2 pr-3 font-medium">Name</th>
+                    <th className="py-2 pr-3 font-medium">Description</th>
                     <th className="py-2 pr-3 font-medium">Endpoint limit</th>
                     <th className="py-2 pr-3 font-medium">Price (¢/mo)</th>
+                    <th className="py-2 pr-3 font-medium">Contact sales</th>
+                    <th className="py-2 pr-3 font-medium">Contact URL</th>
                     <th className="py-2 pr-3 font-medium">Stripe price id</th>
                     <th className="py-2 pr-3 font-medium">Active</th>
                     <th className="py-2 font-medium">Sort</th>
@@ -504,9 +695,22 @@ export default function Admin() {
                 </thead>
                 <tbody>
                   {drafts.map((row, index) => (
-                    <tr key={row.id || row.slug} className="border-b border-ink-100">
+                    <tr key={row.id || `draft-${row.slug}-${index}`} className="border-b border-ink-100 align-top">
                       <td className="py-2 pr-3">
-                        <span className="font-mono text-ink-700">{row.slug}</span>
+                        {row.slugEditable ? (
+                          <input
+                            className="w-28 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                            value={row.slug}
+                            onChange={(e) =>
+                              updateDraft(index, {
+                                slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                              })
+                            }
+                            aria-label="Plan slug"
+                          />
+                        ) : (
+                          <span className="font-mono text-ink-700">{row.slug}</span>
+                        )}
                       </td>
                       <td className="py-2 pr-3">
                         <input
@@ -514,6 +718,17 @@ export default function Admin() {
                           value={row.name}
                           onChange={(e) => updateDraft(index, { name: e.target.value })}
                           aria-label={`Name for ${row.slug}`}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <input
+                          className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 text-ink-900"
+                          value={row.description}
+                          onChange={(e) =>
+                            updateDraft(index, { description: e.target.value })
+                          }
+                          placeholder="Optional blurb"
+                          aria-label={`Description for ${row.slug}`}
                         />
                       </td>
                       <td className="py-2 pr-3">
@@ -538,7 +753,36 @@ export default function Admin() {
                           onChange={(e) =>
                             updateDraft(index, { priceCentsMonthly: e.target.value })
                           }
+                          disabled={row.contactSales}
                           aria-label={`Price cents for ${row.slug}`}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={row.contactSales}
+                          onChange={(e) =>
+                            updateDraft(index, {
+                              contactSales: e.target.checked,
+                              stripePriceId: e.target.checked ? '' : row.stripePriceId,
+                              priceCentsMonthly: e.target.checked
+                                ? '0'
+                                : row.priceCentsMonthly,
+                            })
+                          }
+                          aria-label={`Contact sales ${row.slug}`}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <input
+                          className="w-full min-w-[10rem] rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
+                          value={row.contactUrl}
+                          onChange={(e) =>
+                            updateDraft(index, { contactUrl: e.target.value })
+                          }
+                          placeholder="mailto:… or https://…"
+                          disabled={!row.contactSales}
+                          aria-label={`Contact URL for ${row.slug}`}
                         />
                       </td>
                       <td className="py-2 pr-3">
@@ -549,6 +793,7 @@ export default function Admin() {
                             updateDraft(index, { stripePriceId: e.target.value })
                           }
                           placeholder="price_…"
+                          disabled={row.contactSales}
                           aria-label={`Stripe price id for ${row.slug}`}
                         />
                       </td>
@@ -579,9 +824,9 @@ export default function Admin() {
               </table>
             </div>
             <p className="mt-3 text-xs text-ink-500">
-              Empty endpoint limit = unlimited. Price is display/admin only until Checkout uses{' '}
-              <code className="font-mono">stripePriceId</code> (or env{' '}
-              <code className="font-mono">STRIPE_PRICE_PRO</code>).
+              Empty endpoint limit = unlimited. Contact-sales plans never open Checkout; their CTA
+              opens an in-app form and leads appear under Sales leads above. Self-serve paid plans
+              need a <code className="font-mono">stripePriceId</code>.
             </p>
           </>
         )}

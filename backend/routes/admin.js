@@ -2,7 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
-import { ensureDefaultPlans, listPlans } from '../lib/plans.js';
+import { applyPlanToUser, ensureDefaultPlans, getPlanBySlug, listPlans } from '../lib/plans.js';
 import { getAdminOverview, listAdminUsers } from '../lib/adminMetrics.js';
 
 const router = express.Router();
@@ -14,10 +14,13 @@ function serializePlan(plan) {
     id: plan.id,
     slug: plan.slug,
     name: plan.name,
+    description: plan.description ?? null,
     endpointLimit: plan.endpointLimit,
     seatLimit: plan.seatLimit ?? null,
     priceCentsMonthly: plan.priceCentsMonthly,
     stripePriceId: plan.stripePriceId,
+    contactSales: Boolean(plan.contactSales),
+    contactUrl: plan.contactUrl ?? null,
     active: plan.active,
     sortOrder: plan.sortOrder,
     updatedAt: plan.updatedAt,
@@ -51,6 +54,91 @@ router.get('/users', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/admin/users/:id/plan
+ * Body: { planSlug }
+ * Manually assign a plan (e.g. Enterprise after a sales conversation). Syncs project limits.
+ */
+router.put('/users/:id/plan', async (req, res) => {
+  try {
+    const userId = String(req.params.id || '').trim();
+    const planSlug = String(req.body?.planSlug || '')
+      .trim()
+      .toLowerCase();
+    if (!userId || !planSlug) {
+      res.status(400).json({ error: 'user id and planSlug are required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const known = await prisma.plan.findUnique({ where: { slug: planSlug } });
+    if (!known && !['free', 'pro'].includes(planSlug)) {
+      res.status(400).json({ error: `Unknown plan slug: ${planSlug}` });
+      return;
+    }
+
+    const result = await applyPlanToUser(userId, planSlug);
+    const plan = known || (await getPlanBySlug(planSlug));
+    res.json({
+      userId,
+      email: user.email,
+      planSlug: result.planSlug,
+      endpointLimit: result.endpointLimit,
+      plan: serializePlan(plan),
+    });
+  } catch (error) {
+    console.error('Admin assign plan error:', error);
+    res.status(500).json({ error: 'Failed to assign plan' });
+  }
+});
+
+/** GET /api/admin/leads — contact-sales inquiries (newest first) */
+router.get('/leads', async (req, res) => {
+  try {
+    const take = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);
+    const skip = Math.max(Number(req.query.offset) || 0, 0);
+    const plan = String(req.query.plan || '')
+      .trim()
+      .toLowerCase();
+
+    const where = plan ? { planSlug: plan } : {};
+
+    const [total, leads] = await Promise.all([
+      prisma.contactLead.count({ where }),
+      prisma.contactLead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          company: true,
+          message: true,
+          planSlug: true,
+          userId: true,
+          source: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    res.json({ total, limit: take, offset: skip, leads });
+  } catch (error) {
+    console.error('Admin list leads error:', error);
+    res.status(500).json({ error: 'Failed to list leads' });
+  }
+});
+
 /** GET /api/admin/plans — all plans (including inactive) */
 router.get('/plans', async (_req, res) => {
   try {
@@ -64,7 +152,8 @@ router.get('/plans', async (_req, res) => {
 
 /**
  * PUT /api/admin/plans
- * Body: { plans: [{ id?, slug, name, endpointLimit, priceCentsMonthly, stripePriceId, active, sortOrder }] }
+ * Body: { plans: [{ id?, slug, name, description, endpointLimit, priceCentsMonthly,
+ *   stripePriceId, contactSales, contactUrl, active, sortOrder }] }
  * Updates existing rows by id or slug; creates missing slugs.
  */
 router.put('/plans', async (req, res) => {
@@ -87,6 +176,11 @@ router.put('/plans', async (req, res) => {
       }
 
       const name = String(row.name || slug).trim() || slug;
+      const description =
+        row.description === null || row.description === undefined || row.description === ''
+          ? null
+          : String(row.description).trim();
+
       const endpointLimit =
         row.endpointLimit === null || row.endpointLimit === '' || row.endpointLimit === undefined
           ? null
@@ -102,10 +196,19 @@ router.put('/plans', async (req, res) => {
         return;
       }
 
-      const stripePriceId =
-        row.stripePriceId === null || row.stripePriceId === undefined || row.stripePriceId === ''
+      const contactSales = Boolean(row.contactSales);
+      const stripePriceId = contactSales
+        ? null
+        : row.stripePriceId === null ||
+            row.stripePriceId === undefined ||
+            row.stripePriceId === ''
           ? null
           : String(row.stripePriceId).trim();
+
+      const contactUrl =
+        row.contactUrl === null || row.contactUrl === undefined || row.contactUrl === ''
+          ? null
+          : String(row.contactUrl).trim();
 
       const active = row.active !== false;
       const sortOrder = Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : 0;
@@ -123,9 +226,12 @@ router.put('/plans', async (req, res) => {
 
       const data = {
         name,
+        description,
         endpointLimit,
         priceCentsMonthly,
         stripePriceId,
+        contactSales,
+        contactUrl,
         active,
         sortOrder,
         ...(seatLimit !== undefined ? { seatLimit } : {}),
