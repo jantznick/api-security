@@ -6,8 +6,16 @@
 export const INSTALL_STACKS = [
   { id: 'express', label: 'Express', packageName: '@apiglimpse/middleware' },
   { id: 'fastify', label: 'Fastify', packageName: '@apiglimpse/fastify' },
+  { id: 'nestjs', label: 'NestJS', packageName: '@apiglimpse/nestjs' },
+  { id: 'next', label: 'Next.js', packageName: '@apiglimpse/next' },
   { id: 'fastapi', label: 'FastAPI', packageName: 'apiglimpse' },
+  { id: 'django', label: 'Django', packageName: 'apiglimpse[django]' },
+  { id: 'flask', label: 'Flask', packageName: 'apiglimpse[flask]' },
   { id: 'go', label: 'Go (chi)', packageName: 'apiglimpse (Go module)' },
+  { id: 'spring', label: 'Spring Boot', packageName: 'apiglimpse-spring-boot-starter' },
+  { id: 'aspnet', label: 'ASP.NET Core', packageName: 'ApiGlimpse.AspNetCore' },
+  { id: 'nginx', label: 'Nginx (OpenResty)', packageName: 'connectors/nginx' },
+  { id: 'kong', label: 'Kong', packageName: 'kong-plugin-apiglimpse' },
 ];
 
 /**
@@ -24,7 +32,6 @@ export function buildInstallSnippet(stackId, { collectUrl, apiKey, serviceName }
       return `# .env
 API_SENSOR_AGENT_URL=${agent}
 API_SENSOR_KEY=${key}
-# Optional but recommended for caller topology:
 API_SENSOR_SERVICE_NAME=${svc}
 
 # server.js
@@ -39,6 +46,42 @@ await app.register(
     serviceName: process.env.API_SENSOR_SERVICE_NAME,
   }),
 );`;
+
+    case 'nestjs':
+      return `# .env
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+# app.module.ts
+import { Module } from '@nestjs/common';
+import { ApiGlimpseModule } from '@apiglimpse/nestjs';
+
+@Module({
+  imports: [
+    ApiGlimpseModule.forRoot({
+      agentUrl: process.env.API_SENSOR_AGENT_URL,
+      apiKey: process.env.API_SENSOR_KEY,
+      serviceName: process.env.API_SENSOR_SERVICE_NAME,
+    }),
+  ],
+})
+export class AppModule {}`;
+
+    case 'next':
+      return `# .env.local
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+# app/api/users/route.js
+import { withApiSensor } from '@apiglimpse/next';
+
+export const GET = withApiSensor(async () => Response.json({ users: [] }));
+export const POST = withApiSensor(async (request) => {
+  const body = await request.json();
+  return Response.json({ ok: true }, { status: 201 });
+});`;
 
     case 'fastapi':
       return `# .env
@@ -58,6 +101,31 @@ app.add_middleware(
     service_name="${svc}",
 )`;
 
+    case 'django':
+      return `# .env
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+# settings.py
+MIDDLEWARE = [
+    "apiglimpse.django.ApiGlimpseDjangoMiddleware",
+    # ...
+]`;
+
+    case 'flask':
+      return `# .env
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+# app.py
+from flask import Flask
+from apiglimpse.flask import ApiGlimpse
+
+app = Flask(__name__)
+ApiGlimpse(app)`;
+
     case 'go':
       return `# env
 API_SENSOR_AGENT_URL=${agent}
@@ -71,6 +139,44 @@ r.Use(apiglimpse.Middleware(apiglimpse.Config{
   APIKey:      os.Getenv("API_SENSOR_KEY"),
   ServiceName: os.Getenv("API_SENSOR_SERVICE_NAME"),
 }))`;
+
+    case 'spring':
+      return `# application.properties
+apiglimpse.agent-url=${agent}
+apiglimpse.api-key=${key}
+apiglimpse.service-name=${svc}
+
+# pom.xml dependency: com.apiglimpse:apiglimpse-spring-boot-starter:0.1.0
+# (./mvnw install from connectors/java until Maven Central publish)`;
+
+    case 'aspnet':
+      return `// appsettings.json / env
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+// Program.cs
+builder.Services.AddApiGlimpse(builder.Configuration);
+app.UseApiGlimpse();`;
+
+    case 'nginx':
+      return `# env (OpenResty)
+API_SENSOR_AGENT_URL=${agent}
+API_SENSOR_KEY=${key}
+API_SENSOR_SERVICE_NAME=${svc}
+
+# See docs/GATEWAY_NGINX.md — copy connectors/nginx/*.lua
+# init_worker_by_lua + log_by_lua`;
+
+    case 'kong':
+      return `# Kong Admin API
+curl -X POST http://localhost:8001/plugins \\
+  --data "name=apiglimpse" \\
+  --data "config.agent_url=${agent}" \\
+  --data "config.api_key=${key}" \\
+  --data "config.service_name=${svc}"
+
+# See docs/GATEWAY_KONG.md`;
 
     case 'express':
     default:

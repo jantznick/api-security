@@ -6,7 +6,7 @@ const steps = [
   {
     n: '01',
     title: 'Add a connector',
-    body: 'Install a connector for Express, Fastify, FastAPI, or Go (chi) and set your project API key and API Glimpse URL. It records method, path, status, and field names/types. Sensitive values are removed before data leaves your app.',
+    body: 'Install a connector for your stack (Express, Nest, FastAPI, Spring, ASP.NET, Nginx/Kong, and more) and set your project API key and API Glimpse URL. It records method, path, status, and field names/types. Sensitive values are removed before data leaves your app.',
   },
   {
     n: '02',
@@ -23,12 +23,15 @@ const steps = [
 const connectors = [
   { name: 'Express', status: 'Available now' },
   { name: 'Fastify', status: 'Available now' },
+  { name: 'NestJS', status: 'Available now' },
+  { name: 'Next.js', status: 'Available now' },
   { name: 'FastAPI', status: 'Available now' },
+  { name: 'Django / Flask', status: 'Available now' },
   { name: 'Go (chi)', status: 'Available now' },
-  { name: 'NestJS', status: 'Coming soon' },
-  { name: 'Next.js', status: 'Coming soon' },
+  { name: 'Spring Boot', status: 'Available now' },
+  { name: 'ASP.NET Core', status: 'Available now' },
+  { name: 'Nginx / Kong', status: 'Available now' },
   { name: 'Hono', status: 'Coming soon' },
-  { name: 'Proxy / gateway', status: 'Coming soon' },
 ];
 
 const whatYouGet = [

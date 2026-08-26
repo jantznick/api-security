@@ -50,6 +50,6 @@ Compose runs OpenResty → echo upstream + a mock collector that records `POST /
 
 ## Kong / other gateways
 
-Prefer this OpenResty sampler today. Kong packaging tracks the same contract —
-see [`connectors/kong/README.md`](../connectors/kong/README.md). For a Node
-sidecar instead of Lua, use `@apiglimpse/gateway-proxy`.
+Prefer this OpenResty sampler **or** the [Kong plugin](./GATEWAY_KONG.md). Kong packaging:
+[`connectors/kong`](../connectors/kong). For a Node sidecar instead of Lua, use
+`@apiglimpse/gateway-proxy`.

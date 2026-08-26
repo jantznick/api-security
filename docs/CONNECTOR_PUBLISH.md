@@ -15,8 +15,14 @@ Customer install after publish: [INTEGRATING.md](./INTEGRATING.md). Wire format:
 | Shared helpers (JS) | `@apiglimpse/shared` | npm | `packages/shared` |
 | Express | `@apiglimpse/middleware` | npm | `packages/middleware` |
 | Fastify | `@apiglimpse/fastify` | npm | `packages/fastify` |
-| FastAPI / Starlette | `apiglimpse` | PyPI | `connectors/python` |
+| NestJS | `@apiglimpse/nestjs` | npm | `packages/nestjs` |
+| Next.js | `@apiglimpse/next` | npm | `packages/next` |
+| FastAPI / Django / Flask | `apiglimpse` | PyPI | `connectors/python` |
 | Go (chi / `net/http`) | `github.com/jantznick/api-security/connectors/go` | Go module proxy (git tags) | `connectors/go` |
+| Spring Boot | `com.apiglimpse:apiglimpse-spring-boot-starter` | Maven Central (planned) | `connectors/java` |
+| ASP.NET Core | `ApiGlimpse.AspNetCore` | NuGet (planned) | `connectors/dotnet` |
+| Nginx / OpenResty | Lua files / rockspec | copy or luarocks | `connectors/nginx` |
+| Kong | `kong-plugin-apiglimpse` | luarocks / plugin path | `connectors/kong` |
 
 **Hosted agent / ingest / core** are **not** published as SDKs. Deploy those with [DEPLOY.md](./DEPLOY.md) / [RAILWAY.md](./RAILWAY.md). Connectors only talk to the public agent URL.
 

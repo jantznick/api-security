@@ -17,14 +17,20 @@ All connectors speak the same [wire protocol](./WIRE_PROTOCOL.md). There is one 
 | --- | --- | --- |
 | [Express](#express) | Available | `npm install @apiglimpse/middleware` |
 | [Fastify](#fastify) | Available | `npm install @apiglimpse/fastify` |
+| [NestJS](#nestjs) | Available | `npm install @apiglimpse/nestjs` |
+| [Next.js](#nextjs) | Available | `npm install @apiglimpse/next` |
 | [FastAPI](#fastapi) | Available | `pip install apiglimpse` |
+| [Django](#django) | Available | `pip install "apiglimpse[django]"` |
+| [Flask](#flask) | Available | `pip install "apiglimpse[flask]"` |
 | [Go (chi)](#go-chi) | Available | `go get github.com/jantznick/api-security/connectors/go/apiglimpse` |
-| NestJS | Coming soon | — |
-| Next.js (Route Handlers / API routes) | Coming soon | — |
+| [Spring Boot](#spring-boot) | Available | Maven `com.apiglimpse:apiglimpse-spring-boot-starter` |
+| [ASP.NET Core](#aspnet-core) | Available | `dotnet add package ApiGlimpse.AspNetCore` |
+| [Gateway (Nginx / OpenResty)](./GATEWAY_NGINX.md) | Available | See [GATEWAY_NGINX.md](./GATEWAY_NGINX.md) |
+| [Gateway (Kong)](./GATEWAY_KONG.md) | Available | See [GATEWAY_KONG.md](./GATEWAY_KONG.md) |
+| Node gateway sidecar | Available | `@apiglimpse/gateway-proxy` |
 | Hono | Coming soon | — |
-| [Gateway (Nginx / OpenResty)](./GATEWAY_NGINX.md) | Available (OpenResty) | See [GATEWAY_NGINX.md](./GATEWAY_NGINX.md) |
 
-> **Note:** npm / PyPI / Go module versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths.
+> **Note:** npm / PyPI / Go / Maven / NuGet versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` / project-reference paths.
 
 ## Shared prerequisites
 
@@ -237,6 +243,117 @@ Reference: [`demo/go-chi-app`](../demo/go-chi-app). Package README: [`connectors
 
 ---
 
+## NestJS
+
+Package: `@apiglimpse/nestjs` (reuses Express / Fastify connectors).
+
+```bash
+npm install @apiglimpse/nestjs
+```
+
+```ts
+import { Module } from '@nestjs/common';
+import { ApiGlimpseModule } from '@apiglimpse/nestjs';
+
+@Module({
+  imports: [
+    ApiGlimpseModule.forRoot({
+      agentUrl: process.env.API_SENSOR_AGENT_URL || 'https://collect.apiglimpse.com',
+      apiKey: process.env.API_SENSOR_KEY,
+      sampleRate: Number(process.env.API_SENSOR_SAMPLE_RATE || 1),
+      serviceName: process.env.API_SENSOR_SERVICE_NAME,
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+Demo: [`demo/nestjs-app`](../demo/nestjs-app). README: [`packages/nestjs/README.md`](../packages/nestjs/README.md).
+
+---
+
+## Next.js
+
+Package: `@apiglimpse/next` (App Router Route Handlers).
+
+```bash
+npm install @apiglimpse/next
+```
+
+```js
+import { withApiSensor } from '@apiglimpse/next';
+
+export const GET = withApiSensor(async () => Response.json({ ok: true }));
+```
+
+See package README for body-read / Edge / streaming limitations. Demo: [`demo/next-app`](../demo/next-app).
+
+---
+
+## Django
+
+```bash
+pip install "apiglimpse[django]"
+```
+
+```python
+# settings.py
+MIDDLEWARE = [
+    "apiglimpse.django.ApiGlimpseDjangoMiddleware",
+    # ...
+]
+```
+
+Demo: [`demo/django-app`](../demo/django-app).
+
+---
+
+## Flask
+
+```bash
+pip install "apiglimpse[flask]"
+```
+
+```python
+from flask import Flask
+from apiglimpse.flask import ApiGlimpse
+
+app = Flask(__name__)
+ApiGlimpse(app)  # reads API_SENSOR_* from the environment
+```
+
+Demo: [`demo/flask-app`](../demo/flask-app).
+
+---
+
+## Spring Boot
+
+Artifact: `com.apiglimpse:apiglimpse-spring-boot-starter` (local `./mvnw install` until Maven Central).
+
+```properties
+apiglimpse.agent-url=https://collect.apiglimpse.com
+apiglimpse.api-key=ask_…
+```
+
+Demo: [`demo/spring-boot-app`](../demo/spring-boot-app). README: [`connectors/java/README.md`](../connectors/java/README.md).
+
+---
+
+## ASP.NET Core
+
+```bash
+dotnet add package ApiGlimpse.AspNetCore
+```
+
+```csharp
+builder.Services.AddApiGlimpse(builder.Configuration);
+app.UseApiGlimpse();
+```
+
+Demo: [`demo/aspnet-app`](../demo/aspnet-app). README: [`connectors/dotnet/README.md`](../connectors/dotnet/README.md).
+
+---
+
 ## Verify (any connector)
 
 1. Hit a few of **your** routes (browser or `curl`).
@@ -274,6 +391,20 @@ API_SENSOR_SAMPLE_RATE=1
 ```
 
 Copy `connectors/nginx/apiglimpse.lua` + `redaction.lua`, wire `init_worker_by_lua` + `log_by_lua` (see connector README). Protect mode is not enforced at the gateway.
+
+---
+
+## Gateway (Kong)
+
+Kong Lua plugin — same envelope as Nginx. Full guide: **[GATEWAY_KONG.md](./GATEWAY_KONG.md)** · Demo: `demo/kong/`.
+
+```bash
+curl -s -X POST http://localhost:8001/plugins \
+  --data "name=apiglimpse" \
+  --data "config.agent_url=https://collect.apiglimpse.com" \
+  --data "config.api_key=ask_…" \
+  --data "config.service_name=kong-gateway"
+```
 
 ---
 

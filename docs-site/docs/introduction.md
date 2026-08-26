@@ -17,13 +17,15 @@ Your app
 | --- | --- |
 | Express | Available (`npm install @apiglimpse/middleware`) |
 | Fastify | Available (`npm install @apiglimpse/fastify`) |
-| FastAPI | Available (`pip install apiglimpse`) |
+| NestJS | Available (`npm install @apiglimpse/nestjs`) |
+| Next.js | Available (`npm install @apiglimpse/next`) |
+| FastAPI / Django / Flask | Available (`pip install apiglimpse`) |
 | Go (chi) | Available (`go get …/connectors/go/apiglimpse`) |
-| NestJS | Coming soon |
-| Next.js (Route Handlers / API routes) | Coming soon |
+| Spring Boot | Available (Maven starter) |
+| ASP.NET Core | Available (`ApiGlimpse.AspNetCore`) |
+| Nginx (OpenResty) / Kong | Available (Lua plugins) |
+| Node gateway sidecar | Available (`@apiglimpse/gateway-proxy`) |
 | Hono | Coming soon |
-| Node gateway sidecar | Available (`packages/gateway-proxy`) |
-| Kong / Nginx / Envoy | Coming soon |
 
 See [Connect your app](/integrating) for install snippets.
 
@@ -36,7 +38,7 @@ For Express: `npm install @apiglimpse/middleware`. Other stacks: [Connect your a
 ## Next
 
 - [Quick start](/quick-start) — account → project → API key → connector
-- [Connect your app](/integrating) — Express, Fastify, FastAPI, Go
+- [Connect your app](/integrating) — Express, Nest, Next, Python, Java, .NET, gateways
 - [Use cases](/use-cases) — shadow APIs, sensitive fields, OpenAPI export
 - [Architecture](/architecture) — how data moves
 - [Concepts](/concepts) — API keys, schemas, endpoint limits

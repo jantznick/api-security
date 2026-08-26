@@ -25,16 +25,17 @@ const steps = [
 const connectorsAvailable = [
   { name: 'Express' },
   { name: 'Fastify' },
+  { name: 'NestJS' },
+  { name: 'Next.js' },
   { name: 'FastAPI' },
+  { name: 'Django / Flask' },
   { name: 'Go (chi)' },
+  { name: 'Spring Boot' },
+  { name: 'ASP.NET Core' },
+  { name: 'Nginx / Kong' },
 ];
 
-const connectorsSoon = [
-  'NestJS',
-  'Next.js',
-  'Hono',
-  'Proxy / gateway',
-];
+const connectorsSoon = ['Hono'];
 
 const whatYouSee = [
   {

@@ -1,0 +1,79 @@
+services:
+  mock-collector:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./mock-collector:/app:ro
+    command: ["node", "server.js"]
+    ports:
+      - "18081:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  upstream:
+    image: mendhak/http-https-echo:31
+    environment:
+      HTTP_PORT: "8080"
+
+  kong-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  kong-migrations:
+    image: kong:3.6
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+    command: kong migrations bootstrap
+    depends_on:
+      kong-db:
+        condition: service_healthy
+
+  kong:
+    image: kong:3.6
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_LOG_LEVEL: info
+      KONG_PLUGINS: bundled,apiglimpse
+      KONG_LUA_PACKAGE_PATH: /opt/?.lua;/opt/?/init.lua;;
+    volumes:
+      - ../../connectors/kong/kong/plugins/apiglimpse:/opt/kong/plugins/apiglimpse:ro
+    ports:
+      - "18002:8000"
+      - "18003:8001"
+    depends_on:
+      kong-migrations:
+        condition: service_completed_successfully
+      mock-collector:
+        condition: service_healthy
+      upstream:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
