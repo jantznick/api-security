@@ -101,32 +101,58 @@ export default function Inventory() {
   const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
   const keyPrefix = activeKeys[0]?.keyPrefix;
   const [exporting, setExporting] = useState(false);
+  const [exportingEvidence, setExportingEvidence] = useState(false);
+
+  const safeDownloadName = (suffix) => {
+    const base =
+      String(service?.name || 'api')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 64) || 'api';
+    return `${base}${suffix}`;
+  };
+
+  const downloadJson = (doc, filename, successMessage) => {
+    const blob = new Blob([JSON.stringify(doc, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(successMessage);
+  };
 
   const exportOpenApi = async () => {
     setExporting(true);
     try {
       const doc = await inventoryAPI.exportOpenApi(serviceId);
-      const blob = new Blob([JSON.stringify(doc, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const safeName =
-        String(service?.name || 'api')
-          .replace(/[^a-zA-Z0-9._-]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(0, 64) || 'api';
-      a.href = url;
-      a.download = `${safeName}-openapi.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success('OpenAPI export downloaded');
+      downloadJson(doc, safeDownloadName('-openapi.json'), 'OpenAPI export downloaded');
     } catch (err) {
       toast.error(err.message);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportEvidence = async () => {
+    setExportingEvidence(true);
+    try {
+      const pack = await inventoryAPI.exportEvidence(serviceId);
+      const day = String(pack?.generatedAt || new Date().toISOString()).slice(0, 10);
+      downloadJson(
+        pack,
+        safeDownloadName(`-evidence-${day}.json`),
+        'Evidence pack downloaded',
+      );
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setExportingEvidence(false);
     }
   };
 
@@ -148,9 +174,16 @@ export default function Inventory() {
             <Button
               variant="secondary"
               onClick={exportOpenApi}
-              disabled={exporting || loading}
+              disabled={exporting || exportingEvidence || loading}
             >
               {exporting ? 'Exporting…' : 'Export OpenAPI'}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={exportEvidence}
+              disabled={exporting || exportingEvidence || loading}
+            >
+              {exportingEvidence ? 'Downloading…' : 'Download evidence pack'}
             </Button>
             <Button variant="secondary" onClick={load}>
               Refresh

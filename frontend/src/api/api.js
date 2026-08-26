@@ -110,6 +110,8 @@ export const inventoryAPI = {
     request(`/inventory/${serviceId}/endpoints/${endpointId}`),
   /** OpenAPI 3.0 JSON document for the service inventory */
   exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
+  /** Dated evidence pack (inventory + signals + OpenAPI) */
+  exportEvidence: (serviceId) => request(`/inventory/${serviceId}/evidence`),
 };
 
 /**
