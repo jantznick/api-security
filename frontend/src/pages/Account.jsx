@@ -9,6 +9,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import FormField, { inputClassName } from '../components/FormField';
 import { DOCS_URL, loginUrl } from '../lib/urls';
+import { useActiveOrg } from '../hooks/useActiveOrg';
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile' },
@@ -34,6 +35,12 @@ function formatDate(value) {
 function planLabel(slug) {
   if (!slug) return 'Free';
   const s = String(slug);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function roleLabel(role) {
+  if (!role) return null;
+  const s = String(role);
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -172,37 +179,97 @@ function SecuritySection({ onLogout }) {
 }
 
 function OrganizationsSection({ user }) {
-  const plan = planLabel(user?.planSlug);
+  const orgs = Array.isArray(user?.orgs) ? user.orgs : [];
+  const { setActiveOrgId } = useActiveOrg();
+  const accountPlan = planLabel(user?.planSlug);
 
   return (
     <Card className="p-6">
       <h2 className="font-display text-lg font-bold text-ink-900">Organizations</h2>
       <p className="mt-1 text-sm text-ink-500">
-        Team organizations are coming soon. For now you work in a personal workspace.
+        Your workspaces and team orgs. Invite teammates from Members — Free plans include up
+        to 3 seats (you count as one).
       </p>
 
-      <div className="mt-6 border-t border-ink-100 pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-ink-900">Personal workspace</p>
-            <p className="mt-0.5 text-sm text-ink-500">Your projects and API inventory</p>
+      {orgs.length > 0 ? (
+        <ul className="mt-6 divide-y divide-ink-100 border-t border-ink-100">
+          {orgs.map((org) => {
+            const orgPlan = planLabel(org.planSlug || user?.planSlug);
+            const role = roleLabel(org.role);
+            const seats = org.seats;
+            const seatText =
+              seats?.limit != null
+                ? `${seats.used ?? 0} / ${seats.limit} seats`
+                : seats?.used != null
+                  ? `${seats.used} seats`
+                  : null;
+            return (
+              <li
+                key={org.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-ink-900">
+                      {org.name || 'Organization'}
+                    </p>
+                    {org.isPersonal ? (
+                      <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2 py-0.5 text-xs font-medium text-ink-700">
+                        Personal
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-sm text-ink-500">
+                    {[role, orgPlan ? `${orgPlan} plan` : null, seatText]
+                      .filter(Boolean)
+                      .join(' · ') || 'Member'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    to={`/orgs/${org.id}/members`}
+                    onClick={() => setActiveOrgId(org.id)}
+                    className="inline-flex min-h-9 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"
+                  >
+                    Members
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="mt-6 border-t border-ink-100 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-ink-900">Personal workspace</p>
+              <p className="mt-0.5 text-sm text-ink-500">
+                Created automatically for your account
+              </p>
+            </div>
+            <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
+              {accountPlan}
+            </span>
           </div>
-          <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
-            {plan}
-          </span>
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link to="/billing">
-            <Button type="button" variant="secondary">
-              Billing
-            </Button>
-          </Link>
-          <Link to="/usage">
-            <Button type="button" variant="secondary">
-              Usage
-            </Button>
-          </Link>
-        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link to="/projects">
+          <Button type="button" variant="secondary">
+            Projects
+          </Button>
+        </Link>
+        <Link to="/usage">
+          <Button type="button" variant="secondary">
+            Usage & seats
+          </Button>
+        </Link>
+        <Link to="/billing">
+          <Button type="button" variant="secondary">
+            Billing
+          </Button>
+        </Link>
       </div>
     </Card>
   );

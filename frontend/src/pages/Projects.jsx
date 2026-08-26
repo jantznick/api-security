@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
+import { useActiveOrg } from '../hooks/useActiveOrg';
 import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 function KeyBanner({ apiKey, projectId, serviceId, onDismiss }) {
@@ -112,6 +113,7 @@ function KeyBanner({ apiKey, projectId, serviceId, onDismiss }) {
 }
 
 export default function Projects() {
+  const { activeOrgId, orgs } = useActiveOrg();
   const [projects, setProjects] = useState([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -135,10 +137,18 @@ export default function Projects() {
     load();
   }, []);
 
+  /** API returns all membership orgs; filter client-side by active org when set. */
+  const visibleProjects = useMemo(() => {
+    if (!activeOrgId || orgs.length <= 1) return projects;
+    return projects.filter(
+      (p) => p.organizationId === activeOrgId || p.organization?.id === activeOrgId,
+    );
+  }, [projects, activeOrgId, orgs.length]);
+
   /** Flatten services for transitional list UX (S6 will nest). */
   const rows = useMemo(() => {
     const out = [];
-    for (const p of projects) {
+    for (const p of visibleProjects) {
       for (const s of p.services || []) {
         out.push({
           ...s,
@@ -148,7 +158,7 @@ export default function Projects() {
       }
     }
     return out;
-  }, [projects]);
+  }, [visibleProjects]);
 
   const handleCreate = async (event) => {
     event.preventDefault();
