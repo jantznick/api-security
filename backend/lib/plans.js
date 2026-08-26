@@ -14,18 +14,24 @@ export const FALLBACK_PLANS = Object.freeze({
   free: Object.freeze({
     slug: 'free',
     name: 'Free',
+    description: null,
     endpointLimit: 25,
     priceCentsMonthly: 0,
     stripePriceId: null,
+    contactSales: false,
+    contactUrl: null,
     active: true,
     sortOrder: 0,
   }),
   pro: Object.freeze({
     slug: 'pro',
     name: 'Pro',
+    description: null,
     endpointLimit: 500,
     priceCentsMonthly: 2900,
     stripePriceId: null,
+    contactSales: false,
+    contactUrl: null,
     active: true,
     sortOrder: 10,
   }),
@@ -37,9 +43,12 @@ const planPublicSelect = {
   id: true,
   slug: true,
   name: true,
+  description: true,
   endpointLimit: true,
   priceCentsMonthly: true,
   stripePriceId: true,
+  contactSales: true,
+  contactUrl: true,
   active: true,
   sortOrder: true,
 };
@@ -63,9 +72,12 @@ export async function ensureDefaultPlans() {
       create: {
         slug: plan.slug,
         name: plan.name,
+        description: plan.description ?? null,
         endpointLimit: plan.endpointLimit,
         priceCentsMonthly: plan.priceCentsMonthly,
         stripePriceId: plan.stripePriceId,
+        contactSales: plan.contactSales ?? false,
+        contactUrl: plan.contactUrl ?? null,
         active: plan.active,
         sortOrder: plan.sortOrder,
       },
@@ -133,12 +145,34 @@ export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId }
   return { planSlug: slug, endpointLimit, plan };
 }
 
-/** Resolve Stripe Price id for a paid plan (DB first, then env STRIPE_PRICE_PRO). */
+/** Resolve Stripe Price id for a paid self-serve plan (DB first, then env STRIPE_PRICE_PRO). */
 export async function resolveStripePriceId(planSlug = 'pro') {
   const plan = await getPlanBySlug(planSlug);
+  if (plan.contactSales) return null;
   if (plan.stripePriceId) return plan.stripePriceId;
   if (normalizeSlug(planSlug) === 'pro') {
     return process.env.STRIPE_PRICE_PRO?.trim() || null;
+  }
+  return null;
+}
+
+/**
+ * Public contact URL for a contact-sales plan.
+ * Prefers plan.contactUrl, then CONTACT_SALES_URL / CONTACT_SALES_EMAIL, then mailto:ADMIN_EMAIL.
+ */
+export function resolveContactSalesUrl(plan) {
+  if (!plan?.contactSales) return null;
+  const fromPlan = plan.contactUrl?.trim();
+  if (fromPlan) return fromPlan;
+  const envUrl = process.env.CONTACT_SALES_URL?.trim();
+  if (envUrl) return envUrl;
+  const email =
+    process.env.CONTACT_SALES_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
+  if (email) {
+    const subject = encodeURIComponent(
+      `API Glimpse — ${plan.name || 'Enterprise'} inquiry`,
+    );
+    return `mailto:${email}?subject=${subject}`;
   }
   return null;
 }

@@ -12,7 +12,8 @@ function formatLimit(limit) {
   return String(limit);
 }
 
-function formatPriceCents(cents) {
+function formatPriceCents(cents, { contactSales } = {}) {
+  if (contactSales) return 'Custom';
   if (typeof cents !== 'number') return null;
   if (cents === 0) return 'Free';
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}/mo`;
@@ -77,6 +78,8 @@ function normalizePlans(data) {
           ? Math.round(p.priceMonthly * 100)
           : null,
     hasStripePrice: Boolean(p.hasStripePrice),
+    contactSales: Boolean(p.contactSales),
+    contactUrl: p.contactUrl || null,
     description: p.description || null,
   }));
 }
@@ -276,9 +279,19 @@ export default function Billing() {
           </dl>
 
           <div className="mt-8 flex flex-wrap gap-3 border-t border-ink-100 pt-6">
-            <Button onClick={() => startCheckout('pro')} disabled={busy != null}>
-              {busy === 'checkout' ? 'Opening…' : 'Upgrade'}
-            </Button>
+            {plans.some((p) => p.hasStripePrice && !p.contactSales) ? (
+              <Button
+                onClick={() => {
+                  const paid =
+                    plans.find((p) => p.slug === 'pro' && p.hasStripePrice) ||
+                    plans.find((p) => p.hasStripePrice && !p.contactSales);
+                  startCheckout(paid?.slug || 'pro');
+                }}
+                disabled={busy != null}
+              >
+                {busy === 'checkout' ? 'Opening…' : 'Upgrade'}
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               onClick={openPortal}
@@ -288,8 +301,9 @@ export default function Billing() {
             </Button>
           </div>
           <p className="mt-4 text-xs text-ink-500">
-            Upgrade opens Stripe Checkout. Manage opens the customer portal.
-            If Stripe is not configured, you’ll see a short notice instead.
+            Upgrade opens Stripe Checkout for self-serve plans. Enterprise /
+            contact-sales plans use Contact sales below. Manage opens the
+            customer portal.
           </p>
         </Card>
       ) : null}
@@ -297,7 +311,7 @@ export default function Billing() {
       {status === 'ready' && plans.length > 0 ? (
         <div className="mt-10">
           <h2 className="font-display text-lg font-bold text-ink-900">Plans</h2>
-          <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((p) => (
               <li
                 key={p.id}
@@ -309,11 +323,47 @@ export default function Billing() {
                 <p className="mt-2 text-sm text-ink-600">
                   Endpoint cap: {formatLimit(p.endpointLimit)}
                 </p>
-                {formatPriceCents(p.priceCentsMonthly) ? (
+                {formatPriceCents(p.priceCentsMonthly, {
+                  contactSales: p.contactSales,
+                }) ? (
                   <p className="mt-1 text-sm text-ink-700">
-                    {formatPriceCents(p.priceCentsMonthly)}
+                    {formatPriceCents(p.priceCentsMonthly, {
+                      contactSales: p.contactSales,
+                    })}
                   </p>
                 ) : null}
+                {p.description ? (
+                  <p className="mt-2 text-sm leading-relaxed text-ink-500">
+                    {p.description}
+                  </p>
+                ) : null}
+                <div className="mt-4">
+                  {p.contactSales ? (
+                    p.contactUrl ? (
+                      <a
+                        href={p.contactUrl}
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-800 transition-colors hover:bg-ink-50"
+                      >
+                        Contact sales
+                      </a>
+                    ) : (
+                      <p className="text-xs text-ink-500">
+                        Contact sales URL not configured yet.
+                      </p>
+                    )
+                  ) : p.hasStripePrice && me?.planSlug !== p.slug ? (
+                    <Button
+                      variant="secondary"
+                      className="min-h-9 px-3 py-1.5"
+                      onClick={() => startCheckout(p.slug)}
+                      disabled={busy != null}
+                    >
+                      Choose {p.name}
+                    </Button>
+                  ) : me?.planSlug === p.slug ? (
+                    <p className="text-xs font-medium text-signal-700">Current plan</p>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

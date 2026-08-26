@@ -35,11 +35,17 @@ model Plan {
   id                String   @id @default(uuid())
   slug              String   @unique
   name              String
+  /// Short blurb for pricing / billing UI
+  description       String?
   /// Cap applied to each of the user's projects on plan change. null = unlimited.
   endpointLimit     Int?
   priceCentsMonthly Int      @default(0)
-  /// Stripe Price id (price_…) for Checkout; null for free / unpaid plans
+  /// Stripe Price id (price_…) for Checkout; null for free / unpaid / contact-sales plans
   stripePriceId     String?
+  /// When true, Checkout is disabled — CTA is contact sales (contactUrl or mailto fallback)
+  contactSales      Boolean  @default(false)
+  /// mailto:… or https://… for contact-sales CTA; null → mailto:ADMIN_EMAIL
+  contactUrl        String?
   active            Boolean  @default(true)
   sortOrder         Int      @default(0)
   createdAt         DateTime @default(now())
