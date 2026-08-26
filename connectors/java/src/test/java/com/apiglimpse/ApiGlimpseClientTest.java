@@ -48,7 +48,7 @@ class ApiGlimpseClientTest {
     ApiGlimpseProperties props = new ApiGlimpseProperties();
     props.setCircuitFailureThreshold(2);
     props.setCircuitOpenMs(60_000);
-    props.setMaxBatchSize(1);
+    props.setMaxBatchSize(50); // avoid enqueue auto-flush race
 
     ApiGlimpseClient client = new ApiGlimpseClient(props, envelope -> {
       throw new RuntimeException("down");
