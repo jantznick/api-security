@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AspNetDemo</RootNamespace>
+    <AssemblyName>aspnet-app</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\connectors\dotnet\ApiGlimpse.AspNetCore\ApiGlimpse.AspNetCore.csproj" />
+  </ItemGroup>
+
+</Project>
