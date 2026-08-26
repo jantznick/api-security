@@ -189,7 +189,7 @@ Publish `@apiglimpse/middleware` to npm so customers don’t use `file:` paths �
 
 ### Phase 3 — Breadth (still Noname-shaped)
 
-- More language connectors / proxy sensors (still → hosted agent)
+- More language connectors / proxy sensors (still → hosted agent) — plan: [CONNECTORS_PLAN.md](./CONNECTORS_PLAN.md)
 - Protect mode / policy cache
 - Stripe → map plan to `endpointLimit`
 - Later: scale **agent replicas** (still one URL, still multi-tenant)

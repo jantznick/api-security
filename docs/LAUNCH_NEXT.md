@@ -96,4 +96,4 @@ Local checklist details: [TESTING.md](./TESTING.md).
 
 - Password reset / change-password flows  
 - Stripe live keys / soft-launch Checkout (scaffold + Admin plans are in-repo — see [STRIPE.md](./STRIPE.md))  
-- Extra language connectors  
+- Extra language connectors — see [CONNECTORS_PLAN.md](./CONNECTORS_PLAN.md)  
