@@ -1,0 +1,3 @@
+apiglimpse[django] @ file:../../connectors/python
+django>=4.2
+python-dotenv>=1.0

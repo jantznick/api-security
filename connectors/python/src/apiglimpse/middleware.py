@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import os
-import random
 import time
 from typing import Any, Callable
 
@@ -15,94 +12,20 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
+from ._common import (
+    MAX_RESPONSE_CAPTURE_BYTES,
+    headers_dict,
+    observe_auth,
+    parse_json_bytes,
+    resolve_caller,
+    resolve_sensor_config,
+    should_sample,
+)
 from .envelope import create_envelope, create_sample
 
-DEFAULTS = {
-    "agent_url": "http://localhost:8080",
-    "api_key": "",
-    "sample_rate": 1.0,
-    "flush_interval_ms": 1000,
-    "max_batch_size": 50,
-    "max_buffer_size": 500,
-    "request_timeout_ms": 2000,
-    "circuit_failure_threshold": 3,
-    "circuit_open_ms": 15000,
-}
+# Re-export for tests / callers that historically patched middleware.DEFAULTS
+from ._common import DEFAULTS  # noqa: F401
 
-MAX_RESPONSE_CAPTURE_BYTES = 64 * 1024
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
-
-
-def _observe_auth(headers: dict[str, str]) -> str:
-    try:
-        auth = headers.get("authorization") or headers.get("Authorization")
-        if auth and str(auth).lower().startswith("bearer "):
-            return "bearer"
-        if headers.get("cookie") or headers.get("Cookie"):
-            return "cookie"
-        return "none"
-    except Exception:
-        return "none"
-
-
-def _headers_dict(headers: Any) -> dict[str, str]:
-    try:
-        return {str(k): str(v) for k, v in headers.items()}
-    except Exception:
-        return {}
-
-
-def _parse_json_bytes(raw: bytes | None) -> Any:
-    if not raw:
-        return None
-    try:
-        return json.loads(raw.decode("utf-8"))
-    except Exception:
-        return None
-
-
-
-def _resolve_caller(headers: dict[str, str], service_name: str | None) -> dict[str, Any]:
-    """Mirror packages/shared resolveCallerHints (explicit service name preferred)."""
-    lower = {str(k).lower(): v for k, v in (headers or {}).items()}
-    explicit = (
-        str(lower.get("x-service-name") or lower.get("x-client-name") or service_name or "").strip()
-        or None
-    )
-    ua = str(lower.get("user-agent") or "").lower()
-    if "curl/" in ua or ua == "curl":
-        family = "curl"
-    elif any(x in ua for x in ("mozilla/", "chrome/", "safari/", "firefox/", "edg/")):
-        family = "browser"
-    elif any(
-        x in ua
-        for x in ("axios", "node-fetch", "go-http", "python-requests", "okhttp", "java/", "apiglimpse")
-    ):
-        family = "sdk"
-    else:
-        family = "unknown"
-    if explicit:
-        return {
-            "key": f"svc:{explicit.lower()}",
-            "label": explicit,
-            "serviceName": explicit,
-            "userAgentFamily": family,
-        }
-    return {
-        "key": f"ua:{family}",
-        "label": f"ua:{family}",
-        "serviceName": None,
-        "userAgentFamily": family,
-    }
 
 class ApiGlimpseMiddleware(BaseHTTPMiddleware):
     """
@@ -129,37 +52,28 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
     ) -> None:
         super().__init__(app)
 
-        env_agent = os.environ.get("API_SENSOR_AGENT_URL") or DEFAULTS["agent_url"]
-        env_key = os.environ.get("API_SENSOR_KEY") or DEFAULTS["api_key"]
-        env_rate = _env_float("API_SENSOR_SAMPLE_RATE", DEFAULTS["sample_rate"])
-        env_svc = os.environ.get("API_SENSOR_SERVICE_NAME") or ""
-
-        self.agent_url = (agent_url if agent_url is not None else env_agent).rstrip("/")
-        self.api_key = api_key if api_key is not None else env_key
-        self.sample_rate = sample_rate if sample_rate is not None else env_rate
-        self.service_name = service_name if service_name is not None else env_svc
-        self.flush_interval_ms = (
-            flush_interval_ms if flush_interval_ms is not None else DEFAULTS["flush_interval_ms"]
+        cfg = resolve_sensor_config(
+            agent_url=agent_url,
+            api_key=api_key,
+            sample_rate=sample_rate,
+            service_name=service_name,
+            flush_interval_ms=flush_interval_ms,
+            max_batch_size=max_batch_size,
+            max_buffer_size=max_buffer_size,
+            request_timeout_ms=request_timeout_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_open_ms=circuit_open_ms,
         )
-        self.max_batch_size = (
-            max_batch_size if max_batch_size is not None else DEFAULTS["max_batch_size"]
-        )
-        self.max_buffer_size = (
-            max_buffer_size if max_buffer_size is not None else DEFAULTS["max_buffer_size"]
-        )
-        self.request_timeout_ms = (
-            request_timeout_ms
-            if request_timeout_ms is not None
-            else DEFAULTS["request_timeout_ms"]
-        )
-        self.circuit_failure_threshold = (
-            circuit_failure_threshold
-            if circuit_failure_threshold is not None
-            else DEFAULTS["circuit_failure_threshold"]
-        )
-        self.circuit_open_ms = (
-            circuit_open_ms if circuit_open_ms is not None else DEFAULTS["circuit_open_ms"]
-        )
+        self.agent_url = cfg["agent_url"]
+        self.api_key = cfg["api_key"]
+        self.sample_rate = cfg["sample_rate"]
+        self.service_name = cfg["service_name"]
+        self.flush_interval_ms = cfg["flush_interval_ms"]
+        self.max_batch_size = cfg["max_batch_size"]
+        self.max_buffer_size = cfg["max_buffer_size"]
+        self.request_timeout_ms = cfg["request_timeout_ms"]
+        self.circuit_failure_threshold = cfg["circuit_failure_threshold"]
+        self.circuit_open_ms = cfg["circuit_open_ms"]
 
         self._buffer: list[dict[str, Any]] = []
         self._flushing = False
@@ -170,11 +84,7 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
         self._started = False
 
     def _should_sample(self) -> bool:
-        if self.sample_rate >= 1:
-            return True
-        if self.sample_rate <= 0:
-            return False
-        return random.random() < self.sample_rate
+        return should_sample(self.sample_rate)
 
     def _circuit_open(self) -> bool:
         return time.time() * 1000 < self._circuit_open_until
@@ -275,7 +185,7 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
             content_type = (request.headers.get("content-type") or "").lower()
             if "application/json" in content_type:
                 raw = await request.body()
-                request_body = _parse_json_bytes(raw)
+                request_body = parse_json_bytes(raw)
 
                 async def receive() -> dict[str, Any]:
                     return {"type": "http.request", "body": raw, "more_body": False}
@@ -312,7 +222,7 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
                         chunks.append(chunk)
                 body_bytes = b"".join(chunks)
                 if not oversized:
-                    parsed = _parse_json_bytes(body_bytes)
+                    parsed = parse_json_bytes(body_bytes)
                     if parsed is not None:
                         response_body = parsed
                         response_body_captured = True
@@ -337,19 +247,19 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
 
             latency_ms = (time.time() - start) * 1000.0
             path = request.url.path or "/"
-            req_headers = _headers_dict(request.headers)
+            req_headers = headers_dict(request.headers)
             sample = create_sample(
                 method=request.method,
                 path=path,
                 status_code=response.status_code,
                 latency_ms=latency_ms,
                 request_headers=req_headers,
-                response_headers=_headers_dict(response.headers),
+                response_headers=headers_dict(response.headers),
                 request_body=request_body if request_body is not None else ...,
                 response_body=response_body if response_body_captured else ...,
                 response_body_captured=response_body_captured,
-                caller=_resolve_caller(req_headers, self.service_name or None),
-                auth_observed=_observe_auth(req_headers),
+                caller=resolve_caller(req_headers, self.service_name or None),
+                auth_observed=observe_auth(req_headers),
             )
             self._enqueue(sample)
         except Exception:

@@ -1,0 +1,3 @@
+apiglimpse[flask] @ file:../../connectors/python
+flask>=2.3
+python-dotenv>=1.0
