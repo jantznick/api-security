@@ -16,6 +16,8 @@ import Account from './pages/Account';
 import Billing from './pages/Billing';
 import Usage from './pages/Usage';
 import Admin from './pages/Admin';
+import OrgMembers from './pages/OrgMembers';
+import AcceptInvite from './pages/AcceptInvite';
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -99,6 +101,23 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/orgs/:orgId/members"
+          element={
+            <ProtectedRoute>
+              <OrgMembers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orgs/:orgId/settings"
+          element={
+            <ProtectedRoute>
+              <OrgMembers />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/invites/:token" element={<AcceptInvite />} />
         <Route
           path="/billing"
           element={

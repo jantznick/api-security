@@ -113,3 +113,46 @@ This expires in ${expiresMinutes} minutes.`;
 
   return { html, text };
 }
+
+export function orgInviteEmail({
+  inviteUrl,
+  organizationName,
+  inviterName,
+  role,
+  expiresDays = 7,
+}) {
+  const safeOrg = escapeHtml(organizationName || 'an organization');
+  const safeInviter = escapeHtml(inviterName || 'A teammate');
+  const safeRole = escapeHtml(role || 'member');
+  const safeUrl = escapeHtml(inviteUrl);
+
+  const html = emailLayout({
+    title: `Join ${organizationName || 'your team'} on ${APP_NAME}`,
+    preheader: `${inviterName || 'A teammate'} invited you to ${organizationName || 'an organization'}.`,
+    bodyHtml: `
+      <h1 style="margin:0 0 12px;font-size:22px;font-weight:600;color:${BRAND.pine900};">You're invited</h1>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#3d5248;">
+        <strong>${safeInviter}</strong> invited you to join
+        <strong>${safeOrg}</strong> on ${escapeHtml(APP_NAME)} as a <strong>${safeRole}</strong>.
+      </p>
+      <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#3d5248;">
+        This invite expires in <strong>${escapeHtml(String(expiresDays))} days</strong>.
+      </p>
+      ${emailButton(inviteUrl, 'Accept invite')}
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#7a8f84;word-break:break-all;">
+        Button not working? Copy this link:<br>
+        <a href="${safeUrl}" style="color:${BRAND.pine600};">${safeUrl}</a>
+      </p>
+    `,
+  });
+
+  const text = `You're invited to ${organizationName || 'an organization'} on ${APP_NAME}
+
+${inviterName || 'A teammate'} invited you as a ${role || 'member'}.
+
+Accept the invite: ${inviteUrl}
+
+This invite expires in ${expiresDays} days.`;
+
+  return { html, text };
+}

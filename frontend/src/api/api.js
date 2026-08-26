@@ -136,6 +136,36 @@ export const usageAPI = {
   me: () => request('/usage/me'),
 };
 
+/**
+ * Org members & invites (S4).
+ * GET/PATCH/DELETE /orgs/:orgId/members[/:userId]
+ * GET/POST/DELETE /orgs/:orgId/invites[/:inviteId]
+ * GET /invites/:token · POST /invites/:token/accept
+ */
+export const orgsAPI = {
+  listMembers: (orgId) => request(`/orgs/${orgId}/members`),
+  updateMember: (orgId, userId, body) =>
+    request(`/orgs/${orgId}/members/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  removeMember: (orgId, userId) =>
+    request(`/orgs/${orgId}/members/${userId}`, { method: 'DELETE' }),
+  listInvites: (orgId) => request(`/orgs/${orgId}/invites`),
+  createInvite: (orgId, body) =>
+    request(`/orgs/${orgId}/invites`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  revokeInvite: (orgId, inviteId) =>
+    request(`/orgs/${orgId}/invites/${inviteId}`, { method: 'DELETE' }),
+};
+
+export const invitesAPI = {
+  get: (token) => request(`/invites/${token}`),
+  accept: (token) => request(`/invites/${token}/accept`, { method: 'POST' }),
+};
+
 export const adminAPI = {
   overview: () => request('/admin/overview'),
   listUsers: (params = {}) => {

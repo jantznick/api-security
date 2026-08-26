@@ -1,6 +1,7 @@
 import { Link, NavLink } from 'react-router-dom';
 import { authAPI } from '../api/api';
 import useAuthStore from '../store/authStore';
+import { useActiveOrg } from '../hooks/useActiveOrg';
 import { APP_NAME } from '../lib/brand';
 import { DOCS_URL, loginUrl } from '../lib/urls';
 import Button from './Button';
@@ -12,6 +13,8 @@ const navLinkClass = ({ isActive }) =>
 
 export default function AppLayout({ children }) {
   const { user, logout } = useAuthStore();
+  const { orgs, activeOrg, activeOrgId, setActiveOrgId } = useActiveOrg();
+  const membersPath = activeOrgId ? `/orgs/${activeOrgId}/members` : '/account';
 
   const handleLogout = async () => {
     try {
@@ -27,16 +30,36 @@ export default function AppLayout({ children }) {
     <div className="min-h-screen bg-ink-50">
       <header className="border-b border-ink-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-6">
+          <div className="flex min-w-0 items-center gap-4 sm:gap-6">
             <Link
               to="/projects"
-              className="font-display text-lg font-bold tracking-tight text-ink-900"
+              className="shrink-0 font-display text-lg font-bold tracking-tight text-ink-900"
             >
               {APP_NAME}
             </Link>
+            {orgs.length >= 1 ? (
+              <label className="hidden min-w-0 items-center gap-2 sm:flex">
+                <span className="sr-only">Organization</span>
+                <select
+                  className="max-w-[12rem] truncate rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm text-ink-800"
+                  value={activeOrgId || ''}
+                  onChange={(e) => setActiveOrgId(e.target.value)}
+                  aria-label="Switch organization"
+                >
+                  {orgs.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.isPersonal ? `${org.name} (Personal)` : org.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <nav className="hidden items-center gap-4 sm:flex" aria-label="App">
               <NavLink to="/projects" className={navLinkClass} end={false}>
                 Projects
+              </NavLink>
+              <NavLink to={membersPath} className={navLinkClass}>
+                Members
               </NavLink>
               <NavLink to="/usage" className={navLinkClass}>
                 Usage
@@ -76,11 +99,28 @@ export default function AppLayout({ children }) {
           </div>
         </div>
         <nav
-          className="mx-auto flex max-w-6xl gap-4 border-t border-ink-100 px-4 py-2 sm:hidden"
+          className="mx-auto flex max-w-6xl gap-4 overflow-x-auto border-t border-ink-100 px-4 py-2 sm:hidden"
           aria-label="App mobile"
         >
+          {orgs.length >= 1 ? (
+            <select
+              className="max-w-[10rem] truncate rounded-md border border-ink-200 bg-white px-2 py-1 text-sm text-ink-800"
+              value={activeOrgId || ''}
+              onChange={(e) => setActiveOrgId(e.target.value)}
+              aria-label="Switch organization"
+            >
+              {orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <NavLink to="/projects" className={navLinkClass}>
             Projects
+          </NavLink>
+          <NavLink to={membersPath} className={navLinkClass}>
+            Members
           </NavLink>
           <NavLink to="/usage" className={navLinkClass}>
             Usage
@@ -101,6 +141,19 @@ export default function AppLayout({ children }) {
           </a>
         </nav>
       </header>
+      {activeOrg && orgs.length > 1 ? (
+        <div className="border-b border-ink-100 bg-white/80">
+          <p className="mx-auto max-w-6xl px-4 py-1.5 text-xs text-ink-500">
+            Viewing <span className="font-medium text-ink-700">{activeOrg.name}</span>
+            {activeOrg.isPersonal ? ' · Personal' : ''}
+            {' · '}
+            <span className="text-ink-400">
+              Projects list filters to this org when possible; create still uses your personal
+              workspace until org-scoped create ships.
+            </span>
+          </p>
+        </div>
+      ) : null}
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
   );

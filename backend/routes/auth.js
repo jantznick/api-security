@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { withAdminFlag } from '../lib/admin.js';
 import { ensurePersonalOrg } from '../lib/orgs.js';
+import { resolveSeatLimit } from '../lib/plans.js';
 import { isResendConfigured, sendMagicLinkEmail } from '../services/email/resend.js';
 
 const router = express.Router();
@@ -354,20 +355,31 @@ router.get('/me', async (req, res) => {
             slug: true,
             isPersonal: true,
             planSlug: true,
+            _count: { select: { memberships: true } },
           },
         },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    const orgs = memberships.map((m) => ({
-      id: m.organization.id,
-      name: m.organization.name,
-      slug: m.organization.slug,
-      isPersonal: m.organization.isPersonal,
-      planSlug: m.organization.planSlug,
-      role: m.role,
-    }));
+    const orgs = await Promise.all(
+      memberships.map(async (m) => {
+        const planSlug = m.organization.planSlug || 'free';
+        const seatLimit = await resolveSeatLimit(planSlug);
+        return {
+          id: m.organization.id,
+          name: m.organization.name,
+          slug: m.organization.slug,
+          isPersonal: m.organization.isPersonal,
+          planSlug,
+          role: m.role,
+          seats: {
+            used: m.organization._count.memberships,
+            limit: seatLimit,
+          },
+        };
+      }),
+    );
 
     res.json({
       user: publicUser({ ...user, orgs }),
