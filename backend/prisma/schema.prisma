@@ -114,6 +114,12 @@ model Organization {
   stripeCustomerId     String?             @unique
   stripeSubscriptionId String?
   planSlug             String              @default("free")
+  /// Snapshotted from Plan on assign. null = unlimited. Template edits do not cascade.
+  endpointLimit        Int?
+  /// Snapshotted seat cap including owner. null = unlimited.
+  seatLimit            Int?
+  /// When planSlug + limits were last applied to this org
+  planAssignedAt       DateTime?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
   memberships          Membership[]

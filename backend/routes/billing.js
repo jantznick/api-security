@@ -9,7 +9,8 @@ import {
   isStripeConfigured,
   listPlans,
   resolveContactSalesUrl,
-  resolveEndpointLimit,
+  resolveOrgEndpointLimit,
+  resolveOrgSeatLimit,
   resolveStripePriceId,
   stripeUnavailableMessage,
 } from '../lib/plans.js';
@@ -90,7 +91,29 @@ router.get('/me', requireAuth, async (req, res) => {
     }
 
     const plan = await getPlanBySlug(user.planSlug || DEFAULT_PLAN_SLUG);
-    const planLimit = await resolveEndpointLimit(user.planSlug);
+
+    // Prefer personal-org snapshotted limits for entitlement display (catalog Plan is marketing).
+    const personalMembership = await prisma.membership.findFirst({
+      where: { userId: user.id, organization: { isPersonal: true } },
+      select: {
+        organizationId: true,
+        organization: {
+          select: {
+            planSlug: true,
+            endpointLimit: true,
+            seatLimit: true,
+            planAssignedAt: true,
+          },
+        },
+      },
+    });
+    const personalOrg = personalMembership?.organization || null;
+    const planLimit = personalOrg
+      ? await resolveOrgEndpointLimit(personalOrg)
+      : plan.endpointLimit ?? null;
+    const seatLimit = personalOrg
+      ? await resolveOrgSeatLimit(personalOrg)
+      : plan.seatLimit ?? null;
 
     // Services across orgs the user belongs to (S2). Keep `projects` alias for UI.
     const services = await prisma.service.findMany({
@@ -106,31 +129,43 @@ router.get('/me', requireAuth, async (req, res) => {
         name: true,
         endpointLimit: true,
         projectId: true,
-        project: { select: { id: true, name: true } },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            organization: {
+              select: {
+                endpointLimit: true,
+                planSlug: true,
+                planAssignedAt: true,
+              },
+            },
+          },
+        },
         _count: { select: { endpoints: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    const serviceRows = services.map((s) => ({
-      id: s.id,
-      name: s.name,
-      projectId: s.projectId,
-      projectName: s.project?.name,
-      endpointCount: s._count.endpoints,
-      endpointLimit: s.endpointLimit ?? planLimit,
-    }));
+    const serviceRows = await Promise.all(
+      services.map(async (s) => {
+        const orgFallback = await resolveOrgEndpointLimit(s.project?.organization);
+        return {
+          id: s.id,
+          name: s.name,
+          projectId: s.projectId,
+          projectName: s.project?.name,
+          endpointCount: s._count.endpoints,
+          endpointLimit: s.endpointLimit ?? orgFallback,
+        };
+      }),
+    );
 
     const endpointUsageTotal = serviceRows.reduce((sum, p) => sum + p.endpointCount, 0);
     const stripeConfigured = isStripeConfigured();
     const hasCustomer = Boolean(user.stripeCustomerId);
     const planSlug = user.planSlug || DEFAULT_PLAN_SLUG;
 
-    // Seats for personal org: count members (owner included). Enforced in S4.
-    const personalMembership = await prisma.membership.findFirst({
-      where: { userId: user.id, organization: { isPersonal: true } },
-      select: { organizationId: true },
-    });
     let seatsUsed = 1;
     if (personalMembership) {
       seatsUsed = await prisma.membership.count({
@@ -152,7 +187,7 @@ router.get('/me', requireAuth, async (req, res) => {
       services: serviceRows,
       /** @deprecated alias — same as services (legacy Project = Service) */
       projects: serviceRows,
-      seats: { used: seatsUsed, limit: plan.seatLimit ?? null },
+      seats: { used: seatsUsed, limit: seatLimit },
       checkoutAvailable: stripeConfigured,
       canCheckout: stripeConfigured,
       portalAvailable: stripeConfigured && hasCustomer,

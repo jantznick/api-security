@@ -1,8 +1,13 @@
 /**
- * Plan resolution and subscription → service limit sync.
+ * Plan resolution and subscription → org/service limit sync.
  *
- * Billing unit: **user-level subscription** (until S5). When the plan changes,
- * `Plan.endpointLimit` is written onto **each** service in orgs the user owns.
+ * Catalog `Plan` rows are templates (marketing, checkout, Admin editor).
+ * Entitlements for existing customers live as **snapshots on Organization**:
+ * `planSlug`, `endpointLimit`, `seatLimit`, `planAssignedAt`.
+ * Editing a Plan template does **not** cascade to orgs — only assign/apply does.
+ *
+ * Billing unit: still **user-level** until S5. `applyPlanToUser` snapshots onto
+ * personal orgs the user owns and syncs Service.endpointLimit from that snapshot.
  *
  * Fallback constants apply only when the Plan table is empty / missing a slug.
  */
@@ -99,7 +104,8 @@ export async function ensureDefaultPlans() {
         sortOrder: plan.sortOrder,
       },
       update: {
-        // Keep seatLimit in sync with product constants when missing
+        // Catalog only — keep seatLimit aligned with product constants for Free/Pro templates.
+        // Org snapshots are never touched here.
         seatLimit: plan.seatLimit,
       },
     });
@@ -136,38 +142,114 @@ export async function getPlanBySlug(slug) {
   return fromFallback(normalized);
 }
 
-/** Effective endpoint cap for a plan slug (null = unlimited). */
+/** Effective endpoint cap for a plan slug (null = unlimited). Catalog / new-assign only. */
 export async function resolveEndpointLimit(planSlug) {
   const plan = await getPlanBySlug(planSlug);
   return plan.endpointLimit ?? null;
 }
 
-/** Effective seat cap for a plan slug (null = unlimited). */
+/** Effective seat cap for a plan slug (null = unlimited). Catalog / new-assign only. */
 export async function resolveSeatLimit(planSlug) {
   const plan = await getPlanBySlug(planSlug);
   return plan.seatLimit ?? seatLimitForSlug(planSlug);
 }
 
 /**
- * Set user.planSlug (+ optional Stripe subscription id) and sync
- * endpointLimit onto every service in orgs the user owns.
- * Also mirrors plan onto the personal org (S5 prep; User remains billing source of truth).
+ * Prefer org snapshotted endpoint limit; legacy null → live Plan by slug.
+ * @param {{ endpointLimit?: number|null, planSlug?: string|null } | null} org
+ */
+export async function resolveOrgEndpointLimit(org) {
+  if (org && org.endpointLimit !== undefined && org.endpointLimit !== null) {
+    return org.endpointLimit;
+  }
+  // Explicit null on a snapshotted org means unlimited (planAssignedAt set).
+  if (org?.planAssignedAt && org.endpointLimit === null) {
+    return null;
+  }
+  return resolveEndpointLimit(org?.planSlug || DEFAULT_PLAN_SLUG);
+}
+
+/**
+ * Prefer org snapshotted seat limit; legacy null without planAssignedAt → Plan by slug.
+ * @param {{ seatLimit?: number|null, planSlug?: string|null, planAssignedAt?: Date|null } | null} org
+ */
+export async function resolveOrgSeatLimit(org) {
+  if (!org) {
+    return resolveSeatLimit(DEFAULT_PLAN_SLUG);
+  }
+  if (org.planAssignedAt) {
+    // Snapshot present: null seatLimit = unlimited
+    return org.seatLimit ?? null;
+  }
+  if (org.seatLimit !== undefined && org.seatLimit !== null) {
+    return org.seatLimit;
+  }
+  return resolveSeatLimit(org.planSlug || DEFAULT_PLAN_SLUG);
+}
+
+/**
+ * Copy Plan template limits onto an organization and sync Service.endpointLimit.
+ * This is the only path that changes existing org entitlements (besides admin re-assign).
+ */
+export async function applyPlanToOrganization(organizationId, planSlug, { stripeSubscriptionId } = {}) {
+  const slug = normalizeSlug(planSlug);
+  const plan = await getPlanBySlug(slug);
+  const endpointLimit = plan.endpointLimit ?? null;
+  const seatLimit = plan.seatLimit ?? seatLimitForSlug(slug);
+  const planAssignedAt = new Date();
+
+  const orgData = {
+    planSlug: slug,
+    endpointLimit,
+    seatLimit,
+    planAssignedAt,
+  };
+  if (stripeSubscriptionId !== undefined) {
+    orgData.stripeSubscriptionId = stripeSubscriptionId;
+  }
+
+  await prisma.$transaction([
+    prisma.organization.update({
+      where: { id: organizationId },
+      data: orgData,
+    }),
+    prisma.service.updateMany({
+      where: { project: { organizationId } },
+      data: { endpointLimit },
+    }),
+  ]);
+
+  return {
+    organizationId,
+    planSlug: slug,
+    endpointLimit,
+    seatLimit,
+    planAssignedAt,
+    plan,
+  };
+}
+
+/**
+ * Set user.planSlug (+ optional Stripe subscription id) and snapshot limits onto
+ * personal orgs the user owns (S5 prep; User remains billing source of truth).
  */
 export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId } = {}) {
   const slug = normalizeSlug(planSlug);
   const plan = await getPlanBySlug(slug);
   const endpointLimit = plan.endpointLimit ?? null;
+  const seatLimit = plan.seatLimit ?? seatLimitForSlug(slug);
 
   const userData = { planSlug: slug };
   if (stripeSubscriptionId !== undefined) {
     userData.stripeSubscriptionId = stripeSubscriptionId;
   }
 
-  const ownedOrgs = await prisma.membership.findMany({
-    where: { userId, role: 'owner' },
+  const ownedPersonal = await prisma.membership.findMany({
+    where: { userId, role: 'owner', organization: { isPersonal: true } },
     select: { organizationId: true },
   });
-  const orgIds = ownedOrgs.map((m) => m.organizationId);
+  const orgIds = ownedPersonal.map((m) => m.organizationId);
+  const planAssignedAt = new Date();
 
   await prisma.$transaction([
     prisma.user.update({
@@ -177,9 +259,12 @@ export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId }
     ...(orgIds.length
       ? [
           prisma.organization.updateMany({
-            where: { id: { in: orgIds }, isPersonal: true },
+            where: { id: { in: orgIds } },
             data: {
               planSlug: slug,
+              endpointLimit,
+              seatLimit,
+              planAssignedAt,
               ...(stripeSubscriptionId !== undefined
                 ? { stripeSubscriptionId }
                 : {}),
@@ -193,7 +278,13 @@ export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId }
       : []),
   ]);
 
-  return { planSlug: slug, endpointLimit, plan };
+  return {
+    planSlug: slug,
+    endpointLimit,
+    seatLimit,
+    organizationIds: orgIds,
+    plan,
+  };
 }
 
 /** Resolve Stripe Price id for a paid self-serve plan (DB first, then env STRIPE_PRICE_PRO). */
