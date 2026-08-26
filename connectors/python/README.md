@@ -5,10 +5,14 @@ FastAPI / Starlette middleware that samples API traffic, redacts secrets client-
 ## Install
 
 ```bash
+# After PyPI publish (see docs/CONNECTOR_PUBLISH.md):
+pip install apiglimpse
+
+# Local monorepo / before first publish:
 pip install -e ./connectors/python
-# or once published:
-# pip install apiglimpse
 ```
+
+Maintainer publish (build + twine, TestPyPI, version bumps): **[docs/CONNECTOR_PUBLISH.md](../../docs/CONNECTOR_PUBLISH.md)**.
 
 ## Usage
 

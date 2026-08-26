@@ -50,4 +50,5 @@ cd packages/fastify
 npm run publish:npm
 ```
 
-First-time npm account, org, and step-by-step: [docs/NPM_PUBLISH.md](../../docs/NPM_PUBLISH.md).
+- npm account / org / Express detail: [docs/NPM_PUBLISH.md](../../docs/NPM_PUBLISH.md)
+- All languages (npm + PyPI + Go): [docs/CONNECTOR_PUBLISH.md](../../docs/CONNECTOR_PUBLISH.md)

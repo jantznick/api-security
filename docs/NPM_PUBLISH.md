@@ -8,8 +8,11 @@ This guide is for Nick publishing `@apiglimpse/*` for the first time. You do **n
 | --- | --- |
 | `@apiglimpse/shared@0.1.0` | Internal helpers (sample format + redaction). Customers usually do not install this. Publish it first so middleware can depend on it from the registry. |
 | `@apiglimpse/middleware@0.1.0` | Public SDK. What app developers install. Express middleware that sends API traffic metadata to API Glimpse (`collect.apiglimpse.com`). |
+| `@apiglimpse/fastify@0.1.0` | Public SDK for Fastify (same envelope as Express). Publish after shared, with the same `publish:npm` swap pattern. |
 
-Local monorepo development keeps `"@apiglimpse/shared": "file:../shared"` in middleware. Do **not** change that permanently. Use the publish script (section 7), which swaps to `^0.1.0` only for the publish, then restores `file:../shared`.
+Local monorepo development keeps `"@apiglimpse/shared": "file:../shared"` in middleware and fastify. Do **not** change that permanently. Use each package’s publish script, which swaps to `^0.1.0` only for the publish, then restores `file:../shared`.
+
+**Other languages (PyPI / Go modules)** are not published via npm — see **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)** for the full multi-language publish playbook.
 
 ---
 
@@ -215,26 +218,54 @@ cd /Users/nick/repos/api-security/packages/middleware
 npm run publish:npm
 npm view @apiglimpse/middleware version
 
-# 3) Smoke test
+# 3) Fastify (same swap script)
+cd /Users/nick/repos/api-security/packages/fastify
+npm run publish:npm
+npm view @apiglimpse/fastify version
+
+# 4) Smoke test
 mkdir -p /tmp/apiglimpse-npm-test && cd /tmp/apiglimpse-npm-test
 npm init -y
-npm i @apiglimpse/middleware
+npm i @apiglimpse/middleware @apiglimpse/fastify
 ```
 
-Do **not** commit a middleware `package.json` that depends on `^0.1.0` for day-to-day monorepo work — keep `file:../shared` after publish (the script restores this).
+Do **not** commit a middleware/fastify `package.json` that depends on `^0.1.0` for day-to-day monorepo work — keep `file:../shared` after publish (the script restores this).
+
+---
+
+## 11. Publish `@apiglimpse/fastify`
+
+Same pattern as middleware. Shared must already be on the registry.
+
+```bash
+cd /Users/nick/repos/api-security/packages/fastify
+npm run publish:npm
+npm view @apiglimpse/fastify version
+```
+
+Dry run: `node ./scripts/publish.mjs --dry-run`.
+
+Smoke:
+
+```bash
+mkdir -p /tmp/apiglimpse-fastify-test && cd /tmp/apiglimpse-fastify-test
+npm init -y
+npm i @apiglimpse/fastify
+```
 
 ---
 
 ## Later releases
 
-1. Bump `version` in `packages/shared/package.json` and/or `packages/middleware/package.json`.
-2. If shared changed, publish shared first, then middleware (`npm run publish:npm`).
-3. If only middleware changed, you can publish middleware alone (script still requires shared to exist on the registry).
+1. Bump `version` in `packages/shared/package.json` and/or `packages/middleware/package.json` / `packages/fastify/package.json`.
+2. If shared changed, publish shared first, then each dependent (`npm run publish:npm`).
+3. If only one connector changed, you can publish that package alone (script still requires shared to exist on the registry).
 
 ---
 
 ## Related
 
-- [INTEGRATING.md](./INTEGRATING.md) — customer install of the Express connector
+- [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md) — npm + PyPI + Go module publish (all connectors)
+- [INTEGRATING.md](./INTEGRATING.md) — customer install (Express, Fastify, FastAPI, Go)
 - [DEPLOY.md](./DEPLOY.md) — production checklist (includes npm)
-- Package READMEs: `packages/shared/README.md`, `packages/middleware/README.md`
+- Package READMEs: `packages/shared/README.md`, `packages/middleware/README.md`, `packages/fastify/README.md`

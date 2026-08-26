@@ -273,17 +273,20 @@ After DNS:
 
 ---
 
-## 4. npm publish
+## 4. Publish connectors (npm / PyPI / Go)
 
-First-time account, org, 2FA, and click-by-click steps: **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
+Connectors are SDKs on public registries; the hosted agent is already on Railway. Full multi-language playbook: **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)**. npm account/org handholding: **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
 
-Publish **shared** first, then **middleware** (script swaps `file:../shared` → registry range, publishes, restores `file:`):
+Publish **shared** first, then **middleware** and **fastify** (scripts swap `file:../shared` → registry range, publish, restore `file:`):
 
 ```bash
 cd packages/shared
 npm publish --access public
 
 cd ../middleware
+npm run publish:npm
+
+cd ../fastify
 npm run publish:npm
 ```
 
@@ -292,7 +295,11 @@ Verify:
 ```bash
 npm view @apiglimpse/shared version
 npm view @apiglimpse/middleware version
+npm view @apiglimpse/fastify version
 ```
+
+Then follow CONNECTOR_PUBLISH for **PyPI** (`apiglimpse`) and **Go** (`connectors/go/v0.1.0` git tag).
+
 ---
 
 ## 5. Verify
@@ -302,18 +309,20 @@ npm view @apiglimpse/middleware version
 - [ ] Ingest has **no** public URL
 - [ ] Register / login on dashboard — CORS and cookies work
 - [ ] Create project → copy `ask_…` key
-- [ ] Hit Express app with `@apiglimpse/middleware` + agent URL + key → endpoints appear
+- [ ] Hit Express (or Fastify / FastAPI / Go demo) with connector + agent URL + key → endpoints appear
 - [ ] `POST /v1/samples` without key → **401**
 - [ ] Marketing / docs / app hosts load (platform or custom domains)
+- [ ] Public registry installs work for published connectors ([CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md))
 
 ---
 
 ## Related
 
-- [LAUNCH_NEXT.md](./LAUNCH_NEXT.md) — Resend + npm (ops)
+- [LAUNCH_NEXT.md](./LAUNCH_NEXT.md) — Resend + package publish (ops)
 - [NEXT_PHASE.md](./NEXT_PHASE.md) — billing foundation → Stripe
 - [RAILWAY.md](./RAILWAY.md) — Railway detail + tenancy
 - [RENDER.md](./RENDER.md) — Render static site settings
-- [INTEGRATING.md](./INTEGRATING.md) — Express connector
+- [INTEGRATING.md](./INTEGRATING.md) — customer connector install
+- [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md) — npm / PyPI / Go publish
 - [NPM_PUBLISH.md](./NPM_PUBLISH.md) — first-time npm publish
 - [TESTING.md](./TESTING.md) — local verification
