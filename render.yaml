@@ -1,15 +1,17 @@
-# Optional Render Blueprint for static SPAs.
+# Render Blueprint — source of truth for static sites (SPA rewrites live here).
 #
-# Render does NOT apply Netlify-style `_redirects` files. SPA hard-refresh needs
-# either Dashboard → Redirects/Rewrites, or Blueprint `routes` as below.
+# Render ignores Netlify-style `_redirects`. The `routes` rewrite below is what
+# keeps hard refresh of `/projects`, `/admin`, `/billing`, `/how-it-works`, etc.
+# serving `index.html` after every deploy.
 #
-# If these static sites already exist in the Render Dashboard without Blueprint,
-# either:
-#   1. Add Source `/*` → Destination `/index.html` → Action Rewrite on each site, or
-#   2. Adopt this Blueprint and rename `name:` fields to match existing services
-#      so Render updates them instead of creating duplicates.
+# One-time (Nick): if these sites were created manually (not via Blueprint):
+#   1. Render Dashboard → New → Blueprint → connect this repo (path: render.yaml).
+#   2. Match `name:` below to existing service names (rename services in Dashboard
+#      OR edit `name:` here) so Apply updates them instead of creating duplicates.
+#   3. Deploy / sync Blueprint once. Auto-sync thereafter applies `routes` from git.
+# After that, no Dashboard Redirects/Rewrites clicks are required.
 #
-# Docs/docs-site is omitted (VitePress has real paths; no SPA catch-all needed).
+# Docs: docs/RENDER.md
 
 services:
   - type: web
@@ -18,6 +20,17 @@ services:
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://api.apiglimpse.com
+      - key: VITE_MARKETING_URL
+        value: https://apiglimpse.com
+      - key: VITE_APP_URL
+        value: https://app.apiglimpse.com
+      - key: VITE_DOCS_URL
+        value: https://docs.apiglimpse.com
+      - key: VITE_COLLECT_URL
+        value: https://collect.apiglimpse.com
     routes:
       - type: rewrite
         source: /*
@@ -29,7 +42,24 @@ services:
     rootDir: marketing
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://api.apiglimpse.com
+      - key: VITE_APP_URL
+        value: https://app.apiglimpse.com
+      - key: VITE_DOCS_URL
+        value: https://docs.apiglimpse.com
+      - key: VITE_COLLECT_URL
+        value: https://collect.apiglimpse.com
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  - type: web
+    name: apiglimpse-docs
+    runtime: static
+    rootDir: docs-site
+    buildCommand: npm install && npm run build
+    staticPublishPath: docs/.vitepress/dist
+    # VitePress emits real HTML paths; no SPA catch-all rewrite.

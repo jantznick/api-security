@@ -203,7 +203,9 @@ API_SENSOR_KEY=ask_...
 
 ## 2. Render (static sites)
 
-Three **Static Site** services. Connect the same GitHub repo.
+Three **Static Site** services, managed by root [`render.yaml`](../render.yaml) (Blueprint). SPA rewrite (`/*` → `/index.html`) for dashboard + marketing lives in that file — see [RENDER.md](./RENDER.md#blueprint-renderyaml--durable-spa-rewrite).
+
+**One-time:** If sites were created manually, **New → Blueprint** once (match service `name:` to existing sites). No ongoing Dashboard Redirects/Rewrites.
 
 ### 2.1 Dashboard (`frontend` → `app.apiglimpse.com`)
 
@@ -212,14 +214,15 @@ Three **Static Site** services. Connect the same GitHub repo.
 | Root directory | `frontend` |
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
-| SPA rewrite | **`/*` → `/index.html`** (**Rewrite** in Render Dashboard or Blueprint — required; see [RENDER.md](./RENDER.md)) |
+| SPA rewrite | Blueprint `routes` in [`render.yaml`](../render.yaml) |
 
 | Build env | Value |
 | --- | --- |
-| `VITE_API_URL` | Public core URL (`https://api.apiglimpse.com` or Railway `*.up.railway.app`) |
-| `VITE_MARKETING_URL` | `https://apiglimpse.com` (product site links) |
+| `VITE_API_URL` | `https://api.apiglimpse.com` (in Blueprint; or Railway `*.up.railway.app` until DNS) |
+| `VITE_MARKETING_URL` | `https://apiglimpse.com` |
 | `VITE_APP_URL` | `https://app.apiglimpse.com` |
 | `VITE_DOCS_URL` | `https://docs.apiglimpse.com` |
+| `VITE_COLLECT_URL` | `https://collect.apiglimpse.com` |
 
 No trailing slash. Changing `VITE_*` requires a **rebuild**.
 
@@ -232,14 +235,14 @@ Then set Railway core `FRONTEND_URL` to the dashboard origin and redeploy core i
 | Root directory | `marketing` |
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
-| SPA rewrite | **`/*` → `/index.html`** (**Rewrite** in Dashboard or Blueprint — required) |
+| SPA rewrite | Blueprint `routes` in [`render.yaml`](../render.yaml) |
 
 | Build env | Value |
 | --- | --- |
 | `VITE_APP_URL` | `https://app.apiglimpse.com` (or Render dashboard URL until DNS) |
 | `VITE_DOCS_URL` | `https://docs.apiglimpse.com` |
-| `VITE_API_URL` | Public core URL (`https://api.apiglimpse.com`) — required for marketing login/register |
-| `VITE_COLLECT_URL` | Optional — `https://collect.apiglimpse.com` or agent Railway URL |
+| `VITE_API_URL` | `https://api.apiglimpse.com` — required for marketing login/register |
+| `VITE_COLLECT_URL` | `https://collect.apiglimpse.com` or agent Railway URL |
 
 ### 2.3 Docs (`docs-site` → `docs.apiglimpse.com`)
 
@@ -249,7 +252,7 @@ Then set Railway core `FRONTEND_URL` to the dashboard origin and redeploy core i
 | Build command | `npm install && npm run build` |
 | Publish directory | `docs/.vitepress/dist` |
 
-No required build env vars (links use `apiglimpse.com` hosts in VitePress config).
+No SPA catch-all (VitePress real paths). No required build env vars (links use `apiglimpse.com` hosts in VitePress config).
 
 ---
 

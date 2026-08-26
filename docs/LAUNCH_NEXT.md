@@ -85,8 +85,8 @@ Local checklist details: [TESTING.md](./TESTING.md).
 
 | Check | If wrong |
 | --- | --- |
-| Marketing deep link (e.g. `/how-it-works` refresh) 404s | Render → Marketing → **Redirects/Rewrites** → `/*` → `/index.html` (Rewrite). `_redirects` alone does not fix Render. |
-| Dashboard `/projects` 404s / downloads a text file | Same rewrite on the **Dashboard** static site (Dashboard or [`render.yaml`](../render.yaml)) |
+| Marketing deep link (e.g. `/how-it-works` refresh) 404s | Confirm Blueprint sync applied [`render.yaml`](../render.yaml) `routes` rewrite on marketing. `_redirects` is ignored by Render. |
+| Dashboard `/projects` 404s / downloads a text file | Same — Blueprint `routes` on dashboard (`apiglimpse-dashboard`). One-time: adopt Blueprint if sites were created manually ([RENDER.md](./RENDER.md)). |
 | Login works on marketing but cookie missing on app | Confirm both built with `VITE_API_URL=https://api.apiglimpse.com` and core has `COOKIE_DOMAIN=.apiglimpse.com` |
 | Magic link URL points at wrong host | Core `MARKETING_URL=https://apiglimpse.com` |
 
