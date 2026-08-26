@@ -9,12 +9,39 @@ const router = express.Router();
 
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DISPLAY_NAME_MAX = 80;
 
 const userSelect = {
   id: true,
   email: true,
+  displayName: true,
+  planSlug: true,
   createdAt: true,
 };
+
+function normalizeDisplayName(value) {
+  if (value === null || value === undefined) {
+    return { ok: true, value: null };
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return { ok: true, value: null };
+  }
+  if (trimmed.length > DISPLAY_NAME_MAX) {
+    return {
+      ok: false,
+      error: `Display name must be ${DISPLAY_NAME_MAX} characters or fewer`,
+    };
+  }
+  return { ok: true, value: trimmed };
+}
+
+function publicUser(user) {
+  return withAdminFlag({
+    ...user,
+    orgs: Array.isArray(user?.orgs) ? user.orgs : [],
+  });
+}
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -58,7 +85,7 @@ function saveSession(req, res, user) {
       return;
     }
 
-    res.json({ user: withAdminFlag(user) });
+    res.json({ user: publicUser(user) });
   });
 }
 
@@ -88,13 +115,13 @@ async function findOrCreateUser(email) {
 }
 
 async function completeMagicLogin(req, res, email) {
-  const user = await findOrCreateUser(email);
-  await regenerateSession(req);
-  saveSession(req, res, {
-    id: user.id,
-    email: user.email,
-    createdAt: user.createdAt,
+  const created = await findOrCreateUser(email);
+  const user = await prisma.user.findUnique({
+    where: { id: created.id },
+    select: userSelect,
   });
+  await regenerateSession(req);
+  saveSession(req, res, user);
 }
 
 async function issueMagicTokens(email) {
@@ -188,6 +215,8 @@ router.post('/login', async (req, res) => {
     saveSession(req, res, {
       id: user.id,
       email: user.email,
+      displayName: user.displayName,
+      planSlug: user.planSlug,
       createdAt: user.createdAt,
     });
   } catch (error) {
@@ -308,10 +337,39 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    res.json({ user: withAdminFlag(user) });
+    res.json({ user: publicUser(user) });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+router.patch('/me', async (req, res) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    if (!req.body || !Object.prototype.hasOwnProperty.call(req.body, 'displayName')) {
+      return res.status(400).json({ error: 'displayName is required' });
+    }
+
+    // Email and other fields are intentionally not updatable here.
+    const normalized = normalizeDisplayName(req.body.displayName);
+    if (!normalized.ok) {
+      return res.status(400).json({ error: normalized.error });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.session.userId },
+      data: { displayName: normalized.value },
+      select: userSelect,
+    });
+
+    res.json({ user: publicUser(user) });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 

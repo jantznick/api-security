@@ -18,6 +18,8 @@ model User {
   id                   String    @id @default(uuid())
   email                String    @unique
   password             String?
+  /// Optional public display name (not unique)
+  displayName          String?
   /// Stripe Customer id (cus_…); set on first Checkout
   stripeCustomerId     String?   @unique
   /// Active subscription id (sub_…) when subscribed

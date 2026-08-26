@@ -58,6 +58,8 @@ export const authAPI = {
     }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
+  updateMe: (body) =>
+    request('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
 };
 
 export const projectsAPI = {
