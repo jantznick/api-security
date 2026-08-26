@@ -358,6 +358,7 @@ router.get('/me', async (req, res) => {
             _count: { select: { memberships: true } },
           },
         },
+        customRole: { select: { id: true, key: true, name: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -372,7 +373,10 @@ router.get('/me', async (req, res) => {
           slug: m.organization.slug,
           isPersonal: m.organization.isPersonal,
           planSlug,
-          role: m.role,
+          role: m.customRoleId ? null : m.role,
+          customRoleId: m.customRoleId || null,
+          roleName: m.customRole?.name || m.role,
+          roleRef: m.customRoleId ? `custom:${m.customRoleId}` : m.role,
           seats: {
             used: m.organization._count.memberships,
             limit: seatLimit,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { orgsAPI } from '../api/api';
@@ -9,19 +9,18 @@ import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
 import useAuthStore from '../store/authStore';
 
-const ROLE_OPTIONS = [
+const SYSTEM_ASSIGNABLE = [
   { value: 'admin', label: 'Admin' },
   { value: 'member', label: 'Member' },
   { value: 'viewer', label: 'Viewer' },
 ];
 
-function roleLabel(role) {
-  if (!role) return '—';
-  return String(role).charAt(0).toUpperCase() + String(role).slice(1);
+function roleDisplay(entity) {
+  return entity?.roleName || entity?.roleKey || entity?.role || '—';
 }
 
-function canManage(role) {
-  return role === 'owner' || role === 'admin';
+function memberRoleRef(m) {
+  return m?.roleRef || (m?.customRoleId ? `custom:${m.customRoleId}` : m?.role);
 }
 
 function seatsLabel(seats) {
@@ -29,6 +28,92 @@ function seatsLabel(seats) {
   const used = seats.reserved ?? seats.used;
   if (seats.limit == null) return `${used} seats used (unlimited)`;
   return `${used} / ${seats.limit} seats`;
+}
+
+function RoleEditor({
+  permissionsCatalog,
+  initial,
+  saving,
+  onSave,
+  onCancel,
+}) {
+  const [name, setName] = useState(initial?.name || '');
+  const [description, setDescription] = useState(initial?.description || '');
+  const [selected, setSelected] = useState(() => new Set(initial?.permissions || []));
+
+  const toggle = (key) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  return (
+    <form
+      className="space-y-4 border-t border-ink-100 pt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          name: name.trim(),
+          description: description.trim() || null,
+          permissions: [...selected],
+        });
+      }}
+    >
+      <FormField id="role-name" label="Role name">
+        <input
+          id="role-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputClassName}
+          placeholder="e.g. Security analyst"
+          required
+          maxLength={80}
+        />
+      </FormField>
+      <FormField id="role-desc" label="Description (optional)">
+        <input
+          id="role-desc"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className={inputClassName}
+          placeholder="What this role can do"
+          maxLength={280}
+        />
+      </FormField>
+      <fieldset>
+        <legend className="text-sm font-medium text-ink-800">Permissions</legend>
+        <ul className="mt-2 space-y-2">
+          {(permissionsCatalog || []).map((p) => (
+            <li key={p.key}>
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-ink-800">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={selected.has(p.key)}
+                  onChange={() => toggle(p.key)}
+                />
+                <span>
+                  <span className="font-medium">{p.key}</span>
+                  <span className="block text-ink-500">{p.label}</span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={saving || !name.trim()}>
+          {saving ? 'Saving…' : initial?.id ? 'Save role' : 'Create role'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 export default function OrgMembers() {
@@ -39,24 +124,31 @@ export default function OrgMembers() {
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [seats, setSeats] = useState(null);
-  const [meRole, setMeRole] = useState(null);
+  const [me, setMe] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [permissionsCatalog, setPermissionsCatalog] = useState([]);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('member');
+  const [inviteRoleRef, setInviteRoleRef] = useState('member');
   const [inviting, setInviting] = useState(false);
   const [lastInviteUrl, setLastInviteUrl] = useState(null);
+  const [editingRole, setEditingRole] = useState(null); // null | 'new' | role object
+  const [savingRole, setSavingRole] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [membersData, invitesData] = await Promise.all([
+      const [membersData, invitesData, rolesData] = await Promise.all([
         orgsAPI.listMembers(orgId),
         orgsAPI.listInvites(orgId),
+        orgsAPI.listRoles(orgId),
       ]);
       setOrganization(membersData.organization);
       setMembers(membersData.members || []);
       setSeats(membersData.seats || null);
-      setMeRole(membersData.me?.role || null);
+      setMe(membersData.me || null);
       setInvites(invitesData.invites || []);
+      setRoles(rolesData.roles || []);
+      setPermissionsCatalog(rolesData.permissions || []);
     } catch (err) {
       toast.error(err?.message || 'Failed to load members');
     } finally {
@@ -68,7 +160,17 @@ export default function OrgMembers() {
     load();
   }, [load]);
 
-  const manage = canManage(meRole);
+  const manage = Boolean(me?.canManageMembers);
+  const manageRoles = Boolean(me?.canManageRoles);
+  const meIsOwner = me?.role === 'owner' && !me?.customRoleId;
+
+  const assignableOptions = useMemo(() => {
+    const custom = (roles || [])
+      .filter((r) => !r.isSystem)
+      .map((r) => ({ value: `custom:${r.id}`, label: r.name }));
+    const system = SYSTEM_ASSIGNABLE.filter((opt) => (meIsOwner ? true : opt.value !== 'admin'));
+    return [...system, ...custom];
+  }, [roles, meIsOwner]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -80,7 +182,10 @@ export default function OrgMembers() {
     setInviting(true);
     setLastInviteUrl(null);
     try {
-      const data = await orgsAPI.createInvite(orgId, { email: trimmed, role });
+      const body = inviteRoleRef.startsWith('custom:')
+        ? { email: trimmed, customRoleId: inviteRoleRef.slice('custom:'.length) }
+        : { email: trimmed, role: inviteRoleRef };
+      const data = await orgsAPI.createInvite(orgId, body);
       if (data.inviteUrl) {
         setLastInviteUrl(data.inviteUrl);
         toast.success(
@@ -121,9 +226,12 @@ export default function OrgMembers() {
     }
   };
 
-  const handleRoleChange = async (userId, nextRole) => {
+  const handleRoleChange = async (userId, nextRef) => {
     try {
-      await orgsAPI.updateMember(orgId, userId, { role: nextRole });
+      const body = nextRef.startsWith('custom:')
+        ? { customRoleId: nextRef.slice('custom:'.length) }
+        : { role: nextRef };
+      await orgsAPI.updateMember(orgId, userId, body);
       toast.success('Role updated');
       await load();
     } catch (err) {
@@ -131,13 +239,51 @@ export default function OrgMembers() {
     }
   };
 
+  const handleSaveRole = async (payload) => {
+    setSavingRole(true);
+    try {
+      if (editingRole && editingRole !== 'new' && editingRole.id) {
+        await orgsAPI.updateRole(orgId, editingRole.id, payload);
+        toast.success('Role updated');
+      } else {
+        await orgsAPI.createRole(orgId, payload);
+        toast.success('Role created');
+      }
+      setEditingRole(null);
+      await load();
+    } catch (err) {
+      toast.error(err?.message || 'Could not save role');
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  const handleDeleteRole = async (role) => {
+    if (
+      !window.confirm(
+        `Delete role “${role.name}”? Members must be reassigned first.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await orgsAPI.deleteRole(orgId, role.id);
+      toast.success('Role deleted');
+      await load();
+    } catch (err) {
+      toast.error(err?.message || 'Could not delete role');
+    }
+  };
+
   const title = organization?.name || 'Organization';
+  const systemRoles = roles.filter((r) => r.isSystem);
+  const customRoles = roles.filter((r) => !r.isSystem);
 
   return (
     <AppLayout>
       <PageHeader
-        title="Members"
-        description={`${title} — invite teammates, manage roles, and track seats.`}
+        title="Team"
+        description={`${title} — members, invites, and custom roles.`}
         actions={
           <Link
             to="/account"
@@ -173,7 +319,10 @@ export default function OrgMembers() {
             </div>
 
             {manage ? (
-              <form onSubmit={handleInvite} className="mt-6 grid gap-4 border-t border-ink-100 pt-6 sm:grid-cols-[1fr_auto_auto]">
+              <form
+                onSubmit={handleInvite}
+                className="mt-6 grid gap-4 border-t border-ink-100 pt-6 sm:grid-cols-[1fr_auto_auto]"
+              >
                 <FormField id="invite-email" label="Invite by email">
                   <input
                     id="invite-email"
@@ -189,13 +338,11 @@ export default function OrgMembers() {
                 <FormField id="invite-role" label="Role">
                   <select
                     id="invite-role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    value={inviteRoleRef}
+                    onChange={(e) => setInviteRoleRef(e.target.value)}
                     className={inputClassName}
                   >
-                    {ROLE_OPTIONS.filter((opt) =>
-                      meRole === 'owner' ? true : opt.value !== 'admin',
-                    ).map((opt) => (
+                    {assignableOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -210,7 +357,7 @@ export default function OrgMembers() {
               </form>
             ) : (
               <p className="mt-6 border-t border-ink-100 pt-6 text-sm text-ink-500">
-                Only owners and admins can invite teammates.
+                You need the manage-members permission to invite teammates.
               </p>
             )}
 
@@ -255,14 +402,26 @@ export default function OrgMembers() {
                 {members.map((m) => {
                   const isSelf = m.userId === user?.id;
                   const label = m.displayName || m.email;
+                  const isOwner = m.role === 'owner' && !m.customRoleId;
+                  const isAdminPeer = !m.customRoleId && (m.role === 'admin' || m.role === 'owner');
                   const showRemove =
                     manage &&
-                    !(m.role === 'owner' && members.filter((x) => x.role === 'owner').length <= 1) &&
-                    !(meRole === 'admin' && (m.role === 'admin' || m.role === 'owner'));
+                    !(isOwner && members.filter((x) => x.role === 'owner' && !x.customRoleId).length <= 1) &&
+                    !( !meIsOwner && isAdminPeer);
                   const showRoleSelect =
-                    manage &&
-                    !isSelf &&
-                    !(meRole === 'admin' && (m.role === 'admin' || m.role === 'owner'));
+                    manage && !isSelf && !(!meIsOwner && isAdminPeer);
+                  const currentRef = memberRoleRef(m);
+                  const selectOptions = [
+                    ...(meIsOwner ? [{ value: 'owner', label: 'Owner' }] : []),
+                    ...assignableOptions,
+                  ];
+                  // Ensure current custom/system value appears even if filtered out
+                  if (!selectOptions.some((o) => o.value === currentRef) && currentRef) {
+                    selectOptions.unshift({
+                      value: currentRef,
+                      label: roleDisplay(m),
+                    });
+                  }
 
                   return (
                     <li
@@ -282,14 +441,11 @@ export default function OrgMembers() {
                         {showRoleSelect ? (
                           <select
                             className={`${inputClassName} min-h-9 w-auto py-1.5 text-sm`}
-                            value={m.role}
+                            value={currentRef}
                             onChange={(e) => handleRoleChange(m.userId, e.target.value)}
                             aria-label={`Role for ${label}`}
                           >
-                            {meRole === 'owner' ? (
-                              <option value="owner">Owner</option>
-                            ) : null}
-                            {ROLE_OPTIONS.map((opt) => (
+                            {selectOptions.map((opt) => (
                               <option key={opt.value} value={opt.value}>
                                 {opt.label}
                               </option>
@@ -297,10 +453,10 @@ export default function OrgMembers() {
                           </select>
                         ) : (
                           <span className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700">
-                            {roleLabel(m.role)}
+                            {roleDisplay(m)}
                           </span>
                         )}
-                        {showRemove || (isSelf && m.role !== 'owner') ? (
+                        {showRemove || (isSelf && !isOwner) ? (
                           <Button
                             type="button"
                             variant="secondary"
@@ -320,6 +476,128 @@ export default function OrgMembers() {
             )}
           </Card>
 
+          <Card className="overflow-hidden" id="roles">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-6 py-4">
+              <div>
+                <h3 className="font-display text-base font-bold text-ink-900">Roles</h3>
+                <p className="mt-0.5 text-sm text-ink-500">
+                  Built-in roles plus custom permission sets for this organization.
+                </p>
+              </div>
+              {manageRoles && editingRole == null ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-9 px-3 py-1.5 text-sm"
+                  onClick={() => setEditingRole('new')}
+                >
+                  Create role
+                </Button>
+              ) : null}
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  System
+                </p>
+                <ul className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-100">
+                  {systemRoles.map((r) => (
+                    <li key={r.key} className="px-4 py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="text-sm font-medium text-ink-900">{r.name}</p>
+                        <span className="text-xs text-ink-400">{r.key}</span>
+                      </div>
+                      <p className="mt-0.5 text-sm text-ink-500">{r.description}</p>
+                      <p className="mt-1 font-mono text-xs text-ink-400">
+                        {(r.permissions || []).join(', ')}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Custom
+                </p>
+                {customRoles.length === 0 && editingRole == null ? (
+                  <p className="mt-2 text-sm text-ink-500">
+                    No custom roles yet.
+                    {manageRoles ? ' Create one to grant a specific permission set.' : ''}
+                  </p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-100">
+                    {customRoles.map((r) => (
+                      <li key={r.id} className="px-4 py-3">
+                        {editingRole && editingRole !== 'new' && editingRole.id === r.id ? (
+                          <RoleEditor
+                            permissionsCatalog={permissionsCatalog}
+                            initial={r}
+                            saving={savingRole}
+                            onSave={handleSaveRole}
+                            onCancel={() => setEditingRole(null)}
+                          />
+                        ) : (
+                          <>
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-ink-900">{r.name}</p>
+                                {r.description ? (
+                                  <p className="mt-0.5 text-sm text-ink-500">{r.description}</p>
+                                ) : null}
+                                <p className="mt-1 text-xs text-ink-400">
+                                  {r.memberCount || 0} member
+                                  {(r.memberCount || 0) === 1 ? '' : 's'} · key{' '}
+                                  <span className="font-mono">{r.key}</span>
+                                </p>
+                                <p className="mt-1 font-mono text-xs text-ink-400">
+                                  {(r.permissions || []).join(', ') || 'No permissions'}
+                                </p>
+                              </div>
+                              {manageRoles ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="min-h-9 px-3 py-1.5 text-sm"
+                                    onClick={() => setEditingRole(r)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="min-h-9 px-3 py-1.5 text-sm"
+                                    onClick={() => handleDeleteRole(r)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {editingRole === 'new' ? (
+                  <div className="mt-3 rounded-lg border border-ink-100 px-4 py-3">
+                    <RoleEditor
+                      permissionsCatalog={permissionsCatalog}
+                      initial={null}
+                      saving={savingRole}
+                      onSave={handleSaveRole}
+                      onCancel={() => setEditingRole(null)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
           <Card className="overflow-hidden">
             <div className="border-b border-ink-100 px-6 py-4">
               <h3 className="font-display text-base font-bold text-ink-900">Pending invites</h3>
@@ -336,7 +614,7 @@ export default function OrgMembers() {
                     <div>
                       <p className="text-sm font-medium text-ink-900">{inv.email}</p>
                       <p className="mt-0.5 text-sm text-ink-500">
-                        {roleLabel(inv.role)}
+                        {roleDisplay(inv)}
                         {inv.expiresAt
                           ? ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`
                           : ''}

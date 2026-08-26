@@ -38,10 +38,15 @@ function planLabel(slug) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function roleLabel(role) {
-  if (!role) return null;
-  const s = String(role);
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function roleLabel(orgOrRole) {
+  if (orgOrRole && typeof orgOrRole === 'object') {
+    if (orgOrRole.roleName) return orgOrRole.roleName;
+    const role = orgOrRole.role;
+    if (!role) return null;
+    return String(role).charAt(0).toUpperCase() + String(role).slice(1);
+  }
+  if (!orgOrRole) return null;
+  return String(orgOrRole).charAt(0).toUpperCase() + String(orgOrRole).slice(1);
 }
 
 function sectionNavClass(active) {
@@ -187,7 +192,8 @@ function OrganizationsSection({ user }) {
     <Card className="p-6">
       <h2 className="font-display text-lg font-bold text-ink-900">Organizations</h2>
       <p className="mt-1 text-sm text-ink-500">
-        Your workspaces and team orgs. Invite teammates from Members — Free plans include up
+        Your workspaces and team orgs. Invite teammates and manage roles from Team — Free plans
+        include up
         to 3 seats (you count as one).
       </p>
 
@@ -195,7 +201,7 @@ function OrganizationsSection({ user }) {
         <ul className="mt-6 divide-y divide-ink-100 border-t border-ink-100">
           {orgs.map((org) => {
             const orgPlan = planLabel(org.planSlug || user?.planSlug);
-            const role = roleLabel(org.role);
+            const role = roleLabel(org);
             const seats = org.seats;
             const seatText =
               seats?.limit != null
@@ -231,7 +237,14 @@ function OrganizationsSection({ user }) {
                     onClick={() => setActiveOrgId(org.id)}
                     className="inline-flex min-h-9 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"
                   >
-                    Members
+                    Team
+                  </Link>
+                  <Link
+                    to={`/orgs/${org.id}/members#roles`}
+                    onClick={() => setActiveOrgId(org.id)}
+                    className="inline-flex min-h-9 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"
+                  >
+                    Roles
                   </Link>
                 </div>
               </li>

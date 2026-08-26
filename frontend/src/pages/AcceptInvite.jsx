@@ -131,10 +131,13 @@ export default function AcceptInvite() {
             <>
               <p className="mt-3 text-sm text-ink-600">
                 You&apos;ve been invited to join <strong className="text-ink-900">{orgName}</strong>
-                {invite?.role ? (
+                {invite?.roleName || invite?.role ? (
                   <>
                     {' '}
-                    as a <strong className="text-ink-900">{invite.role}</strong>
+                    as a{' '}
+                    <strong className="text-ink-900">
+                      {invite.roleName || invite.role}
+                    </strong>
                   </>
                 ) : null}
                 .
