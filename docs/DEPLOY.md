@@ -206,7 +206,7 @@ Three **Static Site** services. Connect the same GitHub repo.
 | Root directory | `frontend` |
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
-| SPA rewrite | `/*` → `/index.html` if deep links 404 |
+| SPA rewrite | **`/*` → `/index.html`** (required; [`frontend/public/_redirects`](../frontend/public/_redirects)) |
 
 | Build env | Value |
 | --- | --- |
