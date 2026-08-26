@@ -1,0 +1,52 @@
+{
+  "name": "@apiglimpse/next",
+  "version": "0.1.0",
+  "description": "Next.js App Router helpers that send API traffic metadata to API Glimpse",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "next",
+    "nextjs",
+    "app-router",
+    "middleware",
+    "api-security",
+    "discovery",
+    "observability",
+    "apiglimpse"
+  ],
+  "homepage": "https://github.com/jantznick/api-security/tree/main/packages/next",
+  "bugs": {
+    "url": "https://github.com/jantznick/api-security/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jantznick/api-security.git",
+    "directory": "packages/next"
+  },
+  "scripts": {
+    "publish:npm": "node ./scripts/publish.mjs",
+    "test": "node --test test/**/*.test.js"
+  },
+  "dependencies": {
+    "@apiglimpse/shared": "file:../shared"
+  },
+  "peerDependencies": {
+    "next": ">=13.4"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  }
+}
