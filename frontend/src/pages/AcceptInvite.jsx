@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { authAPI, invitesAPI } from '../api/api';
@@ -6,21 +6,18 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import useAuthStore from '../store/authStore';
 import { APP_NAME } from '../lib/brand';
-import { loginUrl } from '../lib/urls';
 import { useActiveOrg } from '../hooks/useActiveOrg';
 
 function statusMessage(status) {
   switch (status) {
     case 'revoked':
       return 'This invite was revoked.';
-    case 'accepted':
-      return 'This invite was already accepted.';
     case 'expired':
       return 'This invite has expired.';
-    case 'pending':
-      return null;
-    default:
+    case 'not_found':
       return 'Invite not found.';
+    default:
+      return null;
   }
 }
 
@@ -29,44 +26,15 @@ export default function AcceptInvite() {
   const navigate = useNavigate();
   const { user, setUser, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { setActiveOrgId } = useActiveOrg();
-  const [loading, setLoading] = useState(true);
-  const [accepting, setAccepting] = useState(false);
+  const [phase, setPhase] = useState('loading'); // loading | redeeming | mismatch | error | ready
   const [status, setStatus] = useState(null);
   const [invite, setInvite] = useState(null);
   const [error, setError] = useState(null);
+  const [mismatch, setMismatch] = useState(null);
+  const redeemStarted = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await invitesAPI.get(token);
-      setStatus(data.status);
-      setInvite(data.invite);
-    } catch (err) {
-      setStatus('not_found');
-      setError(err?.message || 'Invite not found');
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const emailMatches =
-    user?.email &&
-    invite?.email &&
-    String(user.email).toLowerCase() === String(invite.email).toLowerCase();
-
-  const goAuth = (tab) => {
-    navigate(loginUrl(`/invites/${token}`, tab));
-  };
-
-  const handleAccept = async () => {
-    setAccepting(true);
-    try {
-      const data = await invitesAPI.accept(token);
+  const finishJoin = useCallback(
+    async (data) => {
       toast.success(
         data.alreadyMember
           ? 'You are already a member'
@@ -75,6 +43,9 @@ export default function AcceptInvite() {
       if (data.organization?.id) {
         setActiveOrgId(data.organization.id);
       }
+      if (data.user) {
+        setUser(data.user);
+      }
       try {
         const me = await authAPI.me();
         setUser(me.user);
@@ -82,17 +53,142 @@ export default function AcceptInvite() {
         /* ignore */
       }
       navigate('/projects', { replace: true });
+    },
+    [navigate, setActiveOrgId, setUser],
+  );
+
+  useEffect(() => {
+    if (authLoading) return undefined;
+    if (redeemStarted.current) return undefined;
+    if (!token) {
+      setStatus('not_found');
+      setError('Invite not found');
+      setPhase('error');
+      return undefined;
+    }
+
+    let cancelled = false;
+    const sessionEmailAtBoot = user?.email || null;
+
+    async function boot() {
+      setPhase('loading');
+      setError(null);
+      setMismatch(null);
+
+      try {
+        const data = await invitesAPI.get(token);
+        if (cancelled) return;
+
+        setStatus(data.status);
+        setInvite(data.invite);
+
+        if (data.status === 'revoked' || data.status === 'expired' || data.status === 'not_found') {
+          setPhase('error');
+          return;
+        }
+
+        const sessionEmail = sessionEmailAtBoot || data.authenticatedEmail;
+        const inviteEmail = data.invite?.email;
+        if (
+          sessionEmail &&
+          inviteEmail &&
+          String(sessionEmail).toLowerCase() !== String(inviteEmail).toLowerCase()
+        ) {
+          setMismatch({
+            sessionEmail,
+            expectedEmail: inviteEmail,
+            message: `You're signed in as ${sessionEmail}. Sign out, or open this invite in a private window, to join as ${inviteEmail}.`,
+          });
+          setPhase('mismatch');
+          return;
+        }
+
+        redeemStarted.current = true;
+        setPhase('redeeming');
+
+        try {
+          const result = await invitesAPI.redeem(token);
+          if (cancelled) return;
+          await finishJoin(result);
+        } catch (err) {
+          if (cancelled) return;
+          redeemStarted.current = false;
+          if (err?.status === 403) {
+            setMismatch({
+              sessionEmail: sessionEmailAtBoot || sessionEmail,
+              expectedEmail: inviteEmail,
+              message: err.message,
+            });
+            setPhase('mismatch');
+          } else {
+            setError(err?.message || 'Could not accept invite');
+            toast.error(err?.message || 'Could not accept invite');
+            setPhase('error');
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setStatus('not_found');
+        setError(err?.message || 'Invite not found');
+        setPhase('error');
+      }
+    }
+
+    boot();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally omit user from deps — capture email once auth boot completes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, authLoading, finishJoin]);
+
+  const handleSignOutAndRetry = async () => {
+    try {
+      setPhase('redeeming');
+      await authAPI.logout();
+      setUser(null);
+      redeemStarted.current = true;
+      setMismatch(null);
+      const data = await invitesAPI.redeem(token);
+      await finishJoin(data);
     } catch (err) {
-      toast.error(err?.message || 'Could not accept invite');
-    } finally {
-      setAccepting(false);
+      redeemStarted.current = false;
+      toast.error(err?.message || 'Could not switch accounts');
+      setError(err?.message || 'Could not switch accounts');
+      setPhase('error');
     }
   };
 
-  if (authLoading || loading) {
+  const handleManualRedeem = async () => {
+    setPhase('redeeming');
+    setError(null);
+    try {
+      redeemStarted.current = true;
+      const data = await invitesAPI.redeem(token);
+      await finishJoin(data);
+    } catch (err) {
+      redeemStarted.current = false;
+      if (err?.status === 403) {
+        setMismatch({
+          sessionEmail: user?.email,
+          expectedEmail: invite?.email,
+          message: err.message,
+        });
+        setPhase('mismatch');
+      } else {
+        setError(err?.message || 'Could not accept invite');
+        toast.error(err?.message || 'Could not accept invite');
+        setPhase('error');
+      }
+    }
+  };
+
+  if (authLoading || phase === 'loading' || phase === 'redeeming') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink-50">
-        <p className="text-sm text-ink-600">Loading invite…</p>
+        <p className="text-sm text-ink-600">
+          {phase === 'redeeming' ? 'Joining organization…' : 'Loading invite…'}
+        </p>
       </div>
     );
   }
@@ -109,15 +205,7 @@ export default function AcceptInvite() {
           </Link>
           {isAuthenticated ? (
             <span className="truncate text-sm text-ink-500">{user?.email}</span>
-          ) : (
-            <button
-              type="button"
-              className="cursor-pointer text-sm font-medium text-signal-600 hover:text-signal-800"
-              onClick={() => goAuth('login')}
-            >
-              Sign in
-            </button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -125,7 +213,23 @@ export default function AcceptInvite() {
         <Card className="p-6">
           <h1 className="font-display text-2xl font-bold text-ink-900">Organization invite</h1>
 
-          {blocked || error ? (
+          {phase === 'mismatch' && mismatch ? (
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-ink-600">{mismatch.message}</p>
+              <p className="text-sm text-ink-500">
+                Sign out to accept as the invited email, or open the invite link in a private
+                window.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button type="button" onClick={handleSignOutAndRetry}>
+                  Sign out and join
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
+                  Stay signed in
+                </Button>
+              </div>
+            </div>
+          ) : phase === 'error' || blocked ? (
             <p className="mt-4 text-sm text-ink-600">{error || blocked}</p>
           ) : (
             <>
@@ -145,33 +249,11 @@ export default function AcceptInvite() {
               <p className="mt-2 text-sm text-ink-500">
                 This invite is for <strong className="text-ink-800">{invite?.email}</strong>.
               </p>
-
-              {!isAuthenticated ? (
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Button type="button" onClick={() => goAuth('login')}>
-                    Sign in to accept
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => goAuth('register')}>
-                    Create account
-                  </Button>
-                </div>
-              ) : !emailMatches ? (
-                <div className="mt-6 space-y-3">
-                  <p className="text-sm text-ink-600">
-                    You&apos;re signed in as <strong>{user?.email}</strong>. Switch to{' '}
-                    <strong>{invite?.email}</strong> to accept.
-                  </p>
-                  <Button type="button" variant="secondary" onClick={() => goAuth('login')}>
-                    Sign in with the invite email
-                  </Button>
-                </div>
-              ) : (
-                <div className="mt-6">
-                  <Button type="button" onClick={handleAccept} disabled={accepting}>
-                    {accepting ? 'Joining…' : 'Accept invite'}
-                  </Button>
-                </div>
-              )}
+              <div className="mt-6">
+                <Button type="button" onClick={handleManualRedeem}>
+                  Accept invite
+                </Button>
+              </div>
             </>
           )}
 

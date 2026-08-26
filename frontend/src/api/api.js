@@ -146,7 +146,7 @@ export const usageAPI = {
  * GET/PATCH/DELETE /orgs/:orgId/members[/:userId]
  * GET/POST/DELETE /orgs/:orgId/invites[/:inviteId]
  * GET/POST/PATCH/DELETE /orgs/:orgId/roles[/:roleId]
- * GET /invites/:token · POST /invites/:token/accept
+ * GET /invites/:token · POST /invites/:token/redeem · POST /invites/:token/accept
  */
 export const orgsAPI = {
   listMembers: (orgId) => request(`/orgs/${orgId}/members`),
@@ -182,6 +182,8 @@ export const orgsAPI = {
 
 export const invitesAPI = {
   get: (token) => request(`/invites/${token}`),
+  /** Magic-link style: create/login invitee + join org in one request. */
+  redeem: (token) => request(`/invites/${token}/redeem`, { method: 'POST' }),
   accept: (token) => request(`/invites/${token}/accept`, { method: 'POST' }),
 };
 
