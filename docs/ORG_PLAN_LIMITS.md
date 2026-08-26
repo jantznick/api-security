@@ -9,9 +9,9 @@ Plan mode is unavailable in this Cloud Agent session; this doc is the reviewable
 
 ---
 
-## Problem
+## Problem (solved)
 
-| Surface | Today | Desired |
+| Surface | Before snapshots | After (current code) |
 | --- | --- | --- |
 | Assignment | Org/User get `planSlug` only | Org gets **plan slug + frozen limits** |
 | Seat enforcement | `org.planSlug` → live `Plan.seatLimit` | Prefer `org.seatLimit` |
