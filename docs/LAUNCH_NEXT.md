@@ -86,6 +86,7 @@ Local checklist details: [TESTING.md](./TESTING.md).
 | Check | If wrong |
 | --- | --- |
 | Marketing deep link (e.g. `/how-it-works` refresh) 404s | Render → Marketing → **Redirects/Rewrites** → `/*` → `/index.html` (Rewrite) |
+| Dashboard `/projects` 404s / downloads a text file | Same rewrite on the **Dashboard** static site (or merge `frontend/public/_redirects`) |
 | Login works on marketing but cookie missing on app | Confirm both built with `VITE_API_URL=https://api.apiglimpse.com` and core has `COOKIE_DOMAIN=.apiglimpse.com` |
 | Magic link URL points at wrong host | Core `MARKETING_URL=https://apiglimpse.com` |
 

@@ -25,7 +25,7 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 | Build command | `npm install && npm run build` |
 | Publish directory | `dist` |
 | Environment | Build-time `VITE_API_URL` |
-| SPA rewrite (if needed) | `/*` → `/index.html` |
+| SPA rewrite | `/*` → `/index.html` (**required**) — shipped as [`frontend/public/_redirects`](../frontend/public/_redirects) |
 
 ### Executable runbook
 
@@ -34,6 +34,9 @@ Platform URLs (`*.onrender.com`) work until custom domains are attached.
 3. **Root Directory:** `frontend`
 4. **Build Command:** `npm install && npm run build`
 5. **Publish Directory:** `dist`
+6. Confirm SPA rewrite: either `dist/_redirects` after build, or Redirects/Rewrites → `/*` → `/index.html` (**Rewrite**)
+
+Without this, deep links like `/projects` return plain-text `404 Not Found` (browsers may download it as a file).
 
 ### Build environment
 
