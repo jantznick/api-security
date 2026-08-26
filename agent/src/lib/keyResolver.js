@@ -1,5 +1,5 @@
 /**
- * Resolve project API keys via ingest introspect, with a short TTL cache.
+ * Resolve service API keys via ingest introspect, with a short TTL cache.
  * Invalid keys are not cached as valid; brief negative cache reduces stampede.
  */
 
@@ -31,7 +31,7 @@ export function createKeyResolver({ ingestUrl, ttlMs = DEFAULT_TTL_MS, fetchImpl
 
   /**
    * @param {string} apiKey
-   * @returns {Promise<{ projectId: string, projectName?: string, apiKeyId?: string, apiKey: string } | null>}
+   * @returns {Promise<{ serviceId: string, serviceName?: string, projectId: string, projectName?: string, apiKeyId?: string, apiKey: string } | null>}
    */
   async function resolve(apiKey) {
     if (!apiKey || typeof apiKey !== 'string') return null;
@@ -49,14 +49,18 @@ export function createKeyResolver({ ingestUrl, ttlMs = DEFAULT_TTL_MS, fetchImpl
       throw err;
     }
 
-    if (!identity?.projectId) {
+    const serviceId = identity?.serviceId || identity?.projectId;
+    if (!serviceId) {
       cache.set(apiKey, { expiresAt: Date.now() + NEGATIVE_TTL_MS, value: null });
       return null;
     }
 
     const value = {
-      projectId: identity.projectId,
-      projectName: identity.projectName,
+      serviceId,
+      serviceName: identity.serviceName || identity.projectName,
+      /** @deprecated alias — Service is the inventory unit */
+      projectId: serviceId,
+      projectName: identity.serviceName || identity.projectName,
       apiKeyId: identity.apiKeyId,
       apiKey,
     };

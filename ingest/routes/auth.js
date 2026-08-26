@@ -4,14 +4,18 @@ import { requireApiKey } from '../middleware/apiKey.js';
 const router = express.Router();
 
 /**
- * Validate a project API key. Used by the hosted agent (private network).
- * Returns project identity only — never echoes the key.
+ * Validate a service API key. Used by the hosted agent (private network).
+ * Returns service identity only — never echoes the key.
  */
 router.get('/introspect', requireApiKey, (req, res) => {
+  const service = req.service || req.project;
   res.json({
     ok: true,
-    projectId: req.project.id,
-    projectName: req.project.name,
+    serviceId: service.id,
+    serviceName: service.name,
+    /** @deprecated aliases for transitional agent builds */
+    projectId: service.id,
+    projectName: service.name,
     apiKeyId: req.apiKeyId,
   });
 });

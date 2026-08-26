@@ -1,20 +1,26 @@
 /**
- * Plan resolution and subscription → project limit sync.
+ * Plan resolution and subscription → service limit sync.
  *
- * Billing unit: **user-level subscription**. When the plan changes,
- * `Plan.endpointLimit` is written onto **each** of the user's projects
- * (not a shared sum across projects).
+ * Billing unit: **user-level subscription** (until S5). When the plan changes,
+ * `Plan.endpointLimit` is written onto **each** service in orgs the user owns.
  *
  * Fallback constants apply only when the Plan table is empty / missing a slug.
  */
 
 import prisma from './prisma.js';
 
+/** Seat caps (D11). Free = 3 including owner; Pro unlimited until priced. */
+export const SEAT_LIMITS = Object.freeze({
+  free: 3,
+  pro: null,
+});
+
 export const FALLBACK_PLANS = Object.freeze({
   free: Object.freeze({
     slug: 'free',
     name: 'Free',
     endpointLimit: 25,
+    seatLimit: SEAT_LIMITS.free,
     priceCentsMonthly: 0,
     stripePriceId: null,
     active: true,
@@ -24,6 +30,7 @@ export const FALLBACK_PLANS = Object.freeze({
     slug: 'pro',
     name: 'Pro',
     endpointLimit: 500,
+    seatLimit: SEAT_LIMITS.pro,
     priceCentsMonthly: 2900,
     stripePriceId: null,
     active: true,
@@ -38,6 +45,7 @@ const planPublicSelect = {
   slug: true,
   name: true,
   endpointLimit: true,
+  seatLimit: true,
   priceCentsMonthly: true,
   stripePriceId: true,
   active: true,
@@ -54,6 +62,14 @@ function fromFallback(slug) {
   return { ...row, id: null };
 }
 
+function seatLimitForSlug(slug) {
+  const key = normalizeSlug(slug);
+  if (Object.prototype.hasOwnProperty.call(SEAT_LIMITS, key)) {
+    return SEAT_LIMITS[key];
+  }
+  return SEAT_LIMITS.free;
+}
+
 /** Ensure Free/Pro rows exist (idempotent). Safe to call on boot or first admin load. */
 export async function ensureDefaultPlans() {
   const defaults = [FALLBACK_PLANS.free, FALLBACK_PLANS.pro];
@@ -64,12 +80,16 @@ export async function ensureDefaultPlans() {
         slug: plan.slug,
         name: plan.name,
         endpointLimit: plan.endpointLimit,
+        seatLimit: plan.seatLimit,
         priceCentsMonthly: plan.priceCentsMonthly,
         stripePriceId: plan.stripePriceId,
         active: plan.active,
         sortOrder: plan.sortOrder,
       },
-      update: {},
+      update: {
+        // Keep seatLimit in sync with product constants when missing
+        seatLimit: plan.seatLimit,
+      },
     });
   }
 }
@@ -92,7 +112,12 @@ export async function getPlanBySlug(slug) {
       where: { slug: normalized },
       select: planPublicSelect,
     });
-    if (plan) return plan;
+    if (plan) {
+      return {
+        ...plan,
+        seatLimit: plan.seatLimit ?? seatLimitForSlug(normalized),
+      };
+    }
   } catch (err) {
     console.warn('getPlanBySlug DB lookup failed, using fallback:', err.message);
   }
@@ -105,9 +130,16 @@ export async function resolveEndpointLimit(planSlug) {
   return plan.endpointLimit ?? null;
 }
 
+/** Effective seat cap for a plan slug (null = unlimited). */
+export async function resolveSeatLimit(planSlug) {
+  const plan = await getPlanBySlug(planSlug);
+  return plan.seatLimit ?? seatLimitForSlug(planSlug);
+}
+
 /**
  * Set user.planSlug (+ optional Stripe subscription id) and sync
- * endpointLimit onto every owned project.
+ * endpointLimit onto every service in orgs the user owns.
+ * Also mirrors plan onto the personal org (S5 prep; User remains billing source of truth).
  */
 export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId } = {}) {
   const slug = normalizeSlug(planSlug);
@@ -119,15 +151,34 @@ export async function applyPlanToUser(userId, planSlug, { stripeSubscriptionId }
     userData.stripeSubscriptionId = stripeSubscriptionId;
   }
 
+  const ownedOrgs = await prisma.membership.findMany({
+    where: { userId, role: 'owner' },
+    select: { organizationId: true },
+  });
+  const orgIds = ownedOrgs.map((m) => m.organizationId);
+
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: userData,
     }),
-    prisma.project.updateMany({
-      where: { ownerId: userId },
-      data: { endpointLimit },
-    }),
+    ...(orgIds.length
+      ? [
+          prisma.organization.updateMany({
+            where: { id: { in: orgIds }, isPersonal: true },
+            data: {
+              planSlug: slug,
+              ...(stripeSubscriptionId !== undefined
+                ? { stripeSubscriptionId }
+                : {}),
+            },
+          }),
+          prisma.service.updateMany({
+            where: { project: { organizationId: { in: orgIds } } },
+            data: { endpointLimit },
+          }),
+        ]
+      : []),
   ]);
 
   return { planSlug: slug, endpointLimit, plan };

@@ -38,6 +38,7 @@ function publicPlan(plan) {
     slug: plan.slug,
     name: plan.name,
     endpointLimit: plan.endpointLimit,
+    seatLimit: plan.seatLimit ?? null,
     priceCentsMonthly: plan.priceCentsMonthly,
     /** Whether Checkout can use this plan (has a Stripe price id or env fallback) */
     hasStripePrice: Boolean(plan.stripePriceId) || (plan.slug === 'pro' && Boolean(process.env.STRIPE_PRICE_PRO?.trim())),
@@ -52,7 +53,7 @@ router.get('/plans', async (_req, res) => {
     res.json({
       plans: plans.map(publicPlan),
       billingUnit: 'user',
-      limitScope: 'per_project',
+      limitScope: 'per_service',
     });
   } catch (error) {
     console.error('List billing plans error:', error);
@@ -71,15 +72,6 @@ router.get('/me', requireAuth, async (req, res) => {
         planSlug: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
-        projects: {
-          select: {
-            id: true,
-            name: true,
-            endpointLimit: true,
-            _count: { select: { endpoints: true } },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
       },
     });
 
@@ -91,29 +83,74 @@ router.get('/me', requireAuth, async (req, res) => {
     const plan = await getPlanBySlug(user.planSlug || DEFAULT_PLAN_SLUG);
     const planLimit = await resolveEndpointLimit(user.planSlug);
 
-    const projects = user.projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      endpointCount: p._count.endpoints,
-      endpointLimit: p.endpointLimit ?? planLimit,
+    // Services across orgs the user belongs to (S2). Keep `projects` alias for UI.
+    const services = await prisma.service.findMany({
+      where: {
+        project: {
+          organization: {
+            memberships: { some: { userId: user.id } },
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        endpointLimit: true,
+        projectId: true,
+        project: { select: { id: true, name: true } },
+        _count: { select: { endpoints: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const serviceRows = services.map((s) => ({
+      id: s.id,
+      name: s.name,
+      projectId: s.projectId,
+      projectName: s.project?.name,
+      endpointCount: s._count.endpoints,
+      endpointLimit: s.endpointLimit ?? planLimit,
     }));
 
-    const endpointUsageTotal = projects.reduce((sum, p) => sum + p.endpointCount, 0);
+    const endpointUsageTotal = serviceRows.reduce((sum, p) => sum + p.endpointCount, 0);
     const stripeConfigured = isStripeConfigured();
     const hasCustomer = Boolean(user.stripeCustomerId);
     const planSlug = user.planSlug || DEFAULT_PLAN_SLUG;
+
+    const membershipCount = await prisma.membership.count({
+      where: {
+        organization: {
+          memberships: { some: { userId: user.id, role: 'owner' } },
+        },
+      },
+    });
+    // Seats for personal/owned orgs: count members on personal org for now
+    const personalMembership = await prisma.membership.findFirst({
+      where: { userId: user.id, organization: { isPersonal: true } },
+      select: { organizationId: true },
+    });
+    let seatsUsed = 1;
+    if (personalMembership) {
+      seatsUsed = await prisma.membership.count({
+        where: { organizationId: personalMembership.organizationId },
+      });
+    }
 
     res.json({
       plan: publicPlan(plan),
       planSlug,
       planName: plan.name,
-      /** Sum of endpoints across projects (UI); limit is still per-project */
+      /** Sum of endpoints across services (UI); limit is still per-service */
       endpointsUsed: endpointUsageTotal,
       endpointCount: endpointUsageTotal,
       endpointLimit: planLimit,
       endpointLimitPerProject: planLimit,
+      endpointLimitPerService: planLimit,
       endpointUsageTotal,
-      projects,
+      services: serviceRows,
+      /** @deprecated alias — same as services (legacy Project = Service) */
+      projects: serviceRows,
+      seats: { used: seatsUsed, limit: plan.seatLimit ?? null },
       checkoutAvailable: stripeConfigured,
       canCheckout: stripeConfigured,
       portalAvailable: stripeConfigured && hasCustomer,
@@ -126,7 +163,7 @@ router.get('/me', requireAuth, async (req, res) => {
         hasSubscription: Boolean(user.stripeSubscriptionId),
       },
       billingUnit: 'user',
-      limitScope: 'per_project',
+      limitScope: 'per_service',
     });
   } catch (error) {
     console.error('Billing me error:', error);

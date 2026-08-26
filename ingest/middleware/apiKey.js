@@ -6,7 +6,7 @@ function hashApiKey(rawKey) {
 }
 
 /**
- * Resolve project from X-API-Key header. Never stores or logs the raw key.
+ * Resolve service from X-API-Key header. Never stores or logs the raw key.
  */
 export async function requireApiKey(req, res, next) {
   try {
@@ -24,7 +24,7 @@ export async function requireApiKey(req, res, next) {
     const keyHash = hashApiKey(raw);
     const apiKey = await prisma.apiKey.findUnique({
       where: { keyHash },
-      include: { project: true },
+      include: { service: true },
     });
 
     if (!apiKey || apiKey.revokedAt) {
@@ -32,7 +32,9 @@ export async function requireApiKey(req, res, next) {
       return;
     }
 
-    req.project = apiKey.project;
+    req.service = apiKey.service;
+    /** @deprecated alias — Service is today's inventory unit */
+    req.project = apiKey.service;
     req.apiKeyId = apiKey.id;
 
     prisma.apiKey

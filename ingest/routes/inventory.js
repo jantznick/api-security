@@ -7,13 +7,13 @@ const router = express.Router();
 router.use(requireApiKey);
 
 /**
- * Prefer per-project limit (Stripe → Project.endpointLimit).
+ * Prefer per-service limit (Stripe → Service.endpointLimit).
  * Fall back to env ENDPOINT_LIMIT. 0 / null / unset = unlimited.
  */
-function resolveEndpointLimit(project) {
-  const fromProject = project?.endpointLimit;
-  if (fromProject !== undefined && fromProject !== null) {
-    const n = Number(fromProject);
+function resolveEndpointLimit(service) {
+  const fromService = service?.endpointLimit;
+  if (fromService !== undefined && fromService !== null) {
+    const n = Number(fromService);
     if (Number.isFinite(n) && n > 0) return Math.floor(n);
     return 0;
   }
@@ -29,13 +29,14 @@ function resolveEndpointLimit(project) {
  *   contentTypes, requestSchema, responseSchema, signals, firstSeenAt, lastSeenAt } ] }
  *
  * Never accepts or stores raw request/response bodies.
- * New endpoints may be skipped when the project/env endpoint limit is exceeded (existing still update).
+ * New endpoints may be skipped when the service/env endpoint limit is exceeded (existing still update).
  */
 router.post('/upsert', async (req, res) => {
   try {
-    const projectId = req.project.id;
+    const service = req.service || req.project;
+    const serviceId = service.id;
     const endpoints = Array.isArray(req.body?.endpoints) ? req.body.endpoints : [];
-    const limit = resolveEndpointLimit(req.project);
+    const limit = resolveEndpointLimit(service);
 
     if (endpoints.length === 0) {
       res.json({ upserted: 0, skippedNew: 0 });
@@ -48,7 +49,7 @@ router.post('/upsert', async (req, res) => {
 
     async function loadCount() {
       if (currentCount === null) {
-        currentCount = await prisma.endpoint.count({ where: { projectId } });
+        currentCount = await prisma.endpoint.count({ where: { serviceId } });
       }
       return currentCount;
     }
@@ -60,7 +61,7 @@ router.post('/upsert', async (req, res) => {
 
       const existing = await prisma.endpoint.findUnique({
         where: {
-          projectId_method_pathTemplate: { projectId, method, pathTemplate },
+          serviceId_method_pathTemplate: { serviceId, method, pathTemplate },
         },
       });
 
@@ -102,10 +103,10 @@ router.post('/upsert', async (req, res) => {
 
       const endpoint = await prisma.endpoint.upsert({
         where: {
-          projectId_method_pathTemplate: { projectId, method, pathTemplate },
+          serviceId_method_pathTemplate: { serviceId, method, pathTemplate },
         },
         create: {
-          projectId,
+          serviceId,
           method,
           pathTemplate,
           hitCount: hitInc,

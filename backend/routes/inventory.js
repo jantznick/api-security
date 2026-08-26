@@ -2,35 +2,39 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildOpenApiDocument } from '../lib/openapi.js';
+import { accessibleService } from '../lib/orgs.js';
 
 const router = express.Router();
 
 router.use(requireAuth);
 
-async function ownedProject(userId, projectId) {
-  return prisma.project.findFirst({
-    where: { id: projectId, ownerId: userId },
-  });
-}
+/**
+ * Inventory is scoped by Service (today's Project).
+ * Paths keep :serviceId; legacy clients may still call this "projectId".
+ */
 
 /**
  * Export discovered inventory as OpenAPI 3.0 JSON.
- * Auth: session + project ownership (same as other inventory routes).
+ * Auth: session + org membership via service.
  */
-router.get('/:projectId/openapi', async (req, res) => {
+router.get('/:serviceId/openapi', async (req, res) => {
   try {
-    const project = await ownedProject(req.session.userId, req.params.projectId);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
     }
 
     const endpoints = await prisma.endpoint.findMany({
-      where: { projectId: project.id },
+      where: { serviceId: service.id },
       orderBy: [{ pathTemplate: 'asc' }, { method: 'asc' }],
     });
 
-    const document = buildOpenApiDocument({ project, endpoints });
-    const safeName = String(project.name || 'api')
+    const document = buildOpenApiDocument({
+      project: service,
+      service,
+      endpoints,
+    });
+    const safeName = String(service.name || 'api')
       .replace(/[^a-zA-Z0-9._-]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 64) || 'api';
@@ -47,15 +51,15 @@ router.get('/:projectId/openapi', async (req, res) => {
   }
 });
 
-router.get('/:projectId/endpoints', async (req, res) => {
+router.get('/:serviceId/endpoints', async (req, res) => {
   try {
-    const project = await ownedProject(req.session.userId, req.params.projectId);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
     }
 
     const endpoints = await prisma.endpoint.findMany({
-      where: { projectId: project.id },
+      where: { serviceId: service.id },
       orderBy: { lastSeenAt: 'desc' },
       include: {
         _count: { select: { signals: true } },
@@ -69,15 +73,15 @@ router.get('/:projectId/endpoints', async (req, res) => {
   }
 });
 
-router.get('/:projectId/endpoints/:endpointId', async (req, res) => {
+router.get('/:serviceId/endpoints/:endpointId', async (req, res) => {
   try {
-    const project = await ownedProject(req.session.userId, req.params.projectId);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
     }
 
     const endpoint = await prisma.endpoint.findFirst({
-      where: { id: req.params.endpointId, projectId: project.id },
+      where: { id: req.params.endpointId, serviceId: service.id },
       include: {
         signals: { orderBy: [{ severity: 'asc' }, { fieldPath: 'asc' }] },
       },

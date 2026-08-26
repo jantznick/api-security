@@ -1,6 +1,8 @@
 -- S2: Organization → Project → Service hierarchy
 -- Today's "Project" (keys + endpoints) becomes Service; new Project is a grouping.
 
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- ---------------------------------------------------------------------------
 -- 1. Plan seat limits (D11: Free = 3)
 -- ---------------------------------------------------------------------------
@@ -12,7 +14,7 @@ UPDATE "Plan" SET "seatLimit" = NULL WHERE "slug" = 'pro';
 -- ---------------------------------------------------------------------------
 -- 2. Optional User.displayName (S0-compatible; nullable)
 -- ---------------------------------------------------------------------------
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "displayName" TEXT;
+ALTER TABLE "User" ADD COLUMN "displayName" TEXT;
 
 -- ---------------------------------------------------------------------------
 -- 3. Organization / Membership / OrgInvite / new Project tables

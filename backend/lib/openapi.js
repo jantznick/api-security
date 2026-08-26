@@ -195,10 +195,11 @@ function buildOperation(endpoint, schemes) {
 }
 
 /**
- * @param {{ project: { id: string, name: string }, endpoints: object[] }} input
+ * @param {{ project?: { id: string, name: string }, service?: { id: string, name: string }, endpoints: object[] }} input
  * @returns {object} OpenAPI 3.0 document
  */
-export function buildOpenApiDocument({ project, endpoints }) {
+export function buildOpenApiDocument({ project, service, endpoints }) {
+  const unit = service || project;
   const list = Array.isArray(endpoints) ? endpoints : [];
   const schemes = buildSecuritySchemes(list);
   const paths = {};
@@ -214,7 +215,7 @@ export function buildOpenApiDocument({ project, endpoints }) {
   const doc = {
     openapi: '3.0.3',
     info: {
-      title: project?.name ? `${project.name} API` : 'API Glimpse export',
+      title: unit?.name ? `${unit.name} API` : 'API Glimpse export',
       version: '1.0.0',
       description:
         'OpenAPI 3.0 document generated from API Glimpse inventory. Paths and schemas reflect observed traffic only.',
@@ -226,8 +227,10 @@ export function buildOpenApiDocument({ project, endpoints }) {
     doc.components = { securitySchemes: schemes };
   }
 
-  if (project?.id) {
-    doc['x-api-glimpse-project-id'] = project.id;
+  if (unit?.id) {
+    doc['x-api-glimpse-service-id'] = unit.id;
+    /** @deprecated legacy alias — service is today's inventory unit */
+    doc['x-api-glimpse-project-id'] = unit.id;
   }
 
   return doc;

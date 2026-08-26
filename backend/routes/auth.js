@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { withAdminFlag } from '../lib/admin.js';
+import { ensurePersonalOrg } from '../lib/orgs.js';
 import { isResendConfigured, sendMagicLinkEmail } from '../services/email/resend.js';
 
 const router = express.Router();
@@ -111,6 +112,7 @@ async function findOrCreateUser(email) {
     });
   }
 
+  await ensurePersonalOrg(user);
   return user;
 }
 
@@ -180,6 +182,8 @@ router.post('/register', async (req, res) => {
       select: userSelect,
     });
 
+    await ensurePersonalOrg(user);
+
     await regenerateSession(req);
     saveSession(req, res, user);
   } catch (error) {
@@ -211,12 +215,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    await ensurePersonalOrg(user);
+
     await regenerateSession(req);
     saveSession(req, res, {
       id: user.id,
       email: user.email,
-      displayName: user.displayName,
-      planSlug: user.planSlug,
+      displayName: user.displayName ?? null,
+      planSlug: user.planSlug || 'free',
       createdAt: user.createdAt,
     });
   } catch (error) {
@@ -240,7 +246,6 @@ router.post('/magic-token/request', async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const { sixDigitCode, linkToken, expiresAt } = await issueMagicTokens(normalizedEmail);
 
-    // Magic links land on marketing auth pages (canonical).
     const marketingUrl = (
       process.env.MARKETING_URL ||
       process.env.FRONTEND_URL ||
@@ -337,7 +342,37 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    res.json({ user: publicUser(user) });
+    await ensurePersonalOrg(user);
+
+    const memberships = await prisma.membership.findMany({
+      where: { userId: user.id },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            isPersonal: true,
+            planSlug: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const orgs = memberships.map((m) => ({
+      id: m.organization.id,
+      name: m.organization.name,
+      slug: m.organization.slug,
+      isPersonal: m.organization.isPersonal,
+      planSlug: m.organization.planSlug,
+      role: m.role,
+    }));
+
+    res.json({
+      user: publicUser({ ...user, orgs }),
+      orgs,
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });

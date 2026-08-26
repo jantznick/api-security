@@ -15,6 +15,7 @@ function serializePlan(plan) {
     slug: plan.slug,
     name: plan.name,
     endpointLimit: plan.endpointLimit,
+    seatLimit: plan.seatLimit ?? null,
     priceCentsMonthly: plan.priceCentsMonthly,
     stripePriceId: plan.stripePriceId,
     active: plan.active,
