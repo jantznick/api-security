@@ -1,7 +1,7 @@
 # SaaS enhancement plan — account, usage, hierarchy, teams/RBAC
 
 **Audience:** Nick reviews → locks decisions → spins workstreams.  
-**Status:** Planning only (no schema/UI shipped in this PR).  
+**Status:** Decisions locked (2026-08-26) — implementation in progress.  
 **Supersedes / extends:** thin **W7** stub in [PARALLEL_PLAN.md](./PARALLEL_PLAN.md); Phase C “Org / invite members” in [NEXT_PHASE.md](./NEXT_PHASE.md).
 
 Plan mode is unavailable in this Cloud Agent session; this doc is the reviewable plan of record.
@@ -42,24 +42,23 @@ Non-goals for this epic (keep deferred):
 
 ---
 
-## Locked recommendations (review checklist)
+## Locked decisions (Nick, 2026-08-26)
 
-Nick should confirm or override before build agents start:
-
-| # | Decision | Recommendation |
+| # | Decision | Locked choice |
 | --- | --- | --- |
 | D1 | Tenancy root | **Organization** (company/team) is membership + billing boundary |
-| D2 | Hierarchy | **Org → Project → Service** |
+| D2 | Hierarchy | **Org → Project → Service** (multiple projects, each with services) |
 | D3 | What maps to today’s Project | **Service** (keys, endpoints, inventory, OpenAPI export) |
 | D4 | What is a Project | Named grouping of related services (e.g. “Payments”, “Internal tools”) |
 | D5 | Personal workspace | On signup, auto-create **personal org** + default project; existing projects migrate into it |
+| D5b | Org switcher | **Personal org always visible**; clear **Add organization** affordance in the switcher |
 | D6 | Billing unit after orgs | **Organization** subscription (Stripe customer on org); owner/admin manage billing |
-| D7 | Until orgs ship | Keep current **user-level** Stripe wiring; migrate customer id to org in S3 |
+| D7 | Until orgs ship | Keep current **user-level** Stripe wiring; migrate customer id to org in S5 |
 | D8 | Roles (v1) | Org-scoped: `owner` · `admin` · `member` · `viewer` |
 | D9 | Project/service roles | **Deferred** — org role applies to all projects/services in v1 |
 | D10 | Endpoint limits | Still **per Service** (same semantics as today’s per-project cap) |
-| D11 | Seat limits | Soft product rule later (e.g. Free = 1 seat, Pro = N); not required for first invite MVP |
-| D12 | Invites | Email invite + token link (Resend); accept creates membership |
+| D11 | Seat limits | **Free = 3 total members** (owner counts). Pro seat cap TBD (treat as higher/unlimited until priced) |
+| D12 | Invites | Email invite + token link (Resend); accept creates membership; enforce seat cap on invite/accept |
 
 ---
 
@@ -98,7 +97,7 @@ Deep links from marketing stay on `app.apiglimpse.com`. Prefer **stable redirect
 
 ### App shell changes
 
-- Org switcher in header (personal + shared orgs).
+- Org switcher in header: **personal org always listed**, then team orgs, plus an obvious **Add organization** action.
 - Nav: **Projects** (scoped to current org) · **Usage** · **Billing** (role-gated) · **Account**.
 - User menu: email, account settings, sign out (replace always-visible Sign out button over time).
 
@@ -168,7 +167,7 @@ Billing mixes **plan commerce** (upgrade, portal) with **consumption**. Users ne
 | Endpoint quota | Per-service bars: `used / limit` (limit from service or plan default) |
 | Rollup | Total endpoints across services; call out any service at/near cap |
 | Keys activity | Optional: last key `lastUsedAt` per service (already on ApiKey) |
-| Seats | After S4: members used vs seat allowance (or “unlimited seats” until priced) |
+| Seats | Members used vs seat allowance (**Free = 3** including owner; Pro TBD) |
 
 Keep **Upgrade / Manage billing** CTAs, but primary home for Stripe actions remains `/billing`.
 
@@ -193,7 +192,7 @@ Extend `GET /api/billing/me` (or add `GET /api/usage/me`) to return:
     }
   ],
   "totals": { "endpoints": 42, "services": 1, "projects": 1 },
-  "seats": { "used": 1, "limit": null }
+  "seats": { "used": 1, "limit": 3 }
 }
 ```
 
@@ -473,13 +472,15 @@ Do not block Stripe user-billing (current W3/W4) on this epic — **S5 migrates*
 
 ---
 
-## Open questions for Nick
+## Resolved questions
 
-1. Prefer **Project → Service** naming, or keep calling today’s unit “Project” and add a lighter “Environment” later?
-2. Should **personal orgs** be visible in the switcher, or only appear once the user joins/creates a second org?
-3. Free plan: **1 seat only** (invites require Pro) vs invites allowed on Free with endpoint caps only?
-4. Display name on User — wanted in S0, or skip until teams?
-5. Any must-have for v1 beyond owner/admin/member/viewer (e.g. `billing` role)?
+1. **Naming** — Org → Project → Service (multiple projects, services under each). ✅  
+2. **Switcher** — Personal org always visible + easy Add organization. ✅  
+3. **Free seats** — Up to **3 total team members** (owner included). ✅  
+4. **Display name** — Include in S0 (optional field). ✅  
+5. **Extra roles** — No `billing`-only role in v1; owner/admin cover billing. ✅  
+
+**Still open:** Pro plan seat cap (number or unlimited) when pricing is finalized.
 
 ---
 
