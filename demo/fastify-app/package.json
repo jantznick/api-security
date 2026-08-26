@@ -9,6 +9,6 @@
   "dependencies": {
     "@apiglimpse/fastify": "file:../../packages/fastify",
     "dotenv": "^16.4.5",
-    "fastify": "^4.28.1"
+    "fastify": "^5.12.1"
   }
 }
