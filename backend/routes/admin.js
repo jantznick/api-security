@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
 import { ensureDefaultPlans, listPlans } from '../lib/plans.js';
+import { getAdminOverview, listAdminUsers } from '../lib/adminMetrics.js';
 
 const router = express.Router();
 
@@ -21,6 +22,33 @@ function serializePlan(plan) {
     updatedAt: plan.updatedAt,
   };
 }
+
+/** GET /api/admin/overview — SaaS owner KPIs, usage, revenue, recent users */
+router.get('/overview', async (_req, res) => {
+  try {
+    const overview = await getAdminOverview();
+    res.json(overview);
+  } catch (error) {
+    console.error('Admin overview error:', error);
+    res.status(500).json({ error: 'Failed to load admin overview' });
+  }
+});
+
+/** GET /api/admin/users — paginated user directory (?q=&plan=&limit=&offset=) */
+router.get('/users', async (req, res) => {
+  try {
+    const result = await listAdminUsers({
+      limit: req.query.limit,
+      offset: req.query.offset,
+      q: req.query.q,
+      plan: req.query.plan,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Admin list users error:', error);
+    res.status(500).json({ error: 'Failed to list users' });
+  }
+});
 
 /** GET /api/admin/plans — all plans (including inactive) */
 router.get('/plans', async (_req, res) => {

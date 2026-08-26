@@ -101,6 +101,16 @@ export const billingAPI = {
 };
 
 export const adminAPI = {
+  overview: () => request('/admin/overview'),
+  listUsers: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set('q', params.q);
+    if (params.plan) qs.set('plan', params.plan);
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    if (params.offset != null) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request(`/admin/users${suffix}`);
+  },
   listPlans: () => request('/admin/plans'),
   updatePlans: (plans) =>
     request('/admin/plans', { method: 'PUT', body: JSON.stringify({ plans }) }),
