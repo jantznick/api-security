@@ -45,7 +45,7 @@ No Stripe account required. Unlocks paid later without a schema rewrite.
 ## Phase C — Product credibility (after A, parallel with B)
 
 - OpenAPI export from inventory  
-- Org / invite members (multi-seat) — after single-player billing works  
+- **SaaS multi-seat / hierarchy** — plan of record: [SAAS_PLAN.md](./SAAS_PLAN.md) (account hub, usage/license page, Org→Project→Service, teams + RBAC). Start **S0+S1** anytime; **S2+** after single-player billing is stable.  
 - Usage metering events for Stripe metered items (if we move from seat/cap to pure metered)  
 - Protect mode — still deferred ([PROTECT_MODE.md](./PROTECT_MODE.md))  
 
