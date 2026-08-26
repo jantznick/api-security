@@ -61,7 +61,7 @@ export default function AppLayout({ children }) {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden max-w-[14rem] truncate text-sm text-ink-500 sm:inline">
-              {user?.email}
+              {user?.displayName || user?.email}
             </span>
             <Button
               variant="secondary"
