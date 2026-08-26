@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
 import useAuthStore from '../store/authStore';
+import { useConfirm } from '../context/ConfirmContext';
 
 const SYSTEM_ASSIGNABLE = [
   { value: 'admin', label: 'Admin' },
@@ -119,6 +120,7 @@ function RoleEditor({
 export default function OrgMembers() {
   const { orgId } = useParams();
   const { user } = useAuthStore();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [organization, setOrganization] = useState(null);
   const [members, setMembers] = useState([]);
@@ -216,7 +218,13 @@ export default function OrgMembers() {
   };
 
   const handleRemove = async (userId, label) => {
-    if (!window.confirm(`Remove ${label} from this organization?`)) return;
+    const ok = await confirm({
+      title: 'Remove member?',
+      message: `Remove ${label} from this organization? They will lose access immediately.`,
+      confirmLabel: 'Remove member',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await orgsAPI.removeMember(orgId, userId);
       toast.success('Member removed');
@@ -259,13 +267,13 @@ export default function OrgMembers() {
   };
 
   const handleDeleteRole = async (role) => {
-    if (
-      !window.confirm(
-        `Delete role “${role.name}”? Members must be reassigned first.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete role?',
+      message: `Delete role “${role.name}”? Members must be reassigned first.`,
+      confirmLabel: 'Delete role',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await orgsAPI.deleteRole(orgId, role.id);
       toast.success('Role deleted');

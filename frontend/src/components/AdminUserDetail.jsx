@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { adminAPI } from '../api/api';
+import { useConfirm } from '../context/ConfirmContext';
 import Button from './Button';
 
 const SYSTEM_ROLES = ['owner', 'admin', 'member', 'viewer'];
@@ -30,6 +31,7 @@ export default function AdminUserDetail({
   onClose,
   onChanged,
 }) {
+  const confirm = useConfirm();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -80,13 +82,13 @@ export default function AdminUserDetail({
 
   const handleRemoveFromOrg = async (org) => {
     if (org.isPersonal) return;
-    if (
-      !window.confirm(
-        `Remove ${detail?.email} from “${org.name}”? They will lose access to that org.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Remove from organization?',
+      message: `Remove ${detail?.email} from “${org.name}”? They will lose access to that org.`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusy(`remove:${org.organizationId}`);
     try {
       await adminAPI.removeUserMembership(userId, org.organizationId);
@@ -126,13 +128,13 @@ export default function AdminUserDetail({
 
   const handleDelete = async () => {
     if (!detail) return;
-    if (
-      !window.confirm(
-        `Permanently delete ${detail.email}? Personal orgs and memberships will be removed. This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete user?',
+      message: `Permanently delete ${detail.email}? Personal orgs and memberships will be removed. This cannot be undone.`,
+      confirmLabel: 'Delete user',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusy('delete');
     try {
       await adminAPI.deleteUser(userId);
