@@ -1,0 +1,6 @@
+{
+  "name": "apiglimpse-nginx-mock-collector",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0"
+}

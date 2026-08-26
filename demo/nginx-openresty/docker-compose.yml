@@ -1,0 +1,33 @@
+services:
+  mock-collector:
+    build: ./mock-collector
+    ports:
+      - "18080:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  upstream:
+    image: mendhak/http-https-echo:31
+    environment:
+      HTTP_PORT: "8080"
+      HTTPS_PORT: "8443"
+
+  openresty:
+    build:
+      context: ../..
+      dockerfile: demo/nginx-openresty/openresty/Dockerfile
+    ports:
+      - "18000:80"
+    environment:
+      API_SENSOR_AGENT_URL: http://mock-collector:8080
+      API_SENSOR_KEY: ask_demo_nginx
+      API_SENSOR_SERVICE_NAME: nginx-openresty-demo
+      API_SENSOR_SAMPLE_RATE: "1"
+    depends_on:
+      mock-collector:
+        condition: service_healthy
+      upstream:
+        condition: service_started
