@@ -143,6 +143,7 @@ railway add --database postgres
 5. **Networking:** do **not** generate a public domain. Enable private networking only.
 6. Rename service to **`ingest`**. Note private hostname `ingest.railway.internal` and listen port.
 7. Healthcheck path: `GET /health`
+8. **Start command:** Dockerfile `CMD` is `npm start` → `prisma migrate deploy` then `node server.js` (same shared migrations as core)
 
 Smoke (from another Railway service shell):
 
@@ -173,7 +174,9 @@ curl -s https://<core-public>/api/health
 # expect {"status":"ok","service":"core",...}
 ```
 
-`npm start` runs `prisma migrate deploy` then the server.
+`npm start` runs `prisma migrate deploy` then the server. **Production schema changes ship
+with merge-to-main → Railway auto-redeploy → migrate-on-boot** (core and ingest). Do not
+run manual `prisma migrate` against production as part of the release checklist.
 
 ### 4. Deploy agent (public)
 

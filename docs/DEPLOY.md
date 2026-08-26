@@ -107,6 +107,10 @@ Deploy in this order. **Docker build context = repo root** for agent, ingest, an
 
 Rename the service to **`ingest`** so the private host is `ingest.railway.internal`.
 
+`npm start` runs **Prisma migrate deploy** (same shared schema as core) then the server.
+Migrations are idempotent / advisory-locked, so core and ingest can boot in either order
+after a merge to `main`.
+
 Healthcheck (private only):
 
 ```bash
@@ -134,7 +138,9 @@ Path: `GET /health`. Ingest must **not** be reachable on the public internet.
 | `NODE_ENV` | `production` |
 | `COOKIE_DOMAIN` | `.apiglimpse.com` once api/app/apex share the domain; leave unset across different registrable domains |
 
-`npm start` runs Prisma migrate then the server.
+`npm start` runs **Prisma migrate deploy** then the server. On merge to `main`, Railway
+redeploys core automatically — **schema migrations apply at boot**. No manual
+`prisma migrate` step in production.
 
 Healthcheck:
 

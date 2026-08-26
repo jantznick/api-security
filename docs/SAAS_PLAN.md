@@ -305,7 +305,7 @@ model Service {
    - Create new `Organization`, `Membership`, new `Project`.
    - For each legacy owner: create personal org + membership(`owner`) + default project `"Default"`; set `Service.projectId`.
    - Copy `User.planSlug` / Stripe ids onto personal org (S5 can finish cutting User billing fields).
-3. Core + ingest both use shared Prisma schema — regenerate both clients; update ingest key lookup to resolve `serviceId` (agent aggregators key off service id).
+3. Core + ingest both use shared Prisma schema — regenerate both clients; update ingest key lookup to resolve `serviceId` (agent aggregators key off service id). **Production:** migrations apply automatically on Railway boot after merge to `main` (see [DECISIONS.md](./DECISIONS.md#production-migrations--migrate-on-boot)); no manual migrate step.
 4. Dual-read period optional: API accepts old project ids as service ids via redirect map if rename is 1:1.
 
 ### Agent / middleware impact

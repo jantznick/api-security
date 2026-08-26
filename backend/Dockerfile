@@ -5,6 +5,7 @@ WORKDIR /app
 COPY backend/package.json backend/package-lock.json* ./
 # Install before NODE_ENV=production so prisma (devDependency) is available
 # for generate + migrate-on-boot (`npm start` → safe-migrate.js).
+# Railway auto-deploys on merge to main; migrations apply at container start.
 RUN npm install
 
 COPY backend/ ./
