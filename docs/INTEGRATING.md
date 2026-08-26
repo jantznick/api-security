@@ -5,48 +5,33 @@ Add an API Glimpse **connector** so real traffic shows up as endpoints and schem
 ```
 Your app
   → Connector
-  → API Glimpse
+  → API Glimpse (collect.apiglimpse.com)
   → Dashboard (endpoints, schemas, tags)
 ```
+
+All connectors speak the same [wire protocol](./WIRE_PROTOCOL.md). There is one hosted collector — not a separate agent per language.
 
 ## Connectors
 
-| Connector | Status |
-| --- | --- |
-| [Express](#express) | Available now |
-| Fastify | Coming soon |
-| NestJS | Coming soon |
-| Next.js (Route Handlers / API routes) | Coming soon |
-| Hono | Coming soon |
-| FastAPI | Coming soon |
-| Go (chi) | Coming soon |
-| Proxy / gateway | Coming soon |
+| Connector | Status | Install |
+| --- | --- | --- |
+| [Express](#express) | Available | `npm install @apiglimpse/middleware` |
+| [Fastify](#fastify) | Available | `npm install @apiglimpse/fastify` |
+| [FastAPI](#fastapi) | Available | `pip install apiglimpse` |
+| [Go (chi)](#go-chi) | Available | `go get github.com/jantznick/api-security/connectors/go/apiglimpse` |
+| NestJS | Coming soon | — |
+| Next.js (Route Handlers / API routes) | Coming soon | — |
+| Hono | Coming soon | — |
+| Proxy / gateway | Coming soon | — |
 
-## Express
+> **Note:** npm / PyPI / Go module versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths.
 
-Add the Express connector (`@apiglimpse/middleware`) to your app.
+## Shared prerequisites
 
-```
-Your Express app
-  → @apiglimpse/middleware
-  → API Glimpse
-  → Dashboard (endpoints, schemas, tags)
-```
-
-### Prerequisites
-
-1. An API Glimpse account and a **project** in the [dashboard](https://app.apiglimpse.com).
-2. Create a project API key (`ask_…`). The key is shown once when you create it — copy it then.
-3. API Glimpse URL: `https://collect.apiglimpse.com`.
-4. Put that key in your app as `API_SENSOR_KEY`. API Glimpse checks it on every batch.
-
-### 1. Install the connector
-
-```bash
-npm install @apiglimpse/middleware
-```
-
-### 2. Environment variables
+1. An API Glimpse account and a **project** (or service) in the [dashboard](https://app.apiglimpse.com).
+2. Create an API key (`ask_…`). The key is shown once — copy it then.
+3. Collector URL: `https://collect.apiglimpse.com`.
+4. Set `API_SENSOR_KEY` (and usually `API_SENSOR_AGENT_URL`) in your app.
 
 ```bash
 API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
@@ -54,7 +39,26 @@ API_SENSOR_KEY=ask_YOUR_PROJECT_KEY_HERE
 API_SENSOR_SAMPLE_RATE=1
 ```
 
-### 3. Wire the middleware
+---
+
+## Express
+
+Package: `@apiglimpse/middleware`.
+
+```
+Your Express app
+  → @apiglimpse/middleware
+  → API Glimpse
+  → Dashboard
+```
+
+### 1. Install
+
+```bash
+npm install @apiglimpse/middleware
+```
+
+### 2. Wire the middleware
 
 Mount it **early** — after body parsers you care about (so JSON bodies are available), and **before** (or around) the routes you want discovered.
 
@@ -105,27 +109,139 @@ async function main() {
 main();
 ```
 
-Reference implementation (repo): [`demo/express-app/server.js`](../demo/express-app/server.js).
-
-### 4. Verify
-
-1. Hit a few of **your** routes (browser or `curl`)
-2. Open the dashboard → your project → endpoints should show method + path within a few seconds
-3. Optional: `curl -s $API_SENSOR_AGENT_URL/health` to confirm API Glimpse is reachable
+Reference: [`demo/express-app/server.js`](../demo/express-app/server.js).
 
 ### Options reference
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `agentUrl` | `https://collect.apiglimpse.com` | API Glimpse base URL |
-| `apiKey` | `''` | Project API key (`ask_…`) |
+| `agentUrl` | `https://collect.apiglimpse.com` | Collector base URL |
+| `apiKey` | `''` | API key (`ask_…`) |
 | `sampleRate` | `1` | Fraction of requests to capture (0–1) |
 | `flushIntervalMs` | `1000` | How often the buffer flushes |
 | `maxBatchSize` | `50` | Samples per flush |
 | `maxBufferSize` | `500` | Cap; excess samples dropped |
 | `requestTimeoutMs` | `2000` | HTTP timeout when sending samples |
 | `circuitFailureThreshold` | `3` | Failures before pausing sends |
-| `circuitOpenMs` | `15000` | How long to wait before retrying when API Glimpse is unreachable |
+| `circuitOpenMs` | `15000` | Backoff when the collector is unreachable |
+
+---
+
+## Fastify
+
+Package: `@apiglimpse/fastify`.
+
+### 1. Install
+
+```bash
+npm install @apiglimpse/fastify
+```
+
+### 2. Register the plugin
+
+```js
+import Fastify from 'fastify';
+import { apiSensor } from '@apiglimpse/fastify';
+
+const app = Fastify();
+
+await app.register(
+  apiSensor({
+    agentUrl: process.env.API_SENSOR_AGENT_URL || 'https://collect.apiglimpse.com',
+    apiKey: process.env.API_SENSOR_KEY,
+    sampleRate: Number(process.env.API_SENSOR_SAMPLE_RATE || 1),
+  }),
+);
+
+// ... routes
+await app.listen({ port: 3000, host: '0.0.0.0' });
+```
+
+Reference: [`demo/fastify-app/server.js`](../demo/fastify-app/server.js). Package README: [`packages/fastify/README.md`](../packages/fastify/README.md).
+
+---
+
+## FastAPI
+
+Package: `apiglimpse` (PyPI).
+
+### 1. Install
+
+```bash
+pip install apiglimpse
+```
+
+Until the package is on PyPI, from this repo:
+
+```bash
+pip install -e ./connectors/python
+```
+
+### 2. Add middleware
+
+```python
+from fastapi import FastAPI
+from apiglimpse import ApiGlimpseMiddleware
+
+app = FastAPI()
+app.add_middleware(
+    ApiGlimpseMiddleware,
+    agent_url="https://collect.apiglimpse.com",
+    api_key="ask_…",  # or rely on API_SENSOR_KEY
+)
+```
+
+Env vars `API_SENSOR_AGENT_URL` / `API_SENSOR_KEY` / `API_SENSOR_SAMPLE_RATE` are read as defaults when you omit constructor args (see package README).
+
+Reference: [`demo/fastapi-app`](../demo/fastapi-app). Package README: [`connectors/python/README.md`](../connectors/python/README.md).
+
+---
+
+## Go (chi)
+
+Module: `github.com/jantznick/api-security/connectors/go`.
+
+### 1. Install
+
+```bash
+go get github.com/jantznick/api-security/connectors/go/apiglimpse@latest
+```
+
+(Use an explicit version like `@v0.1.0` after maintainers [tag a release](./CONNECTOR_PUBLISH.md#c-go-module--chi--nethttp).)
+
+### 2. Use middleware
+
+```go
+import (
+  "net/http"
+  "os"
+
+  "github.com/go-chi/chi/v5"
+  "github.com/jantznick/api-security/connectors/go/apiglimpse"
+)
+
+func main() {
+  r := chi.NewRouter()
+  r.Use(apiglimpse.Middleware(apiglimpse.Config{
+    AgentURL: os.Getenv("API_SENSOR_AGENT_URL"),
+    APIKey:   os.Getenv("API_SENSOR_KEY"),
+  }))
+  // ... routes
+  http.ListenAndServe(":4000", r)
+}
+```
+
+Or `apiglimpse.Middleware(apiglimpse.ConfigFromEnv())`.
+
+Reference: [`demo/go-chi-app`](../demo/go-chi-app). Package README: [`connectors/go/README.md`](../connectors/go/README.md).
+
+---
+
+## Verify (any connector)
+
+1. Hit a few of **your** routes (browser or `curl`).
+2. Open the dashboard → your project → endpoints should show method + path within a few seconds.
+3. Optional: `curl -s https://collect.apiglimpse.com/health`.
 
 ### What gets captured
 
@@ -133,44 +249,32 @@ Reference implementation (repo): [`demo/express-app/server.js`](../demo/express-
 - Truncated / redacted body field names and types (not long-lived storage)
 - Sensitive headers (`authorization`, cookies) are removed before data leaves your app
 
-API Glimpse stores inferred schemas and tags — not long-lived raw request bodies.
-
-### Wire protocol (implementing a connector)
-
-Every connector speaks the same envelope v1 to `POST /v1/samples`. Details, status codes, fail-open rules, and golden fixtures: **[WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)**.
-
-### Placement tips
-
-- Prefer mounting once at the app root so all routes are visible.
-- If you only want a subset, mount the middleware on a nested `Router` instead of `app`.
-- Health checks you don’t care about can sit **above** the middleware so they aren’t listed:
-
-```js
-app.get('/health', (_req, res) => res.send('ok'));
-app.use(apiSensor({ /* ... */ }));
-```
-
-### Production apps
-
-- Point `API_SENSOR_AGENT_URL` at `https://collect.apiglimpse.com`.
-- Every batch requires a valid project API key — do not ship apps without `API_SENSOR_KEY`.
-
 ### Troubleshooting
 
 If API Glimpse is unreachable, the connector drops samples and your app continues to serve traffic normally.
 
-## npm publish (maintainers)
+### Production
 
-Full first-time handholding (account, 2FA, `@apiglimpse` org, publish order, verify, common errors): **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
+- Point `API_SENSOR_AGENT_URL` at `https://collect.apiglimpse.com`.
+- Every batch requires a valid API key — do not ship apps without `API_SENSOR_KEY`.
 
-Short version after you are logged in and the org exists:
+---
+
+## Maintainer publish
+
+| Registry | Guide |
+| --- | --- |
+| **All connectors** (npm + PyPI + Go tags) | **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)** |
+| npm deep dive (account, org, Express first publish) | [NPM_PUBLISH.md](./NPM_PUBLISH.md) |
+
+Short npm path after org exists:
 
 ```bash
 cd packages/shared && npm publish --access public
 cd ../middleware && npm run publish:npm
+cd ../fastify && npm run publish:npm
 ```
 
-The middleware script temporarily replaces `file:../shared` with `^0.1.0`, publishes, then restores the local `file:` dependency.
 ## Not supported yet
 
 - Runtime request blocking (planned later; not enabled today)

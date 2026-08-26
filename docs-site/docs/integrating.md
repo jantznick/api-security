@@ -11,16 +11,18 @@ Your app
 
 ## Connectors
 
-| Connector | Status |
-| --- | --- |
-| [Express](#express) | Available now |
-| Fastify | Coming soon |
-| NestJS | Coming soon |
-| Next.js (Route Handlers / API routes) | Coming soon |
-| Hono | Coming soon |
-| FastAPI | Coming soon |
-| Go (chi) | Coming soon |
-| Proxy / gateway | Coming soon |
+| Connector | Status | Install |
+| --- | --- | --- |
+| [Express](#express) | Available | `npm install @apiglimpse/middleware` |
+| [Fastify](#fastify) | Available | `npm install @apiglimpse/fastify` |
+| [FastAPI](#fastapi) | Available | `pip install apiglimpse` |
+| [Go (chi)](#go-chi) | Available | `go get github.com/jantznick/api-security/connectors/go/apiglimpse` |
+| NestJS | Coming soon | — |
+| Next.js (Route Handlers / API routes) | Coming soon | — |
+| Hono | Coming soon | — |
+| Proxy / gateway | Coming soon | — |
+
+All connectors send the same samples to `https://collect.apiglimpse.com` (one hosted collector).
 
 ## Express
 
@@ -160,6 +162,68 @@ app.use(apiSensor({ /* ... */ }));
 **API Glimpse unreachable**
 
 If API Glimpse is unreachable, the connector drops samples and your app continues to serve traffic normally. Sampling resumes when the service is available again.
+
+---
+
+## Fastify
+
+```bash
+npm install @apiglimpse/fastify
+```
+
+```js
+import Fastify from 'fastify';
+import { apiSensor } from '@apiglimpse/fastify';
+
+const app = Fastify();
+
+await app.register(
+  apiSensor({
+    agentUrl: process.env.API_SENSOR_AGENT_URL || 'https://collect.apiglimpse.com',
+    apiKey: process.env.API_SENSOR_KEY,
+    sampleRate: Number(process.env.API_SENSOR_SAMPLE_RATE || 1),
+  }),
+);
+```
+
+Same env vars as Express (`API_SENSOR_AGENT_URL`, `API_SENSOR_KEY`, `API_SENSOR_SAMPLE_RATE`).
+
+---
+
+## FastAPI
+
+```bash
+pip install apiglimpse
+```
+
+```python
+from fastapi import FastAPI
+from apiglimpse import ApiGlimpseMiddleware
+
+app = FastAPI()
+app.add_middleware(
+    ApiGlimpseMiddleware,
+    agent_url="https://collect.apiglimpse.com",
+    api_key="ask_…",
+)
+```
+
+---
+
+## Go (chi)
+
+```bash
+go get github.com/jantznick/api-security/connectors/go/apiglimpse@latest
+```
+
+```go
+r.Use(apiglimpse.Middleware(apiglimpse.Config{
+  AgentURL: os.Getenv("API_SENSOR_AGENT_URL"),
+  APIKey:   os.Getenv("API_SENSOR_KEY"),
+}))
+```
+
+---
 
 ## Not supported yet
 

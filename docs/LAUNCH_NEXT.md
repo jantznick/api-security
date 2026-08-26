@@ -28,22 +28,28 @@ Quick test sender before domain verify: Resend’s `onboarding@resend.dev` only 
 
 ---
 
-## 2. npm publish (`@apiglimpse/*`)
+## 2. Publish connectors (npm / PyPI / Go)
 
-Customers need the public middleware package. Full click-by-click: **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**.
+Customers need public packages — same role as `npm install` for Express, but also Fastify, FastAPI (`pip`), and Go (`go get`).
 
-Short version:
+- **All languages:** **[CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)**
+- **npm deep dive (account / org / 2FA):** **[NPM_PUBLISH.md](./NPM_PUBLISH.md)**
+
+Short npm version:
 
 1. npm account + **2FA**
 2. Create org **`apiglimpse`** (free/public packages plan)
 3. `npm login` && `npm whoami`
-4. Publish **shared** first, then **middleware**:
+4. Publish **shared**, then **middleware**, then **fastify**:
 
 ```bash
 cd packages/shared
 npm publish --access public
 
 cd ../middleware
+npm run publish:npm
+
+cd ../fastify
 npm run publish:npm
 ```
 
@@ -52,15 +58,12 @@ npm run publish:npm
 ```bash
 npm view @apiglimpse/shared version
 npm view @apiglimpse/middleware version
+npm view @apiglimpse/fastify version
 ```
 
-Docs / marketing install snippets should use:
+6. PyPI + Go (see CONNECTOR_PUBLISH): `twine upload` for `apiglimpse`, tag `connectors/go/v0.1.0` for the Go module.
 
-```bash
-npm install @apiglimpse/middleware
-```
-
-with:
+Docs / marketing install snippets should use registry installs from [INTEGRATING.md](./INTEGRATING.md), with:
 
 ```bash
 API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
@@ -96,4 +99,5 @@ Local checklist details: [TESTING.md](./TESTING.md).
 
 - Password reset / change-password flows  
 - Stripe live keys / soft-launch Checkout (scaffold + Admin plans are in-repo — see [STRIPE.md](./STRIPE.md))  
-- Extra language connectors  
+- Extra connectors beyond Express / Fastify / FastAPI / Go (Nest, Next, Hono, proxy)  
+

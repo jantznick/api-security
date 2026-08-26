@@ -7,10 +7,13 @@ Fail-open: sampling never blocks or fails your handlers. If the collector is dow
 ## Install
 
 ```bash
-go get github.com/jantznick/api-security/connectors/go/apiglimpse
+# After maintainers push a module tag (e.g. connectors/go/v0.1.0):
+go get github.com/jantznick/api-security/connectors/go/apiglimpse@v0.1.0
 ```
 
 In this monorepo, demos use a `replace` directive to the local module.
+
+Maintainer publish (git tags for the Go module proxy): **[docs/CONNECTOR_PUBLISH.md](../../docs/CONNECTOR_PUBLISH.md)**.
 
 ## Quick start (chi)
 
