@@ -95,9 +95,11 @@ Without `STRIPE_SECRET_KEY`, `POST /api/billing/checkout` and `/portal` return *
 | POST | `/api/billing/checkout` | Session | Checkout Session URL (503 if no secret) |
 | POST | `/api/billing/portal` | Session | Customer Portal URL |
 | POST | `/api/billing/webhook` | Stripe sig | Raw body; mounted before JSON parser in `server.js` |
+| GET | `/api/admin/overview` | Admin | SaaS KPIs: users, MRR estimate, usage, signup trend |
+| GET | `/api/admin/users` | Admin | Paginated user directory (`?q=&plan=&limit=&offset=`) |
 | GET/PUT | `/api/admin/plans` | Admin | Edit limits / prices / `stripePriceId` |
 
-Dashboard: **`/admin`** (plans) and **`/billing`** (user billing UI).
+Dashboard: **`/admin`** (owner overview + plans) and **`/billing`** (user billing UI).
 
 ---
 
