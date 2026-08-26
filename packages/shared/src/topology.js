@@ -222,8 +222,14 @@ export function buildObservedGraph(services) {
 export function compareTopology(baseline, observed) {
   const nodeById = baseline._nodeById || new Map(baseline.nodes.map((n) => [n.id, n]));
 
-  const observedEdgeKeys = new Set(observed.edges.map((e) => `${e.from}|${e.to}`));
   const baselineEdgeKeys = new Set(baseline.edges.map((e) => `${e.from}|${e.to}`));
+
+  const baselineCallers = new Map();
+  for (const c of baseline.externalCallers || []) {
+    for (const target of c.targets) {
+      baselineCallers.set(`${c.id}|${target}`, c);
+    }
+  }
 
   /** @type {object[]} */
   const edges = [];
@@ -248,6 +254,8 @@ export function compareTopology(baseline, observed) {
   for (const oe of observed.edges) {
     const key = `${oe.from}|${oe.to}`;
     if (baselineEdgeKeys.has(key)) continue;
+    // External callers often appear as svc:<id> edges — not shadow service edges
+    if (baselineCallers.has(key)) continue;
     edges.push({
       from: oe.from,
       to: oe.to,
@@ -259,21 +267,23 @@ export function compareTopology(baseline, observed) {
     });
   }
 
-  const baselineCallers = new Map();
-  for (const c of baseline.externalCallers || []) {
-    for (const target of c.targets) {
-      baselineCallers.set(`${c.id}|${target}`, c);
-    }
-  }
-
   /** @type {object[]} */
   const externalCallerResults = [];
 
+  /** Match baseline external callers against svc: edges or external caller rows */
+  function findObservedCaller(callerId, target) {
+    const svcEdge = observed.edges.find((e) => e.from === callerId && e.to === target);
+    if (svcEdge) return { hitCount: svcEdge.hitCount, via: 'edge' };
+    const ext = observed.externalCallers.find(
+      (c) => c.callerId === callerId && c.to === target,
+    );
+    if (ext) return { hitCount: ext.hitCount, via: 'external' };
+    return null;
+  }
+
   for (const [key, bc] of baselineCallers) {
     const target = key.split('|')[1];
-    const obs = observed.externalCallers.find(
-      (c) => c.callerId === bc.id && c.to === target,
-    );
+    const obs = findObservedCaller(bc.id, target);
     externalCallerResults.push({
       callerId: bc.id,
       label: bc.label,

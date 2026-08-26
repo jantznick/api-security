@@ -1,0 +1,80 @@
+services:
+  web-storefront:
+    build:
+      context: ../..
+      dockerfile: demo/acme/web-storefront/Dockerfile
+    ports:
+      - "4010:4010"
+    environment:
+      PORT: "4010"
+      API_SENSOR_AGENT_URL: ${API_SENSOR_AGENT_URL:-https://collect.apiglimpse.com}
+      API_SENSOR_KEY: ${API_SENSOR_KEY_WEB:-ask_web_storefront_replace_me}
+      API_SENSOR_SERVICE_NAME: web-storefront
+      STOREFRONT_API_URL: http://storefront-api:4011
+    networks:
+      - acme-internal
+    depends_on:
+      - storefront-api
+
+  storefront-api:
+    build:
+      context: ../..
+      dockerfile: demo/acme/storefront-api/Dockerfile
+    ports:
+      - "4011:4011"
+    environment:
+      PORT: "4011"
+      API_SENSOR_AGENT_URL: ${API_SENSOR_AGENT_URL:-https://collect.apiglimpse.com}
+      API_SENSOR_KEY: ${API_SENSOR_KEY_STOREFRONT:-ask_storefront_replace_me}
+      API_SENSOR_SERVICE_NAME: storefront-api
+      COMMERCE_URL: http://commerce-api:4012
+    networks:
+      - acme-internal
+    depends_on:
+      - commerce-api
+
+  commerce-api:
+    build:
+      context: ../..
+      dockerfile: demo/acme/commerce-api/Dockerfile
+    environment:
+      PORT: "4012"
+      API_SENSOR_AGENT_URL: ${API_SENSOR_AGENT_URL:-https://collect.apiglimpse.com}
+      API_SENSOR_KEY: ${API_SENSOR_KEY_COMMERCE:-ask_commerce_replace_me}
+      API_SENSOR_SERVICE_NAME: commerce-api
+      FULFILLMENT_URL: http://fulfillment-api:4013
+    networks:
+      - acme-internal
+    depends_on:
+      - fulfillment-api
+
+  fulfillment-api:
+    build:
+      context: ../..
+      dockerfile: demo/acme/fulfillment-api/Dockerfile
+    environment:
+      PORT: "4013"
+      API_SENSOR_AGENT_URL: ${API_SENSOR_AGENT_URL:-https://collect.apiglimpse.com}
+      API_SENSOR_KEY: ${API_SENSOR_KEY_FULFILLMENT:-ask_fulfillment_replace_me}
+      API_SENSOR_SERVICE_NAME: fulfillment-api
+      LEDGER_URL: http://ledger-api:4014
+    networks:
+      - acme-internal
+    depends_on:
+      - ledger-api
+
+  ledger-api:
+    build:
+      context: ../..
+      dockerfile: demo/acme/ledger-api/Dockerfile
+    environment:
+      PORT: "4014"
+      API_SENSOR_AGENT_URL: ${API_SENSOR_AGENT_URL:-https://collect.apiglimpse.com}
+      API_SENSOR_KEY: ${API_SENSOR_KEY_LEDGER:-ask_ledger_replace_me}
+      API_SENSOR_SERVICE_NAME: ledger-api
+    networks:
+      - acme-internal
+
+networks:
+  acme-internal:
+    name: acme-internal
