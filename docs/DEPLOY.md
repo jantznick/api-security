@@ -82,6 +82,23 @@ Full checklist (ingest, demo, magic link): [TESTING.md](./TESTING.md).
 
 ## 1. Railway
 
+### CLI (recommended)
+
+One-time auth, then apply infrastructure from code:
+
+```bash
+brew install railway   # if needed
+railway login
+cp .deploy.env.example .deploy.env   # optional: Render *.onrender.com URLs for CORS
+./scripts/deploy-railway.sh
+```
+
+This uses [`.railway/railway.ts`](../.railway/railway.ts) to create Postgres, private **ingest**, public **core**, and public **agent**, generate secrets, and print Render `VITE_*` values for rebuild.
+
+Preview only: `./scripts/deploy-railway.sh --plan-only`
+
+### Manual / dashboard
+
 Deploy in this order. **Docker build context = repo root** for agent, ingest, and backend (`Dockerfile path` points at `agent/Dockerfile`, `ingest/Dockerfile`, `backend/Dockerfile`).
 
 ### 1.1 Postgres
