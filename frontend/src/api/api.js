@@ -110,6 +110,14 @@ export const inventoryAPI = {
     request(`/inventory/${serviceId}/endpoints/${endpointId}`),
   /** OpenAPI 3.0 JSON document for the service inventory */
   exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
+  /** Caller → endpoint topology (blast radius) */
+  getTopology: (serviceId, params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.method) qs.set('method', params.method);
+    if (params.pathTemplate) qs.set('pathTemplate', params.pathTemplate);
+    const q = qs.toString();
+    return request(`/inventory/${serviceId}/topology${q ? `?${q}` : ''}`);
+  },
 };
 
 /**

@@ -1,4 +1,4 @@
-import { createEnvelope, createSample } from '@apiglimpse/shared';
+import { createEnvelope, createSample, resolveCallerHints } from '@apiglimpse/shared';
 
 const DEFAULTS = {
   agentUrl: 'http://localhost:8080',
@@ -10,6 +10,7 @@ const DEFAULTS = {
   requestTimeoutMs: 2000,
   circuitFailureThreshold: 3,
   circuitOpenMs: 15000,
+  serviceName: '',
 };
 
 const kSkip = Symbol('apiglimpse.skip');
@@ -20,13 +21,11 @@ const kResponseBody = Symbol('apiglimpse.responseBody');
  * Fastify plugin for API Glimpse: captures request/response metadata,
  * redacts secrets, buffers, and flushes async batches to the collector.
  *
- * Never awaits the collector on the request path. Errors are swallowed
- * so sampling stays off the critical path.
- *
  * @param {object} options
  * @param {string} [options.agentUrl]
  * @param {string} [options.apiKey]
  * @param {number} [options.sampleRate] 0–1
+ * @param {string} [options.serviceName] Fallback caller label (or API_SENSOR_SERVICE_NAME)
  * @returns {import('fastify').FastifyPluginAsync}
  */
 export function apiSensor(options = {}) {
@@ -38,8 +37,12 @@ export function apiSensor(options = {}) {
       process.env.API_SENSOR_SAMPLE_RATE != null
         ? Number(process.env.API_SENSOR_SAMPLE_RATE)
         : DEFAULTS.sampleRate,
+    serviceName: process.env.API_SENSOR_SERVICE_NAME || DEFAULTS.serviceName,
     ...options,
   };
+  if (options.serviceName != null && String(options.serviceName).trim() !== '') {
+    cfg.serviceName = String(options.serviceName).trim();
+  }
 
   const buffer = [];
   let flushing = false;
@@ -126,9 +129,8 @@ export function apiSensor(options = {}) {
 
       if (!res.ok && res.status >= 500) {
         recordFailure();
-        // drop batch — fail-open, do not retry forever
       } else if (!res.ok && res.status === 401) {
-        // bad key — drop, do not trip circuit forever
+        // bad key
       } else {
         recordSuccess();
       }
@@ -180,16 +182,21 @@ export function apiSensor(options = {}) {
         const requestBody =
           request.body && typeof request.body === 'object' ? request.body : undefined;
 
+        const headers = request.headers || {};
+        const caller = resolveCallerHints(headers, { serviceName: cfg.serviceName });
+
         const sample = createSample({
           method: request.method,
           path: (request.url || '/').split('?')[0] || '/',
           statusCode: reply.statusCode,
           latencyMs: Date.now() - (request[kStart] || Date.now()),
-          requestHeaders: request.headers || {},
+          requestHeaders: headers,
           responseHeaders: reply.getHeaders?.() || {},
           requestBody,
           responseBody: request[kResponseBody],
           authObserved: observeAuth(request),
+          caller,
+          serviceName: cfg.serviceName,
         });
         buffer.push(sample);
 
@@ -197,12 +204,11 @@ export function apiSensor(options = {}) {
           flush().catch(() => {});
         }
       } catch {
-        /* fail-open: never break the app */
+        /* fail-open */
       }
     });
   }
 
-  // Encapsulation-friendly Fastify plugin metadata (same role as fastify-plugin)
   apiSensorPlugin[Symbol.for('skip-override')] = true;
   apiSensorPlugin[Symbol.for('fastify.display-name')] = '@apiglimpse/fastify';
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { billingAPI, inventoryAPI, projectsAPI } from '../api/api';
+import TopologyPanel from '../components/TopologyPanel';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -56,6 +57,7 @@ export default function Inventory() {
   const { projectId, serviceId } = useParams();
   const [service, setService] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
+  const [topology, setTopology] = useState(null);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
 
@@ -64,12 +66,14 @@ export default function Inventory() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e] = await Promise.all([
+      const [p, e, t] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
+        inventoryAPI.getTopology(serviceId).catch(() => null),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
+      setTopology(t);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -198,6 +202,10 @@ export default function Inventory() {
           </Link>
         </div>
       ) : null}
+
+      <div className="mt-8">
+        <TopologyPanel topology={topology} title="Who hits this service?" />
+      </div>
 
       <Card className="mt-8 overflow-hidden">
         {loading && endpoints.length === 0 ? (

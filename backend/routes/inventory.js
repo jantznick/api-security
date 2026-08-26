@@ -98,4 +98,107 @@ router.get('/:serviceId/endpoints/:endpointId', async (req, res) => {
   }
 });
 
+
+/**
+ * Caller → endpoint topology for blast-radius UX (SF3).
+ * GET /api/inventory/:serviceId/topology
+ * Optional ?method=&pathTemplate= to filter edges for one endpoint.
+ */
+router.get('/:serviceId/topology', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const methodFilter =
+      typeof req.query.method === 'string' ? req.query.method.toUpperCase() : null;
+    const pathFilter =
+      typeof req.query.pathTemplate === 'string' ? req.query.pathTemplate : null;
+
+    const where = { serviceId: service.id };
+    if (methodFilter) where.method = methodFilter;
+    if (pathFilter) where.pathTemplate = pathFilter;
+
+    const rows = await prisma.trafficEdge.findMany({
+      where,
+      orderBy: [{ hitCount: 'desc' }, { lastSeenAt: 'desc' }],
+      take: 500,
+    });
+
+    /** @type {Map<string, object>} */
+    const callerMap = new Map();
+    /** @type {Map<string, object>} */
+    const endpointMap = new Map();
+    const edges = [];
+
+    for (const row of rows) {
+      if (!callerMap.has(row.callerKey)) {
+        callerMap.set(row.callerKey, {
+          id: row.callerKey,
+          type: 'caller',
+          name: row.callerName,
+          callerKey: row.callerKey,
+          callerSource: row.callerSource,
+          uaFamily: row.uaFamily,
+          hitCount: 0,
+        });
+      }
+      const callerNode = callerMap.get(row.callerKey);
+      callerNode.hitCount += row.hitCount;
+
+      const epId = `${row.method} ${row.pathTemplate}`;
+      if (!endpointMap.has(epId)) {
+        endpointMap.set(epId, {
+          id: epId,
+          type: 'endpoint',
+          method: row.method,
+          pathTemplate: row.pathTemplate,
+          hitCount: 0,
+        });
+      }
+      const epNode = endpointMap.get(epId);
+      epNode.hitCount += row.hitCount;
+
+      edges.push({
+        from: row.callerKey,
+        to: epId,
+        callerKey: row.callerKey,
+        callerName: row.callerName,
+        callerSource: row.callerSource,
+        uaFamily: row.uaFamily,
+        method: row.method,
+        pathTemplate: row.pathTemplate,
+        hitCount: row.hitCount,
+        firstSeenAt: row.firstSeenAt,
+        lastSeenAt: row.lastSeenAt,
+      });
+    }
+
+    const adjacency = [...callerMap.values()]
+      .sort((a, b) => b.hitCount - a.hitCount)
+      .map((caller) => ({
+        ...caller,
+        endpoints: edges
+          .filter((e) => e.from === caller.id)
+          .map((e) => ({
+            method: e.method,
+            pathTemplate: e.pathTemplate,
+            hitCount: e.hitCount,
+            lastSeenAt: e.lastSeenAt,
+          })),
+      }));
+
+    res.json({
+      serviceId: service.id,
+      callers: adjacency,
+      nodes: [...callerMap.values(), ...endpointMap.values()],
+      edges,
+    });
+  } catch (error) {
+    console.error('Get topology error:', error);
+    res.status(500).json({ error: 'Failed to get topology' });
+  }
+});
+
 export default router;

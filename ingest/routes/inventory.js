@@ -24,27 +24,29 @@ function resolveEndpointLimit(service) {
 }
 
 /**
- * Idempotent upsert of endpoint inventory + signals.
- * Body: { endpoints: [ { method, pathTemplate, hitCount, authModes, statusCodes,
- *   contentTypes, requestSchema, responseSchema, signals, firstSeenAt, lastSeenAt } ] }
- *
- * Never accepts or stores raw request/response bodies.
- * New endpoints may be skipped when the service/env endpoint limit is exceeded (existing still update).
+ * Idempotent upsert of endpoint inventory + signals (+ optional traffic edges).
+ * Body: {
+ *   endpoints: [ ... ],
+ *   edges?: [ { callerKey, callerName, callerSource, uaFamily, method, pathTemplate,
+ *     hitCount, firstSeenAt, lastSeenAt } ]
+ * }
  */
 router.post('/upsert', async (req, res) => {
   try {
     const service = req.service || req.project;
     const serviceId = service.id;
     const endpoints = Array.isArray(req.body?.endpoints) ? req.body.endpoints : [];
+    const edges = Array.isArray(req.body?.edges) ? req.body.edges : [];
     const limit = resolveEndpointLimit(service);
 
-    if (endpoints.length === 0) {
-      res.json({ upserted: 0, skippedNew: 0 });
+    if (endpoints.length === 0 && edges.length === 0) {
+      res.json({ upserted: 0, skippedNew: 0, edgesUpserted: 0 });
       return;
     }
 
     let upserted = 0;
     let skippedNew = 0;
+    let edgesUpserted = 0;
     let currentCount = null;
 
     async function loadCount() {
@@ -168,10 +170,61 @@ router.post('/upsert', async (req, res) => {
       upserted += 1;
     }
 
-    const status = skippedNew > 0 && upserted === 0 ? 402 : 200;
+    for (const edge of edges) {
+      const callerKey = String(edge.callerKey || '').slice(0, 160);
+      const method = String(edge.method || '').toUpperCase();
+      const pathTemplate = String(edge.pathTemplate || '');
+      if (!callerKey || !method || !pathTemplate) continue;
+
+      const hitInc = Number(edge.hitCount) || 1;
+      const lastSeenAt = edge.lastSeenAt ? new Date(edge.lastSeenAt) : new Date();
+      const firstSeenAt = edge.firstSeenAt ? new Date(edge.firstSeenAt) : lastSeenAt;
+      const callerName = String(edge.callerName || callerKey).slice(0, 128);
+      const callerSource =
+        edge.callerSource === 'header' || edge.callerSource === 'config'
+          ? edge.callerSource
+          : null;
+      const uaFamily = ['browser', 'sdk', 'curl', 'unknown'].includes(edge.uaFamily)
+        ? edge.uaFamily
+        : 'unknown';
+
+      await prisma.trafficEdge.upsert({
+        where: {
+          serviceId_callerKey_method_pathTemplate: {
+            serviceId,
+            callerKey,
+            method,
+            pathTemplate,
+          },
+        },
+        create: {
+          serviceId,
+          callerKey,
+          callerName,
+          callerSource,
+          uaFamily,
+          method,
+          pathTemplate,
+          hitCount: hitInc,
+          firstSeenAt,
+          lastSeenAt,
+        },
+        update: {
+          hitCount: { increment: hitInc },
+          callerName,
+          callerSource,
+          uaFamily,
+          lastSeenAt,
+        },
+      });
+      edgesUpserted += 1;
+    }
+
+    const status = skippedNew > 0 && upserted === 0 && edgesUpserted === 0 ? 402 : 200;
     res.status(status).json({
       upserted,
       skippedNew,
+      edgesUpserted,
       endpointLimit: limit || null,
     });
   } catch (error) {

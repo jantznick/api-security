@@ -1,8 +1,12 @@
 import { ENVELOPE_VERSION, redactHeaders, shapeBody } from './redaction.js';
+import { resolveCallerHints } from './caller.js';
 
 /**
  * Build one traffic sample for the agent.
  * Bodies are shape-only; sensitive headers are redacted.
+ *
+ * Optional `caller` (or derived from headers + serviceName) is additive on
+ * envelope v1 — older agents ignore unknown sample fields.
  */
 export function createSample({
   method,
@@ -15,6 +19,10 @@ export function createSample({
   responseBody,
   authObserved = 'none',
   timestamp = new Date().toISOString(),
+  /** Precomputed caller hints; when omitted, derived from headers / serviceName */
+  caller,
+  /** Connector config fallback when x-service-name / x-client-name absent */
+  serviceName,
 }) {
   const reqCt =
     requestHeaders['content-type'] ||
@@ -25,6 +33,18 @@ export function createSample({
     responseHeaders['Content-Type'] ||
     null;
 
+  const resolvedCaller =
+    caller && typeof caller === 'object'
+      ? {
+          name: caller.name != null ? String(caller.name).slice(0, 128) || null : null,
+          source:
+            caller.source === 'header' || caller.source === 'config' ? caller.source : null,
+          uaFamily: ['browser', 'sdk', 'curl', 'unknown'].includes(caller.uaFamily)
+            ? caller.uaFamily
+            : 'unknown',
+        }
+      : resolveCallerHints(requestHeaders, { serviceName });
+
   return {
     method: String(method || 'GET').toUpperCase(),
     path: String(path || '/'),
@@ -32,6 +52,8 @@ export function createSample({
     latencyMs: Number(latencyMs) || 0,
     authObserved,
     timestamp,
+    /** SF3 caller → endpoint topology hints (optional; backward compatible) */
+    caller: resolvedCaller,
     request: {
       contentType: reqCt ? String(reqCt).split(';')[0].trim() : null,
       headerNames: Object.keys(requestHeaders).map((h) => h.toLowerCase()),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { inventoryAPI } from '../api/api';
+import TopologyPanel from '../components/TopologyPanel';
 import AppLayout from '../components/AppLayout';
 import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
@@ -27,6 +28,7 @@ export default function EndpointDetail() {
   const { projectId, serviceId, endpointId } = useParams();
   const basePath = `/projects/${projectId}/services/${serviceId}`;
   const [endpoint, setEndpoint] = useState(null);
+  const [topology, setTopology] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +38,15 @@ export default function EndpointDetail() {
       try {
         const data = await inventoryAPI.getEndpoint(serviceId, endpointId);
         if (!cancelled) setEndpoint(data.endpoint);
+        if (data.endpoint) {
+          const topo = await inventoryAPI
+            .getTopology(serviceId, {
+              method: data.endpoint.method,
+              pathTemplate: data.endpoint.pathTemplate,
+            })
+            .catch(() => null);
+          if (!cancelled) setTopology(topo);
+        }
       } catch (err) {
         toast.error(err.message);
       } finally {
@@ -99,6 +110,10 @@ export default function EndpointDetail() {
         </Card>
       ) : (
         <>
+          <div className="mt-8">
+            <TopologyPanel topology={topology} title="Who hits this endpoint?" />
+          </div>
+
           <Card className="mt-8 p-5">
             <div className="grid gap-6 sm:grid-cols-3">
               <MetaBlock label="Auth modes">

@@ -1,15 +1,18 @@
 import { normalizePath, endpointKey } from './normalize.js';
 import { inferSchemaFromShape, mergeSchemas } from './schema.js';
 import { detectSensitiveFields, detectAuthSignals } from './heuristics.js';
+import { callerEdgeKey, callerDisplayName } from '@apiglimpse/shared';
 
 /**
- * In-memory aggregation of samples into inventory deltas.
- * Raw samples are never persisted — only derived inventory.
+ * In-memory aggregation of samples into inventory deltas + caller edges.
+ * Raw samples are never persisted — only derived inventory / topology.
  */
 export class InventoryAggregator {
   constructor() {
     /** @type {Map<string, object>} */
     this.endpoints = new Map();
+    /** @type {Map<string, object>} */
+    this.edges = new Map();
   }
 
   /**
@@ -69,15 +72,53 @@ export class InventoryAggregator {
 
     ep.signals.push(...detectAuthSignals(sample));
     ep.signals = dedupe(ep.signals);
+
+    this.ingestCallerEdge(sample, method, pathTemplate);
   }
 
   /**
-   * Drain aggregated deltas for upsert. Clears the map.
+   * Aggregate caller → (method, pathTemplate) edge counts.
+   */
+  ingestCallerEdge(sample, method, pathTemplate) {
+    const caller = sample.caller || {};
+    const edgeCallerKey = callerEdgeKey(caller);
+    const edgeKey = `${edgeCallerKey}|${method}|${pathTemplate}`;
+    const ts = sample.timestamp || new Date().toISOString();
+
+    let edge = this.edges.get(edgeKey);
+    if (!edge) {
+      edge = {
+        callerKey: edgeCallerKey,
+        callerName: callerDisplayName(caller),
+        callerSource: caller.source || null,
+        uaFamily: caller.uaFamily || 'unknown',
+        method,
+        pathTemplate,
+        hitCount: 0,
+        firstSeenAt: ts,
+        lastSeenAt: ts,
+      };
+      this.edges.set(edgeKey, edge);
+    }
+
+    edge.hitCount += 1;
+    edge.lastSeenAt = ts;
+    if (caller.name) {
+      edge.callerName = String(caller.name).slice(0, 128);
+    }
+    if (caller.source) {
+      edge.callerSource = caller.source;
+    }
+  }
+
+  /**
+   * Drain aggregated deltas for upsert. Clears the maps.
+   * @returns {{ endpoints: object[], edges: object[] }}
    */
   drain() {
-    const deltas = [];
+    const endpoints = [];
     for (const ep of this.endpoints.values()) {
-      deltas.push({
+      endpoints.push({
         method: ep.method,
         pathTemplate: ep.pathTemplate,
         hitCount: ep.hitCount,
@@ -92,7 +133,14 @@ export class InventoryAggregator {
       });
     }
     this.endpoints.clear();
-    return deltas;
+
+    const edges = [];
+    for (const edge of this.edges.values()) {
+      edges.push({ ...edge });
+    }
+    this.edges.clear();
+
+    return { endpoints, edges };
   }
 }
 

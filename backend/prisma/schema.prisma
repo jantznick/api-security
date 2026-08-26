@@ -217,6 +217,7 @@ model Service {
   updatedAt     DateTime   @updatedAt
   apiKeys       ApiKey[]
   endpoints     Endpoint[]
+  trafficEdges  TrafficEdge[]
 
   @@index([projectId])
 }
@@ -283,3 +284,32 @@ model Signal {
   @@unique([endpointId, type, fieldPath, category])
   @@index([endpointId])
 }
+
+/// Caller → endpoint edge for lightweight blast-radius topology (SF3).
+/// Not full APM — counts from x-service-name / x-client-name / UA family only.
+model TrafficEdge {
+  id           String   @id @default(uuid())
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  /// Stable key: name:<caller> or ua:<family>
+  callerKey    String
+  /// Display name (explicit service/client name or UA bucket label)
+  callerName   String
+  /// header | config | null
+  callerSource String?
+  /// browser | sdk | curl | unknown
+  uaFamily     String   @default("unknown")
+  method       String
+  pathTemplate String
+  hitCount     Int      @default(0)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([serviceId, callerKey, method, pathTemplate])
+  @@index([serviceId])
+  @@index([serviceId, pathTemplate, method])
+  @@index([lastSeenAt])
+}
+

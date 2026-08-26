@@ -1,4 +1,4 @@
-import { createEnvelope, createSample } from '@apiglimpse/shared';
+import { createEnvelope, createSample, resolveCallerHints } from '@apiglimpse/shared';
 
 const DEFAULTS = {
   agentUrl: 'http://localhost:8080',
@@ -10,6 +10,8 @@ const DEFAULTS = {
   requestTimeoutMs: 2000,
   circuitFailureThreshold: 3,
   circuitOpenMs: 15000,
+  /** Optional default caller name when request lacks x-service-name / x-client-name */
+  serviceName: '',
 };
 
 /**
@@ -23,9 +25,17 @@ const DEFAULTS = {
  * @param {string} [options.agentUrl]
  * @param {string} [options.apiKey]
  * @param {number} [options.sampleRate] 0–1
+ * @param {string} [options.serviceName] Fallback caller label (or API_SENSOR_SERVICE_NAME)
  */
 export function apiSensor(options = {}) {
-  const cfg = { ...DEFAULTS, ...options };
+  const cfg = {
+    ...DEFAULTS,
+    ...options,
+    serviceName:
+      options.serviceName != null && String(options.serviceName).trim() !== ''
+        ? String(options.serviceName).trim()
+        : process.env.API_SENSOR_SERVICE_NAME || DEFAULTS.serviceName,
+  };
   const buffer = [];
   let flushing = false;
   let consecutiveFailures = 0;
@@ -89,9 +99,8 @@ export function apiSensor(options = {}) {
 
       if (!res.ok && res.status >= 500) {
         recordFailure();
-        // drop batch — fail-open, do not retry forever
       } else if (!res.ok && res.status === 401) {
-        // bad key — drop, do not trip circuit forever
+        // bad key — drop
       } else {
         recordSuccess();
       }
@@ -145,7 +154,6 @@ export function apiSensor(options = {}) {
         return originalSend(body);
       };
 
-      // Capture request body if express.json already parsed it
       const requestBody = req.body && typeof req.body === 'object' ? req.body : undefined;
 
       res.on('finish', () => {
@@ -154,16 +162,21 @@ export function apiSensor(options = {}) {
             buffer.shift();
           }
 
+          const headers = req.headers || {};
+          const caller = resolveCallerHints(headers, { serviceName: cfg.serviceName });
+
           const sample = createSample({
             method: req.method,
             path: req.originalUrl?.split('?')[0] || req.path || '/',
             statusCode: res.statusCode,
             latencyMs: Date.now() - start,
-            requestHeaders: req.headers || {},
+            requestHeaders: headers,
             responseHeaders: res.getHeaders?.() || {},
             requestBody,
             responseBody,
             authObserved: observeAuth(req),
+            caller,
+            serviceName: cfg.serviceName,
           });
           buffer.push(sample);
 
@@ -171,7 +184,7 @@ export function apiSensor(options = {}) {
             flush().catch(() => {});
           }
         } catch {
-          /* fail-open: never break the app */
+          /* fail-open */
         }
       });
     } catch {
