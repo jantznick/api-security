@@ -12,6 +12,7 @@ import Projects from './pages/Projects';
 import Inventory from './pages/Inventory';
 import EndpointDetail from './pages/EndpointDetail';
 import ProjectSettings from './pages/ProjectSettings';
+import ProjectTopology from './pages/ProjectTopology';
 import LegacyProjectRedirect from './pages/LegacyProjectRedirect';
 import Account from './pages/Account';
 import Billing from './pages/Billing';
@@ -45,6 +46,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/topology"
+          element={
+            <ProtectedRoute>
+              <ProjectTopology />
             </ProtectedRoute>
           }
         />

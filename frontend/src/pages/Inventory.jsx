@@ -233,6 +233,9 @@ export default function Inventory() {
         description="Live endpoints from traffic. Schemas and signals only — no raw bodies."
         actions={
           <>
+            <Link to={`/projects/${projectId}/topology`}>
+              <Button variant="secondary">Topology</Button>
+            </Link>
             <Link to={`${basePath}/settings`}>
               <Button variant="secondary">Settings</Button>
             </Link>
