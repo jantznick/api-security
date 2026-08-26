@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
-import { integratingDocsUrl } from '../lib/urls';
+import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 function severityClass(severity) {
   if (severity === 'high') return 'bg-danger-50 text-danger-700';
@@ -43,7 +43,37 @@ export default function Inventory() {
     return () => clearInterval(id);
   }, [load]);
 
-  const keyPrefix = project?.apiKeys?.[0]?.keyPrefix;
+  const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
+  const keyPrefix = activeKeys[0]?.keyPrefix;
+  const [exporting, setExporting] = useState(false);
+
+  const exportOpenApi = async () => {
+    setExporting(true);
+    try {
+      const doc = await inventoryAPI.exportOpenApi(projectId);
+      const blob = new Blob([JSON.stringify(doc, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName =
+        String(project?.name || 'api')
+          .replace(/[^a-zA-Z0-9._-]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 64) || 'api';
+      a.href = url;
+      a.download = `${safeName}-openapi.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('OpenAPI export downloaded');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <AppLayout>
@@ -60,6 +90,13 @@ export default function Inventory() {
             <Link to={`/projects/${projectId}/settings`}>
               <Button variant="secondary">Settings</Button>
             </Link>
+            <Button
+              variant="secondary"
+              onClick={exportOpenApi}
+              disabled={exporting || loading}
+            >
+              {exporting ? 'Exporting…' : 'Export OpenAPI'}
+            </Button>
             <Button variant="secondary" onClick={load}>
               Refresh
             </Button>
@@ -89,24 +126,35 @@ export default function Inventory() {
           <p className="p-6 text-sm text-ink-600">Loading…</p>
         ) : endpoints.length === 0 ? (
           <EmptyState
-            title="No endpoints yet"
-            description="Connect middleware with your project API key and send traffic. Inventory appears within seconds."
+            title="Connect middleware"
+            description="Install the connector with your project API key so traffic appears here within seconds. Copy the install snippet from project settings."
             action={
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <a
-                  href={integratingDocsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-medium text-signal-600 hover:text-signal-800"
-                >
-                  Connect your app →
-                </a>
-                <Link
-                  to={`/projects/${projectId}/settings`}
-                  className="text-sm font-medium text-ink-600 hover:text-ink-900"
-                >
-                  Project settings
-                </Link>
+              <div className="flex flex-col items-center gap-4">
+                <div className="rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-left text-sm text-ink-600">
+                  <p>
+                    Collect URL:{' '}
+                    <code className="font-mono text-ink-900">{COLLECT_URL}</code>
+                  </p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    Set as <code className="font-mono">API_SENSOR_AGENT_URL</code>
+                    {activeKeys.length === 0
+                      ? ' · create an API key in settings first'
+                      : null}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Link to={`/projects/${projectId}/settings`}>
+                    <Button type="button">Open install snippet</Button>
+                  </Link>
+                  <a
+                    href={integratingDocsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-signal-600 hover:text-signal-800"
+                  >
+                    Integrating docs →
+                  </a>
+                </div>
               </div>
             }
           />

@@ -8,7 +8,14 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
-import { integratingDocsUrl } from '../lib/urls';
+import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
+
+/** Name for the replacement key created during rotate. */
+function rotatedKeyName(name) {
+  const base = String(name || 'default').trim() || 'default';
+  if (/\(rotated\)\s*$/i.test(base)) return base;
+  return `${base} (rotated)`;
+}
 
 export default function ProjectSettings() {
   const { projectId } = useParams();
@@ -16,7 +23,10 @@ export default function ProjectSettings() {
   const [loading, setLoading] = useState(true);
   const [keyName, setKeyName] = useState('default');
   const [creating, setCreating] = useState(false);
+  const [revokingId, setRevokingId] = useState(null);
+  const [rotatingId, setRotatingId] = useState(null);
   const [rawKey, setRawKey] = useState(null);
+  const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,15 +72,88 @@ export default function ProjectSettings() {
     }
   };
 
-  const copyKey = async () => {
-    if (!rawKey) return;
+  const handleRevoke = async (keyId) => {
+    if (!window.confirm('Revoke this API key? Middleware using it will stop reporting.')) {
+      return;
+    }
+    setRevokingId(keyId);
     try {
-      await navigator.clipboard.writeText(rawKey);
-      toast.success('API key copied');
+      await projectsAPI.revokeApiKey(projectId, keyId);
+      toast.success('API key revoked');
+      if (pendingRevokeAfterRotate === keyId) {
+        setPendingRevokeAfterRotate(null);
+      }
+      await reload();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  /**
+   * Rotate = create replacement key (show raw once), then revoke the old key.
+   * Uses existing create + revoke APIs — no dedicated rotate endpoint.
+   */
+  const handleRotate = async (key) => {
+    const confirmed = window.confirm(
+      'Rotate this API key?\n\n' +
+        '1. A new key is created and shown once — copy it into your middleware.\n' +
+        '2. The old key is then revoked so traffic with the old secret stops.',
+    );
+    if (!confirmed) return;
+
+    setRotatingId(key.id);
+    setRawKey(null);
+    setPendingRevokeAfterRotate(null);
+    try {
+      const data = await projectsAPI.createApiKey(projectId, rotatedKeyName(key.name));
+      setRawKey(data.rawKey);
+
+      try {
+        await projectsAPI.revokeApiKey(projectId, key.id);
+        setPendingRevokeAfterRotate(null);
+        toast.success('Key rotated — copy the new key; old key is revoked');
+      } catch (revokeErr) {
+        setPendingRevokeAfterRotate(key.id);
+        toast.error(
+          revokeErr.message ||
+            'New key was created, but the old key could not be revoked. Revoke it manually.',
+        );
+      }
+      await reload();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRotatingId(null);
+    }
+  };
+
+  const copyText = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
     } catch {
       toast.error('Could not copy');
     }
   };
+
+  const installSnippet = `# .env
+API_SENSOR_AGENT_URL=${COLLECT_URL}
+API_SENSOR_KEY=${rawKey || 'ask_your_key_here'}
+
+# app.js
+import express from 'express';
+import apiSensor from '@apiglimpse/middleware';
+
+const app = express();
+app.use(apiSensor({
+  agentUrl: process.env.API_SENSOR_AGENT_URL,
+  apiKey: process.env.API_SENSOR_KEY,
+}));`;
+
+  const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
+  const revokedKeys = (project?.apiKeys || []).filter((k) => k.revokedAt);
 
   return (
     <AppLayout>
@@ -91,7 +174,7 @@ export default function ProjectSettings() {
         title="Project settings"
         description={
           project
-            ? `API keys for ${project.name}. New keys are shown once.`
+            ? `API keys and install for ${project.name}. New keys are shown once; use Rotate to replace an active key.`
             : 'API keys for this project.'
         }
       />
@@ -107,7 +190,7 @@ export default function ProjectSettings() {
               type="button"
               variant="secondary"
               className="min-h-9 px-3 py-1.5 text-sm"
-              onClick={copyKey}
+              onClick={() => copyText(rawKey, 'API key')}
             >
               Copy key
             </Button>
@@ -131,8 +214,70 @@ export default function ProjectSettings() {
             </a>
             .
           </p>
+          {pendingRevokeAfterRotate ? (
+            <p className="mt-2 text-xs text-warn-700">
+              The old key is still active. Use Revoke on that row after you update middleware.
+            </p>
+          ) : null}
         </div>
       ) : null}
+
+      {!loading && project && !activeKeys.length ? (
+        <div
+          role="status"
+          className="mt-6 rounded-lg border border-warn-700/25 bg-warn-50 px-4 py-3 text-sm text-warn-700"
+        >
+          <p className="font-medium">No active API keys</p>
+          <p className="mt-1">
+            Middleware cannot report inventory until you create a key below.
+          </p>
+        </div>
+      ) : null}
+
+      <Card className="mt-8 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-ink-900">Install</h2>
+            <p className="mt-1 text-sm text-ink-500">
+              Point middleware at the hosted collector. Replace the key after you create one.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-9 px-3 py-1.5 text-sm"
+            onClick={() => copyText(installSnippet, 'Install snippet')}
+          >
+            Copy snippet
+          </Button>
+        </div>
+        <pre className="mt-4 overflow-x-auto rounded-lg bg-ink-950 p-4 text-xs leading-relaxed text-ink-50">
+          <code>{installSnippet}</code>
+        </pre>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
+          <p>
+            Collector URL:{' '}
+            <code className="font-mono text-ink-700">{COLLECT_URL}</code>
+            {project?.endpointLimit ? (
+              <>
+                {' '}
+                · Endpoint cap:{' '}
+                <span className="text-ink-700">{project.endpointLimit}</span> (billing)
+              </>
+            ) : (
+              <> · Endpoint cap: unlimited</>
+            )}
+          </p>
+          <a
+            href={integratingDocsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-signal-600 hover:text-signal-800"
+          >
+            Integrating docs →
+          </a>
+        </div>
+      </Card>
 
       <Card className="mt-8 p-6">
         <h2 className="font-display text-lg font-semibold text-ink-900">Create API key</h2>
@@ -157,13 +302,13 @@ export default function ProjectSettings() {
 
       <Card className="mt-6 overflow-hidden">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink-900">Existing keys</h2>
+          <h2 className="text-sm font-semibold text-ink-900">Active keys</h2>
         </div>
         {loading ? (
           <p className="p-6 text-sm text-ink-600">Loading…</p>
-        ) : !(project?.apiKeys || []).length ? (
+        ) : !activeKeys.length ? (
           <EmptyState
-            title="No API keys"
+            title="No active API keys"
             description="Create a key to connect middleware and start discovering endpoints."
           />
         ) : (
@@ -174,10 +319,13 @@ export default function ProjectSettings() {
                 <th className="px-4 py-3 font-medium">Prefix</th>
                 <th className="px-4 py-3 font-medium">Created</th>
                 <th className="px-4 py-3 font-medium">Last used</th>
+                <th className="px-4 py-3 font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {project.apiKeys.map((k) => (
+              {activeKeys.map((k) => (
                 <tr key={k.id} className="border-b border-ink-100 last:border-0">
                   <td className="px-4 py-3 font-medium text-ink-900">{k.name}</td>
                   <td className="px-4 py-3 font-mono text-ink-600">{k.keyPrefix}…</td>
@@ -187,12 +335,60 @@ export default function ProjectSettings() {
                   <td className="px-4 py-3 text-ink-600">
                     {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleRotate(k)}
+                        disabled={rotatingId === k.id || revokingId === k.id || creating}
+                        className="cursor-pointer text-sm font-medium text-signal-700 hover:text-signal-800 disabled:opacity-50"
+                      >
+                        {rotatingId === k.id ? 'Rotating…' : 'Rotate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRevoke(k.id)}
+                        disabled={revokingId === k.id || rotatingId === k.id}
+                        className="cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                      >
+                        {revokingId === k.id ? 'Revoking…' : 'Revoke'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Card>
+
+      {revokedKeys.length ? (
+        <Card className="mt-6 overflow-hidden">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-500">Revoked keys</h2>
+          </div>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-ink-200 bg-ink-50 text-ink-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Prefix</th>
+                <th className="px-4 py-3 font-medium">Revoked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {revokedKeys.map((k) => (
+                <tr key={k.id} className="border-b border-ink-100 last:border-0 text-ink-400">
+                  <td className="px-4 py-3">{k.name}</td>
+                  <td className="px-4 py-3 font-mono">{k.keyPrefix}…</td>
+                  <td className="px-4 py-3">
+                    {k.revokedAt ? new Date(k.revokedAt).toLocaleString() : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
     </AppLayout>
   );
 }

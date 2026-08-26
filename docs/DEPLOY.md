@@ -304,6 +304,8 @@ npm view @apiglimpse/middleware version
 
 ## Related
 
+- [LAUNCH_NEXT.md](./LAUNCH_NEXT.md) — Resend + npm (ops)
+- [NEXT_PHASE.md](./NEXT_PHASE.md) — billing foundation → Stripe
 - [RAILWAY.md](./RAILWAY.md) — Railway detail + tenancy
 - [RENDER.md](./RENDER.md) — Render static site settings
 - [INTEGRATING.md](./INTEGRATING.md) — Express connector

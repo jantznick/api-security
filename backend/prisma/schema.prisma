@@ -48,6 +48,9 @@ model Project {
   name      String
   ownerId   String
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  /// Cap on *new* endpoints for this project. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
+  /// Stripe webhooks will set this from the customer's plan.
+  endpointLimit Int?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   apiKeys   ApiKey[]
@@ -67,6 +70,8 @@ model ApiKey {
   keyPrefix  String
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
+  /// Soft revoke — key hash retained; ingest rejects when set
+  revokedAt  DateTime?
 
   @@index([projectId])
 }

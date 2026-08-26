@@ -6,8 +6,17 @@ const router = express.Router();
 
 router.use(requireApiKey);
 
-/** 0 or unset = unlimited. Stripe will set per-project limits later. */
-function endpointLimit() {
+/**
+ * Prefer per-project limit (Stripe → Project.endpointLimit).
+ * Fall back to env ENDPOINT_LIMIT. 0 / null / unset = unlimited.
+ */
+function resolveEndpointLimit(project) {
+  const fromProject = project?.endpointLimit;
+  if (fromProject !== undefined && fromProject !== null) {
+    const n = Number(fromProject);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+    return 0;
+  }
   const raw = process.env.ENDPOINT_LIMIT;
   if (raw === undefined || raw === null || raw === '') return 0;
   const n = Number(raw);
@@ -20,13 +29,13 @@ function endpointLimit() {
  *   contentTypes, requestSchema, responseSchema, signals, firstSeenAt, lastSeenAt } ] }
  *
  * Never accepts or stores raw request/response bodies.
- * New endpoints may be skipped when ENDPOINT_LIMIT is exceeded (existing still update).
+ * New endpoints may be skipped when the project/env endpoint limit is exceeded (existing still update).
  */
 router.post('/upsert', async (req, res) => {
   try {
     const projectId = req.project.id;
     const endpoints = Array.isArray(req.body?.endpoints) ? req.body.endpoints : [];
-    const limit = endpointLimit();
+    const limit = resolveEndpointLimit(req.project);
 
     if (endpoints.length === 0) {
       res.json({ upserted: 0, skippedNew: 0 });

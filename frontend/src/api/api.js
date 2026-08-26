@@ -61,10 +61,16 @@ export const projectsAPI = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+  revokeApiKey: (projectId, keyId) =>
+    request(`/projects/${projectId}/api-keys/${keyId}/revoke`, {
+      method: 'POST',
+    }),
 };
 
 export const inventoryAPI = {
   listEndpoints: (projectId) => request(`/inventory/${projectId}/endpoints`),
   getEndpoint: (projectId, endpointId) =>
     request(`/inventory/${projectId}/endpoints/${endpointId}`),
+  /** OpenAPI 3.0 JSON document for the project inventory */
+  exportOpenApi: (projectId) => request(`/inventory/${projectId}/openapi`),
 };

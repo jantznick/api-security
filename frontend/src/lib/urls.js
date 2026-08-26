@@ -15,6 +15,10 @@ export const DOCS_URL = trimSlash(
   import.meta.env.VITE_DOCS_URL ||
     (isDev ? 'http://localhost:5175' : 'https://docs.apiglimpse.com'),
 );
+export const COLLECT_URL = trimSlash(
+  import.meta.env.VITE_COLLECT_URL ||
+    (isDev ? 'http://localhost:8080' : 'https://collect.apiglimpse.com'),
+);
 export const integratingDocsUrl = `${DOCS_URL}/integrating/`;
 
 /** Absolute marketing auth deep link (optional cross-origin). */
