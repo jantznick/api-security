@@ -23,6 +23,10 @@ In production the **agent is public**; **ingest is private** (Railway internal).
 
 Prisma schema lives in `backend/prisma/` and is shared. Two generators (`client` + `ingestClient`) ensure `prisma generate` populates both packages’ `node_modules` — a single default generate only lands under backend and leaves ingest with an uninitialized client.
 
+## Production migrations = migrate-on-boot
+
+There is no separate migrate job. On merge to `main`, Railway redeploys **core** and **ingest**; both run `prisma migrate deploy` via `npm start` (`backend/scripts/safe-migrate.js`) before listening. Deploy is idempotent (Prisma advisory lock), so parallel boots are safe. Local/dev still uses `npx prisma migrate deploy` once when bringing up Postgres.
+
 ## Fail-open middleware
 
 Discovery must never take down the customer app. Sensor catches errors, uses a circuit breaker, and drops samples if the agent is unreachable.

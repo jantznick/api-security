@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "dev": "npm run prisma:generate && node --watch server.js",
-    "start": "npm run prisma:generate && node server.js",
+    "start": "node ../backend/scripts/safe-migrate.js && node server.js",
     "postinstall": "prisma generate --schema=../backend/prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema=../backend/prisma/schema.prisma"
   },
