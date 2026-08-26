@@ -1,0 +1,44 @@
+services:
+  mock-collector:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./mock-collector:/app:ro
+    command: ["node", "server.js"]
+    ports:
+      - "18080:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  upstream:
+    image: mendhak/http-https-echo:31
+    environment:
+      HTTP_PORT: "8080"
+      HTTPS_PORT: "8443"
+
+  openresty:
+    image: openresty/openresty:1.25.3.2-0-alpine
+    # Optional image build (bakes Lua + lua-resty-http): see openresty/Dockerfile
+    ports:
+      - "18000:80"
+    environment:
+      API_SENSOR_AGENT_URL: http://mock-collector:8080
+      API_SENSOR_KEY: ask_demo_nginx
+      API_SENSOR_SERVICE_NAME: nginx-openresty-demo
+      API_SENSOR_SAMPLE_RATE: "1"
+    volumes:
+      - ../../connectors/nginx/apiglimpse.lua:/etc/nginx/lua/apiglimpse.lua:ro
+      - ../../connectors/nginx/redaction.lua:/etc/nginx/lua/redaction.lua:ro
+      - ./openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+    command:
+      - /bin/sh
+      - -c
+      - opm get ledgetech/lua-resty-http && exec /usr/local/openresty/bin/openresty -g 'daemon off;'
+    depends_on:
+      mock-collector:
+        condition: service_healthy
+      upstream:
+        condition: service_started

@@ -22,7 +22,7 @@ All connectors speak the same [wire protocol](./WIRE_PROTOCOL.md). There is one 
 | NestJS | Coming soon | — |
 | Next.js (Route Handlers / API routes) | Coming soon | — |
 | Hono | Coming soon | — |
-| Proxy / gateway | Coming soon | — |
+| [Gateway (Nginx / OpenResty)](./GATEWAY_NGINX.md) | Available (OpenResty) | See [GATEWAY_NGINX.md](./GATEWAY_NGINX.md) |
 
 > **Note:** npm / PyPI / Go module versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths.
 
@@ -257,6 +257,23 @@ If API Glimpse is unreachable, the connector drops samples and your app continue
 
 - Point `API_SENSOR_AGENT_URL` at `https://collect.apiglimpse.com`.
 - Every batch requires a valid API key — do not ship apps without `API_SENSOR_KEY`.
+
+---
+
+## Gateway (Nginx / OpenResty)
+
+Instrument the edge without per-app SDKs. Requires **OpenResty** (stock Nginx without Lua is unsupported).
+
+Full guide: **[GATEWAY_NGINX.md](./GATEWAY_NGINX.md)** · Demo: `demo/nginx-openresty/`.
+
+```bash
+API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
+API_SENSOR_KEY=ask_YOUR_PROJECT_KEY_HERE
+API_SENSOR_SERVICE_NAME=nginx-gateway
+API_SENSOR_SAMPLE_RATE=1
+```
+
+Copy `connectors/nginx/apiglimpse.lua` + `redaction.lua`, wire `init_worker_by_lua` + `log_by_lua` (see connector README). Protect mode is not enforced at the gateway.
 
 ---
 
