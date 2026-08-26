@@ -30,6 +30,7 @@ function formatLimit(limit) {
 }
 
 function formatPrice(plan) {
+  if (plan.contactSales) return 'Custom';
   if (typeof plan.priceCentsMonthly === 'number') {
     if (plan.priceCentsMonthly === 0) return 'Free';
     // Only show paid amounts from the API catalog (not invented client-side)
@@ -59,6 +60,8 @@ function normalizePlans(data) {
           : null,
     currency: p.currency || 'usd',
     hasStripePrice: Boolean(p.hasStripePrice),
+    contactSales: Boolean(p.contactSales),
+    contactUrl: p.contactUrl || null,
   }));
 }
 
@@ -119,7 +122,7 @@ export default function Pricing() {
       {loading ? (
         <p className="mt-16 text-muted">Loading plans…</p>
       ) : (
-        <ul className="anim-rise-delay-3 mt-16 grid gap-10 sm:grid-cols-2 sm:gap-8">
+        <ul className="anim-rise-delay-3 mt-16 grid gap-10 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
           {plans.map((plan) => {
             const price = formatPrice(plan);
             return (
@@ -143,6 +146,13 @@ export default function Pricing() {
                 {plan.description && plan.endpointLimit != null ? (
                   <p className="mt-3 text-sm text-muted">
                     Cap: {formatLimit(plan.endpointLimit)}
+                  </p>
+                ) : null}
+                {plan.contactSales && plan.contactUrl ? (
+                  <p className="mt-5">
+                    <a href={plan.contactUrl} className="btn btn-secondary">
+                      Contact sales
+                    </a>
                   </p>
                 ) : null}
               </li>

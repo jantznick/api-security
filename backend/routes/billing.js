@@ -8,6 +8,7 @@ import {
   getPlanBySlug,
   isStripeConfigured,
   listPlans,
+  resolveContactSalesUrl,
   resolveEndpointLimit,
   resolveStripePriceId,
   stripeUnavailableMessage,
@@ -34,14 +35,22 @@ function appBaseUrl() {
 }
 
 function publicPlan(plan) {
+  const contactSales = Boolean(plan.contactSales);
+  const hasStripePrice =
+    !contactSales &&
+    (Boolean(plan.stripePriceId) ||
+      (plan.slug === 'pro' && Boolean(process.env.STRIPE_PRICE_PRO?.trim())));
   return {
     slug: plan.slug,
     name: plan.name,
+    description: plan.description || null,
     endpointLimit: plan.endpointLimit,
     seatLimit: plan.seatLimit ?? null,
     priceCentsMonthly: plan.priceCentsMonthly,
+    contactSales,
+    contactUrl: resolveContactSalesUrl(plan),
     /** Whether Checkout can use this plan (has a Stripe price id or env fallback) */
-    hasStripePrice: Boolean(plan.stripePriceId) || (plan.slug === 'pro' && Boolean(process.env.STRIPE_PRICE_PRO?.trim())),
+    hasStripePrice,
     sortOrder: plan.sortOrder,
   };
 }
@@ -174,6 +183,15 @@ router.post('/checkout', requireAuth, async (req, res) => {
 
     const stripe = getStripe();
     const planSlug = String(req.body?.planSlug || 'pro').trim().toLowerCase() || 'pro';
+    const plan = await getPlanBySlug(planSlug);
+    if (plan.contactSales) {
+      res.status(400).json({
+        error:
+          'This plan requires contacting sales. Use the contact link on the billing page.',
+        contactUrl: resolveContactSalesUrl(plan),
+      });
+      return;
+    }
     const priceId = await resolveStripePriceId(planSlug);
     if (!priceId) {
       res.status(400).json({

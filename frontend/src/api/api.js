@@ -147,6 +147,11 @@ export const adminAPI = {
     const suffix = qs.toString() ? `?${qs}` : '';
     return request(`/admin/users${suffix}`);
   },
+  assignUserPlan: (userId, planSlug) =>
+    request(`/admin/users/${userId}/plan`, {
+      method: 'PUT',
+      body: JSON.stringify({ planSlug }),
+    }),
   listPlans: () => request('/admin/plans'),
   updatePlans: (plans) =>
     request('/admin/plans', { method: 'PUT', body: JSON.stringify({ plans }) }),
