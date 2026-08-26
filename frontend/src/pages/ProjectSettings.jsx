@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
 import { useConfirm } from '../context/ConfirmContext';
+import { buildInstallSnippet, INSTALL_STACKS } from '../lib/installSnippets';
 import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 /** Name for the replacement key created during rotate. */
@@ -30,6 +31,7 @@ export default function ProjectSettings() {
   const [rotatingId, setRotatingId] = useState(null);
   const [rawKey, setRawKey] = useState(null);
   const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
+  const [installStack, setInstallStack] = useState('express');
 
   useEffect(() => {
     let cancelled = false;
@@ -148,19 +150,10 @@ export default function ProjectSettings() {
     }
   };
 
-  const installSnippet = `# .env
-API_SENSOR_AGENT_URL=${COLLECT_URL}
-API_SENSOR_KEY=${rawKey || 'ask_your_key_here'}
-
-# app.js
-import express from 'express';
-import apiSensor from '@apiglimpse/middleware';
-
-const app = express();
-app.use(apiSensor({
-  agentUrl: process.env.API_SENSOR_AGENT_URL,
-  apiKey: process.env.API_SENSOR_KEY,
-}));`;
+  const installSnippet = buildInstallSnippet(installStack, {
+    collectUrl: COLLECT_URL,
+    apiKey: rawKey,
+  });
 
   const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
   const revokedKeys = (service?.apiKeys || []).filter((k) => k.revokedAt);
@@ -249,7 +242,7 @@ app.use(apiSensor({
           <div>
             <h2 className="font-display text-lg font-semibold text-ink-900">Install</h2>
             <p className="mt-1 text-sm text-ink-500">
-              Point middleware at the hosted collector. Replace the key after you create one.
+              Point a connector at the hosted collector. Replace the key after you create one.
             </p>
           </div>
           <Button
@@ -260,6 +253,31 @@ app.use(apiSensor({
           >
             Copy snippet
           </Button>
+        </div>
+        <div
+          className="mt-4 flex flex-wrap gap-2"
+          role="tablist"
+          aria-label="Connector stack"
+        >
+          {INSTALL_STACKS.map((stack) => {
+            const selected = installStack === stack.id;
+            return (
+              <button
+                key={stack.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setInstallStack(stack.id)}
+                className={
+                  selected
+                    ? 'min-h-9 cursor-pointer rounded-md bg-ink-900 px-3 py-1.5 text-sm font-medium text-white'
+                    : 'min-h-9 cursor-pointer rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-700 hover:border-ink-300'
+                }
+              >
+                {stack.label}
+              </button>
+            );
+          })}
         </div>
         <pre className="mt-4 overflow-x-auto rounded-lg bg-ink-950 p-4 text-xs leading-relaxed text-ink-50">
           <code>{installSnippet}</code>

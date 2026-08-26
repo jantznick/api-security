@@ -258,7 +258,9 @@ export default function Pricing() {
       </h1>
       <p className="anim-rise-delay-2 mt-5 max-w-2xl text-lg leading-relaxed text-muted">
         Plans are based on how many endpoints you discover. We only show prices
-        from the live billing catalog — never invented numbers.
+        from the live billing catalog — never invented numbers. When you sign up
+        or change plans, your org keeps a <em>snapshot</em> of those limits so
+        later catalog edits do not rewrite existing teams.
       </p>
 
       {loading ? (
@@ -267,6 +269,7 @@ export default function Pricing() {
         <ul className="anim-rise-delay-3 mt-16 grid gap-10 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
           {plans.map((plan) => {
             const price = formatPrice(plan);
+            const checkoutReady = Boolean(plan.hasStripePrice) && !plan.contactSales;
             return (
               <li
                 key={plan.id}
@@ -303,6 +306,15 @@ export default function Pricing() {
                       Contact sales
                     </button>
                   </p>
+                ) : checkoutReady ? (
+                  <p className="mt-5 text-sm text-muted">
+                    Self-serve checkout is available after you sign up.
+                  </p>
+                ) : price && plan.priceCentsMonthly > 0 ? (
+                  <p className="mt-5 text-sm text-muted">
+                    Self-serve checkout enables when Stripe is connected for this
+                    plan. Sign up on Free in the meantime.
+                  </p>
                 ) : null}
               </li>
             );
@@ -314,6 +326,11 @@ export default function Pricing() {
         <p className="mt-10 max-w-xl text-sm leading-relaxed text-muted">
           Live plan details are not available from the API yet. Soft-launch
           limits may still apply and are configured by an admin.
+        </p>
+      ) : source === 'api' && !loading ? (
+        <p className="mt-10 max-w-xl text-sm leading-relaxed text-muted">
+          Catalog limits apply to new assignments. Existing orgs keep the
+          endpoint and seat caps they received when the plan was assigned.
         </p>
       ) : null}
 

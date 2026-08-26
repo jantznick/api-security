@@ -14,10 +14,10 @@ Your app
 
 | Piece | Role |
 | --- | --- |
-| **Connector** | Samples requests in your app; sends batches in the background. Express is available now; more connectors are coming. |
-| **API Glimpse** (`collect.apiglimpse.com`) | Accepts batches with your project API key; aggregates per project |
-| **API and store** | Saves endpoints, schemas, and tags; serves the dashboard and project APIs |
-| **Dashboard** (`app.apiglimpse.com`) | Projects, API keys, endpoints, endpoint detail |
+| **Connector** | Samples requests in your app; sends batches in the background. Express, Fastify, FastAPI, and Go (chi) are available now; more connectors are coming. |
+| **API Glimpse** (`collect.apiglimpse.com`) | Accepts batches with your service API key; aggregates per service |
+| **API and store** | Saves endpoints, schemas, and tags; serves the dashboard and APIs |
+| **Dashboard** (`app.apiglimpse.com`) | Orgs, projects, services, API keys, endpoints, endpoint detail |
 
 Your app talks to the `collect` URL. Reading endpoints and managing keys goes through the dashboard (session auth).
 
@@ -31,21 +31,21 @@ See [Connectors](/integrating#connectors) for what is available now and what is 
 
 ### Receiving samples
 
-1. Require a project API key on each batch
-2. Validate the key and map it to a project
+1. Require a service API key on each batch
+2. Validate the key and map it to a service
 3. Invalid or missing key → reject the batch (no endpoint update)
 4. Rate limit and body size caps
-5. Aggregate samples per project, then update endpoints
+5. Aggregate samples per service, then update endpoints
 
 Samples are used briefly for aggregation. Long-lived storage is schemas, counters, and tags — not raw bodies.
 
-### Dashboard and projects
+### Dashboard
 
-Session auth for humans. Create projects, create API keys, and browse endpoints: methods, path templates, merged schemas, and tags.
+Session auth for humans. Create projects and services, create API keys, and browse endpoints: methods, path templates, merged schemas, and tags.
 
-## Projects
+## Services
 
-Every endpoint row is scoped to a `projectId`. Your API key identifies the project; batches from different projects are kept separate.
+Every endpoint row is scoped to a **service** (one API you install a connector on). Your API key identifies the service; batches from different services stay separate. Services live under a **project** (grouping) inside an **organization**.
 
 ## Hosting
 

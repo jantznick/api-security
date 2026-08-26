@@ -8,7 +8,7 @@ const steps = [
   {
     n: '01',
     title: 'Add a connector',
-    body: 'Install a connector for your stack (example: Express). Set your API key and API Glimpse URL.',
+    body: 'Install a connector for Express, Fastify, FastAPI, or Go. Set your API key and API Glimpse URL.',
   },
   {
     n: '02',
@@ -18,19 +18,21 @@ const steps = [
   {
     n: '03',
     title: 'Open the dashboard',
-    body: 'You’ll see your endpoints, schemas, and field types in your project.',
+    body: 'You’ll see your endpoints, schemas, and field types in your service inventory.',
   },
 ];
 
-const connectorsAvailable = [{ name: 'Express' }];
+const connectorsAvailable = [
+  { name: 'Express' },
+  { name: 'Fastify' },
+  { name: 'FastAPI' },
+  { name: 'Go (chi)' },
+];
 
 const connectorsSoon = [
-  'Fastify',
   'NestJS',
   'Next.js',
   'Hono',
-  'FastAPI',
-  'Go (chi)',
   'Proxy / gateway',
 ];
 

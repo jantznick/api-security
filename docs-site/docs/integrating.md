@@ -24,6 +24,8 @@ Your app
 
 All connectors send the same samples to `https://collect.apiglimpse.com` (one hosted collector).
 
+> **Publish note:** Public `npm` / `pip` / `go get` installs work after maintainers [publish packages](https://github.com/jantznick/api-security/blob/main/docs/CONNECTOR_PUBLISH.md). Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths (see the repo integrating guide).
+
 ## Express
 
 Add the Express connector (`@apiglimpse/middleware`) to your app.

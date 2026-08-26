@@ -1,17 +1,17 @@
 # Org plan-limit snapshots — multi-agent plan
 
 **Audience:** Nick reviews → launches / continues parallel agents.  
-**Why:** GTM needs to change catalog plan limits (Free/Pro/Enterprise) without rewriting entitlements for existing orgs/teams. Today orgs only store `planSlug`; seats always live-lookup `Plan`, so template edits cascade immediately.  
+**Why:** GTM needs to change catalog plan limits (Free/Pro/Enterprise) without rewriting entitlements for existing orgs/teams.  
 **Extends:** [SAAS_PLAN.md](./SAAS_PLAN.md) S5 (org billing) and [STRIPE.md](./STRIPE.md).  
-**Status:** Implementation in progress (2026-08-26) — PL1–PL4 landed in this PR; migrate + redeploy to activate.
+**Status:** **Shipped on main** (2026-08-26, PR #29) — PL1–PL4 in repo; migrate + redeploy if not yet applied. Catalog edits do **not** cascade to existing orgs.
 
 Plan mode is unavailable in this Cloud Agent session; this doc is the reviewable plan of record.
 
 ---
 
-## Problem
+## Problem (solved)
 
-| Surface | Today | Desired |
+| Surface | Before snapshots | After (current code) |
 | --- | --- | --- |
 | Assignment | Org/User get `planSlug` only | Org gets **plan slug + frozen limits** |
 | Seat enforcement | `org.planSlug` → live `Plan.seatLimit` | Prefer `org.seatLimit` |
