@@ -11,6 +11,7 @@ import projectRoutes from './routes/projects.js';
 import inventoryRoutes from './routes/inventory.js';
 import adminRoutes from './routes/admin.js';
 import billingRoutes, { stripeWebhookHandler } from './routes/billing.js';
+import usageRoutes from './routes/usage.js';
 import { ensureDefaultPlans } from './lib/plans.js';
 
 const app = express();
@@ -104,6 +105,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/usage', usageRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'core', date: new Date().toISOString() });

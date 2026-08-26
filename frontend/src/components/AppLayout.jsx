@@ -38,6 +38,9 @@ export default function AppLayout({ children }) {
               <NavLink to="/projects" className={navLinkClass} end={false}>
                 Projects
               </NavLink>
+              <NavLink to="/usage" className={navLinkClass}>
+                Usage
+              </NavLink>
               <NavLink to="/account" className={navLinkClass}>
                 Account
               </NavLink>
@@ -78,6 +81,9 @@ export default function AppLayout({ children }) {
         >
           <NavLink to="/projects" className={navLinkClass}>
             Projects
+          </NavLink>
+          <NavLink to="/usage" className={navLinkClass}>
+            Usage
           </NavLink>
           <NavLink to="/account" className={navLinkClass}>
             Account

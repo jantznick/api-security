@@ -185,7 +185,7 @@ export default function Billing() {
           </Link>
         }
         title="Billing"
-        description="Your plan and endpoint inventory limits."
+        description="Upgrade and manage your subscription. For detailed quota, see Usage."
       />
 
       {status === 'loading' ? (
@@ -201,6 +201,14 @@ export default function Billing() {
             Self-serve plans are not available on this server yet. Endpoint limits
             may still be configured by an admin. Check back after Stripe billing
             is enabled.
+          </p>
+          <p className="mt-4 text-sm">
+            <Link
+              to="/usage"
+              className="font-medium text-signal-600 hover:text-signal-800"
+            >
+              See detailed usage →
+            </Link>
           </p>
           {plans.length > 0 ? (
             <ul className="mt-6 space-y-4 border-t border-ink-100 pt-6">
@@ -290,6 +298,14 @@ export default function Billing() {
           <p className="mt-4 text-xs text-ink-500">
             Upgrade opens Stripe Checkout. Manage opens the customer portal.
             If Stripe is not configured, you’ll see a short notice instead.
+          </p>
+          <p className="mt-3 text-sm">
+            <Link
+              to="/usage"
+              className="font-medium text-signal-600 hover:text-signal-800"
+            >
+              See detailed usage →
+            </Link>
           </p>
         </Card>
       ) : null}

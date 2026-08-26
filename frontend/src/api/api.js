@@ -100,6 +100,14 @@ export const billingAPI = {
     request('/billing/portal', { method: 'POST', body: JSON.stringify(body) }),
 };
 
+/**
+ * Usage & license (S1) — entitlement vs consumption.
+ * GET /usage/me → plan, per-service endpoint quota, seats, totals
+ */
+export const usageAPI = {
+  me: () => request('/usage/me'),
+};
+
 export const adminAPI = {
   listPlans: () => request('/admin/plans'),
   updatePlans: (plans) =>
