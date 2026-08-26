@@ -72,11 +72,12 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 - [Marketing](docs/MARKETING.md) — site IA, CTAs; brand **API Glimpse**
 - [Marketing GTM plan](docs/MARKETING_PLAN.md) — positioning, ads, channels, multi-agent streams **M0–M8**; security-platform north star
 - [Marketing-ready product plan](docs/MARKETING_READY.md) — dev streams **R1–R6** to clear soft-launch / acquisition bar
+- [**Nick’s next steps**](docs/NEXT_STEPS.md) — **single checklist**: Resend, publish, Stripe, analytics, LinkedIn/Google
 - [Org plan-limit snapshots](docs/ORG_PLAN_LIMITS.md) — catalog edits vs org entitlements
 - [Architecture](docs/ARCHITECTURE.md) — components and data flow
 - [Decisions](docs/DECISIONS.md) — why these defaults
 - [Testing](docs/TESTING.md) — manual verification checklist
-- [Protect mode hooks](docs/PROTECT_MODE.md) — designed for later; not blocking in v0
+- [Protect mode](docs/PROTECT_MODE.md) — future opt-in blocking **PM0–PM4**; designed for later, not v0
 
 ## Stack
 
