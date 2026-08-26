@@ -223,7 +223,7 @@ export function apiSensor(options = {}) {
             buffer.shift();
           }
 
-          const responseBodyCaptured = responseBody !== undefined;
+          const responseBodyCaptured = responseBody !== undefined && responseBody !== null;
           const sample = createSample({
             method: req.method,
             path: req.originalUrl?.split('?')[0] || req.path || '/',
@@ -232,7 +232,7 @@ export function apiSensor(options = {}) {
             requestHeaders: req.headers || {},
             responseHeaders: res.getHeaders?.() || {},
             requestBody,
-            responseBody,
+            responseBody: responseBodyCaptured ? responseBody : undefined,
             responseBodyCaptured,
             authObserved: observeAuth(req),
           });

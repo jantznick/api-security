@@ -93,11 +93,13 @@ export function apiSensor(options = {}) {
     if (payload === undefined || payload === null) return undefined;
     try {
       if (typeof payload === 'string') {
-        if (Buffer.byteLength(payload, 'utf8') > MAX_RESPONSE_CAPTURE_BYTES) {
+        if (!payload || Buffer.byteLength(payload, 'utf8') > MAX_RESPONSE_CAPTURE_BYTES) {
           return undefined;
         }
         try {
-          return JSON.parse(payload);
+          const parsed = JSON.parse(payload);
+          // JSON null is not a useful response shape for inventory
+          return parsed === null ? undefined : parsed;
         } catch {
           return undefined;
         }
@@ -205,8 +207,10 @@ export function apiSensor(options = {}) {
         const requestBody =
           request.body && typeof request.body === 'object' ? request.body : undefined;
 
-        const responseBody = request[kResponseBody];
-        const responseBodyCaptured = responseBody !== undefined;
+        const rawResponseBody = request[kResponseBody];
+        // null / undefined → no JSON shape (empty 204, Fastify null payload, etc.)
+        const responseBodyCaptured = rawResponseBody !== undefined && rawResponseBody !== null;
+        const responseBody = responseBodyCaptured ? rawResponseBody : undefined;
 
         const sample = createSample({
           method: request.method,
