@@ -201,6 +201,15 @@ export const adminAPI = {
       method: 'PUT',
       body: JSON.stringify({ planSlug }),
     }),
+  getUser: (userId) => request(`/admin/users/${userId}`),
+  updateUserMembership: (userId, orgId, body) =>
+    request(`/admin/users/${userId}/memberships/${orgId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  removeUserMembership: (userId, orgId) =>
+    request(`/admin/users/${userId}/memberships/${orgId}`, { method: 'DELETE' }),
+  deleteUser: (userId) => request(`/admin/users/${userId}`, { method: 'DELETE' }),
   listLeads: (params = {}) => {
     const qs = new URLSearchParams();
     if (params.plan) qs.set('plan', params.plan);
