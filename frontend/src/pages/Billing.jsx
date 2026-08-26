@@ -317,10 +317,19 @@ export default function Billing() {
             </Button>
           </div>
           <p className="mt-4 text-xs text-ink-500">
-            Upgrade opens Stripe Checkout for self-serve plans. Enterprise /
-            contact-sales plans use Contact sales below. Manage opens the
-            customer portal.
+            Upgrade opens Stripe Checkout for self-serve plans that have a Stripe
+            Price connected. Enterprise / contact-sales plans use Contact sales
+            below. Manage opens the customer portal. Plan catalog edits change
+            future assignments only — your org keeps snapshotted endpoint and
+            seat limits from when the plan was assigned.
           </p>
+          {!plans.some((p) => p.hasStripePrice && !p.contactSales) ? (
+            <p className="mt-2 text-xs text-ink-500">
+              Self-serve Checkout is not enabled for any catalog plan yet
+              (missing Stripe Price IDs). You can still use Free and Contact
+              sales.
+            </p>
+          ) : null}
           <p className="mt-3 text-sm">
             <Link
               to="/usage"

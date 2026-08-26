@@ -70,6 +70,9 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 - [Productization](docs/PRODUCTIZATION.md) — product shape, phases, launch checklist
 - [SaaS plan](docs/SAAS_PLAN.md) — account/usage UX, Org→Project→Service, teams + RBAC
 - [Marketing](docs/MARKETING.md) — site IA, CTAs; brand **API Glimpse**
+- [Marketing GTM plan](docs/MARKETING_PLAN.md) — positioning, ads, channels, multi-agent streams **M0–M8**; security-platform north star
+- [Marketing-ready product plan](docs/MARKETING_READY.md) — dev streams **R1–R6** to clear soft-launch / acquisition bar
+- [Org plan-limit snapshots](docs/ORG_PLAN_LIMITS.md) — catalog edits vs org entitlements
 - [Architecture](docs/ARCHITECTURE.md) — components and data flow
 - [Decisions](docs/DECISIONS.md) — why these defaults
 - [Testing](docs/TESTING.md) — manual verification checklist

@@ -2,12 +2,12 @@
 
 ## API keys
 
-Every batch sent to API Glimpse needs a valid project API key (`ask_…`).
+Every batch sent to API Glimpse needs a valid service API key (`ask_…`).
 
 - Create keys in the dashboard (shown once when you create them)
 - Set `API_SENSOR_KEY` in your app
 - Missing or invalid key → batch rejected; endpoints are not updated
-- The key maps to a project; endpoint data stays in that project
+- The key maps to a **service** (one API); endpoint data stays in that service
 
 ## Schemas and tags
 
@@ -19,10 +19,11 @@ API Glimpse stores **schemas, counters, and tags** — not long-lived raw reques
 
 ## Endpoint limits
 
-A project may have an **endpoint limit**:
+A **service** may have an **endpoint limit** (from your org’s plan snapshot):
 
 - New endpoints over the cap are not added
 - Existing endpoints continue to update as traffic arrives
+- Admin catalog plan edits change *future* assignments only — your org keeps the limits it received when the plan was assigned
 
 ## Path templating
 
@@ -34,7 +35,7 @@ Required fields = intersection across observations; types widen to unions; prope
 
 ## OpenAPI export
 
-From a project’s inventory in the dashboard, use **Export OpenAPI** to download an OpenAPI 3.0 JSON document built from discovered endpoints (method, path template, request/response schemas, and auth hints). Only paths that appear in inventory are included — nothing is invented.
+From a service’s inventory in the dashboard, use **Export OpenAPI** to download an OpenAPI 3.0 JSON document built from discovered endpoints (method, path template, request/response schemas, and auth hints). Only paths that appear in inventory are included — nothing is invented.
 
 ## Sampling and availability
 

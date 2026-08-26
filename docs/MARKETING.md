@@ -1,4 +1,8 @@
-# Marketing plan
+# Marketing site — IA & brand truth
+
+**GTM / ads / multi-agent plan of record:** [MARKETING_PLAN.md](./MARKETING_PLAN.md) (positioning, ICP, LinkedIn + Google, site roadmap, workstreams **M0–M8**; security-platform north star with honest discovery-first public language).  
+**Product readiness (dev) before marketing:** [MARKETING_READY.md](./MARKETING_READY.md) (streams **R1–R6**).  
+**Future protect / blocking:** [PROTECT_MODE.md](./PROTECT_MODE.md) (**PM0–PM4**).
 
 Product truth: [PRODUCTIZATION.md](./PRODUCTIZATION.md). Install detail: [INTEGRATING.md](./INTEGRATING.md). Public sites live in-repo:
 
@@ -8,9 +12,9 @@ Product truth: [PRODUCTIZATION.md](./PRODUCTIZATION.md). Install detail: [INTEGR
 | Docs | [`docs-site/`](../docs-site/) | `docs.apiglimpse.com` |
 | Dashboard | [`frontend/`](../frontend/) | `app.apiglimpse.com` |
 
-Deploy settings: [RENDER.md](./RENDER.md). Nick deploys to Render; this doc is IA + content truth.
+Deploy settings: [RENDER.md](./RENDER.md). Nick deploys to Render; this doc is **site IA + content/design truth**. Demand gen, paid ads, and channel strategy live in [MARKETING_PLAN.md](./MARKETING_PLAN.md).
 
-Traffic-based **observe → inventory → risk**: Express middleware → API Glimpse cloud → dashboard inventory / schemas / signals. Async sampling, schemas and signals (not raw bodies), API-key gated.
+Traffic-based **observe → inventory → risk**: connector (Express / Fastify / FastAPI / Go, …) → API Glimpse cloud → dashboard inventory / schemas / signals. Async sampling, schemas and signals (not raw bodies), API-key gated.
 
 ---
 
@@ -20,11 +24,11 @@ Traffic-based **observe → inventory → risk**: Express middleware → API Gli
 | --- | --- |
 | **Brand name** | **LOCKED: API Glimpse** |
 | **Primary domain** | **`apiglimpse.com`** (purchased) |
-| **Dashboard host** | **`app.apiglimpse.com`** (Render today on `*.onrender.com`; custom domain later) |
-| **Collector / API hosts** | Planned: **`collect.apiglimpse.com`** (agent), **`api.apiglimpse.com`** (core) — see [PRODUCTIZATION.md](./PRODUCTIZATION.md). Soft-launch may keep Railway `*.up.railway.app` until DNS is wired |
+| **Dashboard host** | **`app.apiglimpse.com`** |
+| **Collector / API hosts** | **`collect.apiglimpse.com`** (agent), **`api.apiglimpse.com`** (core) — see [PRODUCTIZATION.md](./PRODUCTIZATION.md) |
 | **Marketing vs app** | **Separate marketing site** from the dashboard SPA |
-| **Signup** | **Open self-serve** OK — will not market heavily yet; honest soft-launch tone |
-| **Billing / pricing page** | Deferred (Stripe later). Soft-launch uses ops quota, not a plan grid |
+| **Signup** | **Open self-serve**; honest soft-launch tone. Paid acquisition only after GTM gates in [MARKETING_PLAN.md](./MARKETING_PLAN.md) |
+| **Billing / pricing page** | `/pricing` reads live `GET /api/billing/plans` — **no invented $**. Soft placeholder if API missing |
 
 ### Soft-launch control (not marketing)
 
@@ -35,7 +39,7 @@ Traffic-based **observe → inventory → risk**: Express middleware → API Gli
 - Documented in `.env.example`, [ARCHITECTURE.md](./ARCHITECTURE.md), [PRODUCTIZATION.md](./PRODUCTIZATION.md)
 - **`0` or unset = unlimited**; positive integer = skip *new* endpoints over the cap (existing endpoints still update)
 
-Use this as a **soft-launch / beta ops control**, not as something to explain on a pricing page. Marketing copy can say inventory may be capped in early access if useful — do not invent plan tiers yet.
+Use this as an **ops / early-access control** when plan limits are not set. Prefer plan caps from billing when explaining limits publicly — do not invent prices or tiers on the client.
 
 ---
 
@@ -119,9 +123,9 @@ Until custom domains are wired, CTAs may point at the live Render dashboard orig
 1. Brand hero — **API Glimpse** + one line (see the live API surface from real traffic)
 2. Single CTA group — Sign up · Docs · Sign in (nav)
 3. How it works (3 steps) — middleware → traffic → inventory & signals
-4. Trust — Express install; schemas & signals; API keys; stays off the critical path
-5. Who it’s for — Express teams who want a live map of their API
-6. Soft-launch honesty — early product; endpoint limits may apply; billing later (no fake price grid)
+4. Trust — connector install; schemas & signals; API keys; stays off the critical path
+5. Who it’s for — teams on supported connectors who want a live map of their API
+6. Soft-launch honesty — early product; endpoint limits may apply; pricing only from live catalog
 7. Footer — Privacy, Terms, Docs, contact
 
 ### How it works / Get started / Privacy
@@ -130,17 +134,18 @@ Customers configure `API_SENSOR_AGENT_URL` + `API_SENSOR_KEY`; install middlewar
 
 ---
 
-## Deferred
+## Deferred (site) vs tracked in GTM plan
 
-- Full paid **checkout UX polish** / invoice PDFs (Stripe portal covers manage for now)
-- Blog, changelog factory, SEO content mill
-- Competitor matrices or “like X” positioning
-- Case studies, ROI calculators, enterprise RFP packs
-- Multi-language connector marketing (Express-first)
+Still **out of scope for casual site edits** (see [MARKETING_PLAN.md](./MARKETING_PLAN.md) for when/how):
+
+- Blog / SEO content mill (selective changelog + 1 category page OK via **M6**)
+- Named competitor matrices
+- Case studies / ROI calculators without real proof
 - Protect-mode / blocking messaging ([PROTECT_MODE.md](./PROTECT_MODE.md) — not v1)
-- Marketing analytics suite, A/B hero tests
 - In-app marketing routes inside the dashboard SPA
 - Waitlist CRM (open signup is locked)
+
+**Now planned in GTM streams:** analytics (**M1**), site connector truth + SEO hygiene (**M2**), campaign LPs (**M3**), Google/LinkedIn packages (**M4/M5**), creative kit (**M7**), lifecycle email (**M8**).
 
 ---
 
@@ -222,6 +227,9 @@ Nick’s bar: **names with meaning** (e.g. Traceable = follow the trail; Contras
 
 1. ~~Lock product name~~ → **API Glimpse** / **apiglimpse.com**
 2. ~~Marketing + docs static apps~~ → `marketing/`, `docs-site/` (Nick deploys on Render)
-3. Trademark / social handle check still wise (adjacent AppSec brands).
-4. Publish npm (`@apiglimpse/*`) so install CTAs are honest.
-5. Wire custom domains (`apiglimpse.com` / `docs` / `app` / `collect` / `api`) when ready — DNS purchase done; deploy/DNS config is ops.
+3. ~~Custom domains~~ → wired (`apiglimpse.com` / `docs` / `app` / `collect` / `api`)
+4. Trademark / social handle check still wise (adjacent AppSec brands).
+5. Publish connectors so install CTAs stay honest ([NPM_PUBLISH.md](./NPM_PUBLISH.md), [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md)).
+6. Execute GTM plan: [MARKETING_PLAN.md](./MARKETING_PLAN.md) (review checklist + agents **M1–M8**).
+7. Clear product readiness gate: [MARKETING_READY.md](./MARKETING_READY.md) (**R1–R6** + Nick publish/Resend).
+8. Protect epic stays future: [PROTECT_MODE.md](./PROTECT_MODE.md) (**PM0–PM4**) — do not advertise blocking early.

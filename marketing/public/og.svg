@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="API Glimpse">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef3f0"/>
+      <stop offset="55%" stop-color="#d7e6df"/>
+      <stop offset="100%" stop-color="#b7cfc4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="120" r="180" fill="#2f6f5e" opacity="0.12"/>
+  <circle cx="1080" cy="480" r="220" fill="#1f4f43" opacity="0.1"/>
+  <text x="72" y="280" font-family="Georgia, 'Times New Roman', serif" font-size="92" font-weight="700" fill="#14241f">API Glimpse</text>
+  <text x="72" y="360" font-family="Helvetica, Arial, sans-serif" font-size="36" fill="#3a524a">See what your API actually serves</text>
+  <text x="72" y="420" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#5c7269">Endpoints, schemas, and field types from real traffic</text>
+</svg>

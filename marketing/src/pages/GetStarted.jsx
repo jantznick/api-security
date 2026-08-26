@@ -6,19 +6,19 @@ const steps = [
   {
     n: '01',
     title: 'Create an account',
-    body: 'Sign up, create a project, and create an API key. The key is shown once when you create it — copy it then.',
+    body: 'Sign up, create a project/service, and create an API key. The key is shown once when you create it — copy it then.',
     cta: { auth: 'register', label: 'Sign up →' },
   },
   {
     n: '02',
     title: 'Add a connector',
-    body: 'Install a connector for your stack (example: Express), set your API key and API Glimpse URL, and mount it. Details are in the docs.',
+    body: 'Install a connector for Express, Fastify, FastAPI, or Go (chi). Set your API key and API Glimpse URL, then mount it. Details are in the docs.',
     cta: { href: integratingDocsUrl, label: 'Install guide →' },
   },
   {
     n: '03',
     title: 'Open the dashboard',
-    body: 'Hit a few of your routes, then open your project. You should see endpoints and schemas within a few seconds.',
+    body: 'Hit a few of your routes, then open your service inventory. You should see endpoints and schemas within a few seconds.',
   },
 ];
 
@@ -33,7 +33,7 @@ export default function GetStarted() {
       </h1>
       <p className="anim-rise-delay-2 mt-5 text-lg leading-relaxed text-muted">
         Sign up, add a connector, then open the dashboard. Full install steps
-        are in the docs — Express is the worked example today.
+        for Express, Fastify, FastAPI, and Go are in the docs.
       </p>
 
       <ol className="mt-16 space-y-12">
@@ -72,9 +72,9 @@ export default function GetStarted() {
           Need install details?
         </h2>
         <p className="mt-2.5 text-[0.975rem] leading-relaxed text-muted">
-          The Connect your app guide covers the Express connector, package
-          name, env vars, and how to check that endpoints show up in your
-          project.
+          The Connect your app guide covers Express, Fastify, FastAPI, and Go —
+          package names, env vars, and how to check that endpoints show up in
+          your service inventory.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href={integratingDocsUrl} className="btn btn-primary">
