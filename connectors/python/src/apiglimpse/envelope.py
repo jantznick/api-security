@@ -36,6 +36,7 @@ def create_sample(
     request_body: Any = ...,
     response_body: Any = ...,
     response_body_captured: bool | None = None,
+    caller: dict[str, Any] | None = None,
     auth_observed: str = "none",
     timestamp: str | None = None,
 ) -> dict[str, Any]:
@@ -69,6 +70,8 @@ def create_sample(
     }
     if response_body_captured is not None:
         sample["responseBodyCaptured"] = bool(response_body_captured)
+    if caller:
+        sample["caller"] = caller
     return sample
 
 

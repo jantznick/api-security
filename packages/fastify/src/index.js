@@ -1,4 +1,4 @@
-import { createEnvelope, createSample } from '@apiglimpse/shared';
+import { createEnvelope, createSample, resolveCallerHints } from '@apiglimpse/shared';
 
 const DEFAULTS = {
   agentUrl: 'http://localhost:8080',
@@ -10,6 +10,7 @@ const DEFAULTS = {
   requestTimeoutMs: 2000,
   circuitFailureThreshold: 3,
   circuitOpenMs: 15000,
+  serviceName: process.env.API_SENSOR_SERVICE_NAME || '',
 };
 
 /** Max bytes we will attempt to parse from onSend string/Buffer payloads. */
@@ -47,6 +48,7 @@ export function apiSensor(options = {}) {
       process.env.API_SENSOR_SAMPLE_RATE != null
         ? Number(process.env.API_SENSOR_SAMPLE_RATE)
         : DEFAULTS.sampleRate,
+    serviceName: process.env.API_SENSOR_SERVICE_NAME || DEFAULTS.serviceName,
     ...options,
   };
 
@@ -222,6 +224,10 @@ export function apiSensor(options = {}) {
           requestBody,
           responseBody,
           responseBodyCaptured,
+          caller: resolveCallerHints({
+            headers: request.headers || {},
+            serviceName: cfg.serviceName || null,
+          }),
           authObserved: observeAuth(request),
         });
         buffer.push(sample);

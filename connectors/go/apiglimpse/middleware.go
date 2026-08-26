@@ -18,6 +18,8 @@ import (
 type Config struct {
 	AgentURL  string
 	APIKey    string
+	// ServiceName labels this app as a topology caller (API_SENSOR_SERVICE_NAME).
+	ServiceName string
 	// SampleRate is 0–1. nil means default 1.0 (sample everything).
 	SampleRate *float64
 	FlushInterval           time.Duration
@@ -38,6 +40,9 @@ func ConfigFromEnv() Config {
 	}
 	if v := os.Getenv("API_SENSOR_KEY"); v != "" {
 		cfg.APIKey = v
+	}
+	if v := os.Getenv("API_SENSOR_SERVICE_NAME"); v != "" {
+		cfg.ServiceName = v
 	}
 	if v := os.Getenv("API_SENSOR_SAMPLE_RATE"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -130,6 +135,9 @@ func mergeConfig(base, over Config) Config {
 	}
 	if over.APIKey != "" {
 		base.APIKey = over.APIKey
+	}
+	if over.ServiceName != "" {
+		base.ServiceName = over.ServiceName
 	}
 	if over.SampleRate != nil {
 		base.SampleRate = over.SampleRate
@@ -233,6 +241,7 @@ func (s *sensor) enqueue(r *http.Request, rw *captureWriter, reqBody []byte, sta
 		HasRequestBody:       hasReq,
 		HasResponseBody:      hasRes,
 		ResponseBodyCaptured: &captured,
+		Caller:               ResolveCaller(reqHeaders, s.cfg.ServiceName),
 		AuthObserved:         ObserveAuth(reqHeaders),
 	})
 	s.buffer = append(s.buffer, sample)

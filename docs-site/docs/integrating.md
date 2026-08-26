@@ -57,6 +57,8 @@ npm install @apiglimpse/middleware
 API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
 API_SENSOR_KEY=ask_YOUR_PROJECT_KEY_HERE
 API_SENSOR_SAMPLE_RATE=1
+# Optional but recommended — labels this app in caller topology:
+API_SENSOR_SERVICE_NAME=my-service
 ```
 
 ### Wire the middleware
