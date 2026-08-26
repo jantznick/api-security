@@ -1,6 +1,6 @@
 # Protect mode — product roadmap
 
-**v0 / soft-launch is observe-only.** Nothing in the connectors blocks or rewrites responses today.
+**v0 / soft-launch is observe-only.** Nothing in the connectors blocks or rewrites responses today **unless** the customer opts into `protect.enabled` (see Status).
 
 **North star:** API Glimpse becomes a **traffic-based API security platform**: same connectors that discover the live surface can optionally **enforce local policy** (block / allow) when the customer turns protect on—without a per-request round trip to the control plane.
 
@@ -44,14 +44,13 @@ observe  →  inventory  →  risk signals  →  shadow protect  →  block (opt
 app.use(apiSensor({
   agentUrl,
   apiKey,
-  // Future:
-  // protect: {
-  //   enabled: false,
-  //   mode: 'observe' | 'shadow' | 'block',
-  //   policyUrl: '...',       // periodic pull (or via agent)
-  //   failMode: 'open',       // default — never 'closed' as product default
-  //   onDeny: (ctx) => res.status(403).json({ error: 'blocked' }),
-  // },
+  protect: {
+    enabled: false,           // opt-in
+    mode: 'observe',          // 'observe' | 'shadow' | 'block'
+    policyUrl: '...',         // periodic pull (or inline `policy`)
+    failMode: 'open',         // default — never 'closed' as product default
+    // onDeny: (ctx) => res.status(403).json({ error: 'blocked' }),
+  },
 }))
 ```
 
@@ -59,11 +58,11 @@ Before `next()` (or language equivalent):
 
 1. Load policy snapshot from memory (refreshed every N seconds from control plane or agent).
 2. Match `(method, pathTemplate)` + optional schema/signal rules.
-3. If `mode === 'shadow'` and rule matches → allow, attach `wouldBlock: true` on the sample.
+3. If `mode === 'observe'|'shadow'` and rule matches → allow, attach `wouldBlock: true` on the sample.
 4. If `mode === 'block'` and rule matches → deny; still enqueue sample with `blocked: true` asynchronously.
 5. Else continue; always keep discovery async.
 
-Same shape for Fastify, FastAPI, Go chi — shared policy JSON, language-local evaluators.
+Same shape for Fastify, FastAPI, Go chi — shared policy JSON, language-local evaluators. **Express ships first** (see Status).
 
 ### Policy cache shape (sketch)
 
@@ -80,6 +79,8 @@ Same shape for Fastify, FastAPI, Go chi — shared policy JSON, language-local e
   ]
 }
 ```
+
+Control-plane stub: `GET /api/services/:serviceId/protect/policy` returns versioned rules derived from **policy suggestions** (sensitive + unauth endpoints). Customers must still enable `protect` in middleware; nothing is enforced from the dashboard alone.
 
 ### Optional Wallarm / OpenAPI path (parallel, later)
 
@@ -133,7 +134,40 @@ Discovery path must remain unchanged: samples still aggregate → ingest → inv
 | --- | --- |
 | Observe / inventory / signals | Shipped |
 | OpenAPI export (edge feed input) | Shipped |
-| Policy schema / shadow / block | **Not implemented** — roadmap above |
+| **PM0** policy hooks + `wouldBlock` / `blocked` sample fields | **Shipped (Express)** — `@apiglimpse/middleware` `protect` option; shared envelope tags |
+| **PM1** policy suggestions (detect-only checklist) | **Shipped** — `GET /api/services/:serviceId/policy-suggestions` + inventory UI section |
+| **PM1** observe / shadow in Express | **Shipped** — local match + would-block counters; stub/periodic `policyUrl` fetch; fail-open |
+| **PM2** opt-in `mode: 'block'` in Express | **Shipped (library)** — fail-open default; deny via 403 or `onDeny`; **not** marketed; no dashboard toggle yet |
+| Dashboard deny / would-block metrics | Not shipped |
+| Fastify / FastAPI / Go protect evaluators | Not shipped |
 | Marketing claims for protect | **Forbidden** until Nick unlocks after PM1/PM2 |
 
-Related: [DECISIONS.md](./DECISIONS.md) · [PRODUCTIZATION.md](./PRODUCTIZATION.md) · [MARKETING_PLAN.md](./MARKETING_PLAN.md) · [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)
+### How to try observe mode (Express)
+
+```js
+import { apiSensor } from '@apiglimpse/middleware';
+
+app.use(apiSensor({
+  agentUrl: process.env.API_SENSOR_AGENT_URL,
+  apiKey: process.env.API_SENSOR_KEY,
+  protect: {
+    enabled: true,
+    mode: 'observe', // count would-block; never deny
+    failMode: 'open',
+    // Inline for local experiments, or policyUrl pointing at control plane:
+    policy: {
+      version: 1,
+      rules: [
+        {
+          id: 'deny-unauth-admin',
+          match: { pathTemplate: '/admin/**', authModes: ['none'] },
+          action: 'deny',
+        },
+      ],
+    },
+    // policyUrl: 'https://api.example/api/services/<id>/protect/policy',
+  },
+}));
+```
+
+Related: [DECISIONS.md](./DECISIONS.md) · [PRODUCTIZATION.md](./PRODUCTIZATION.md) · [MARKETING_PLAN.md](./MARKETING_PLAN.md) · [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md) · [INTEGRATIONS_WEBHOOKS.md](./INTEGRATIONS_WEBHOOKS.md) · [SALES_FEATURES_PLAN.md](./SALES_FEATURES_PLAN.md)

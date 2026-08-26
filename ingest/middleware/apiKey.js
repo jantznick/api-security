@@ -24,7 +24,21 @@ export async function requireApiKey(req, res, next) {
     const keyHash = hashApiKey(raw);
     const apiKey = await prisma.apiKey.findUnique({
       where: { keyHash },
-      include: { service: true },
+      include: {
+        service: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                organizationId: true,
+                webhookUrl: true,
+                slackWebhookUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!apiKey || apiKey.revokedAt) {

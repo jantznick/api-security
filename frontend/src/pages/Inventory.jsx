@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { billingAPI, inventoryAPI, projectsAPI } from '../api/api';
+import { billingAPI, integrationsAPI, inventoryAPI, projectsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -58,18 +58,25 @@ export default function Inventory() {
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionSummary, setSuggestionSummary] = useState(null);
 
   const basePath = `/projects/${projectId}/services/${serviceId}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e] = await Promise.all([
+      const [p, e, pol] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
+        integrationsAPI.policySuggestions(serviceId).catch(() => null),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
+      if (pol) {
+        setSuggestions(pol.suggestions || []);
+        setSuggestionSummary(pol.summary || null);
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -197,6 +204,43 @@ export default function Inventory() {
             Manage keys →
           </Link>
         </div>
+      ) : null}
+
+      {suggestionSummary && suggestionSummary.total > 0 ? (
+        <section className="mt-8" aria-labelledby="policy-suggestions-heading">
+          <h2
+            id="policy-suggestions-heading"
+            className="font-display text-lg font-semibold text-ink-900"
+          >
+            Policy suggestions
+          </h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Detect-only checklist for sensitive endpoints with no auth observed. Nothing is
+            blocked until you enable Protect observe/block in middleware.
+          </p>
+          <ul className="mt-4 space-y-4">
+            {suggestions.map((s) => (
+              <li key={s.id} className="border-b border-ink-100 pb-4 last:border-0">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs ${severityClass(s.priority === 'high' ? 'high' : 'medium')}`}
+                  >
+                    {s.priority}
+                  </span>
+                  <code className="font-mono text-sm font-semibold text-ink-900">
+                    {s.endpoint.method} {s.endpoint.pathTemplate}
+                  </code>
+                </div>
+                <p className="mt-1 text-sm text-ink-600">{s.reason}</p>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink-700">
+                  {(s.checklist || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <Card className="mt-8 overflow-hidden">

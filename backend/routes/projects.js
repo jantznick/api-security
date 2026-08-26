@@ -39,6 +39,8 @@ function serializeService(service) {
     projectName: service.project?.name,
     organizationId: service.project?.organizationId ?? service.project?.organization?.id,
     endpointLimit: service.endpointLimit,
+    webhookUrl: service.webhookUrl ?? null,
+    slackWebhookUrl: service.slackWebhookUrl ?? null,
     createdAt: service.createdAt,
     updatedAt: service.updatedAt,
     apiKeys: service.apiKeys,

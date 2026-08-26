@@ -33,6 +33,7 @@
     "directory": "packages/middleware"
   },
   "scripts": {
+    "test": "node --test test/**/*.test.js",
     "publish:npm": "node ./scripts/publish.mjs"
   },
   "dependencies": {

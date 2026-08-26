@@ -198,6 +198,10 @@ model Project {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
+  /// Optional outbound webhook URL (Zapier/Make). Service-level overrides this.
+  webhookUrl      String?
+  /// Optional Slack incoming webhook URL. Service-level overrides this.
+  slackWebhookUrl String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   services       Service[]
@@ -213,6 +217,10 @@ model Service {
   name          String
   /// Cap on *new* endpoints for this service. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
   endpointLimit Int?
+  /// Outbound webhook for high-severity signals (Zapier/Make). Overrides project webhookUrl.
+  webhookUrl      String?
+  /// Slack incoming webhook. Overrides project slackWebhookUrl.
+  slackWebhookUrl String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   apiKeys       ApiKey[]

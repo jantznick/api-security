@@ -15,6 +15,9 @@ export function createSample({
   responseBody,
   authObserved = 'none',
   timestamp = new Date().toISOString(),
+  /** SF7 protect — reserved sample fields (observe/block) */
+  wouldBlock = false,
+  blocked = false,
 }) {
   const reqCt =
     requestHeaders['content-type'] ||
@@ -25,7 +28,7 @@ export function createSample({
     responseHeaders['Content-Type'] ||
     null;
 
-  return {
+  const sample = {
     method: String(method || 'GET').toUpperCase(),
     path: String(path || '/'),
     statusCode: Number(statusCode) || 0,
@@ -45,6 +48,10 @@ export function createSample({
       bodyShape: responseBody !== undefined ? shapeBody(responseBody) : null,
     },
   };
+
+  if (wouldBlock) sample.wouldBlock = true;
+  if (blocked) sample.blocked = true;
+  return sample;
 }
 
 export function createEnvelope({ apiKey, samples }) {

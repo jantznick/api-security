@@ -24,9 +24,25 @@ app.use(
     agentUrl: process.env.API_SENSOR_AGENT_URL || 'https://collect.apiglimpse.com',
     apiKey: process.env.API_SENSOR_KEY,
     sampleRate: Number(process.env.API_SENSOR_SAMPLE_RATE || 1),
+    // Optional SF7 protect (opt-in; fail-open). See docs/PROTECT_MODE.md
+    // protect: { enabled: true, mode: 'observe', policyUrl: '...' },
   }),
 );
 ```
+
+### Protect (optional)
+
+```js
+protect: {
+  enabled: true,
+  mode: 'observe', // or 'block' — never fail-closed by default
+  failMode: 'open',
+  policy: { version: 1, rules: [/* deny rules */] },
+  // policyUrl: 'https://.../api/services/<id>/protect/policy',
+}
+```
+
+In `observe` mode, matching requests are allowed and samples may include `wouldBlock: true`. In `block` mode, matching requests get 403 (or `onDeny`) while discovery still samples asynchronously.
 
 Environment:
 
@@ -36,6 +52,7 @@ API_SENSOR_KEY=ask_...
 ```
 
 Full customer guide: [docs/INTEGRATING.md](../../docs/INTEGRATING.md) · public docs: [docs.apiglimpse.com](https://docs.apiglimpse.com).
+Protect roadmap: [docs/PROTECT_MODE.md](../../docs/PROTECT_MODE.md).
 
 ## Dependency note
 

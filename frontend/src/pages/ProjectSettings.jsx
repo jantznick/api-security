@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { projectsAPI } from '../api/api';
+import { projectsAPI, integrationsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -32,14 +32,30 @@ export default function ProjectSettings() {
   const [rawKey, setRawKey] = useState(null);
   const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
   const [installStack, setInstallStack] = useState('express');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState('');
+  const [savingIntegrations, setSavingIntegrations] = useState(false);
+  const [testingChannel, setTestingChannel] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const data = await projectsAPI.getService(projectId, serviceId);
-        if (!cancelled) setService(data.service);
+        const [data, integ] = await Promise.all([
+          projectsAPI.getService(projectId, serviceId),
+          integrationsAPI.get(serviceId).catch(() => null),
+        ]);
+        if (!cancelled) {
+          setService(data.service);
+          if (integ?.integrations) {
+            setWebhookUrl(integ.integrations.webhookUrl || '');
+            setSlackWebhookUrl(integ.integrations.slackWebhookUrl || '');
+          } else {
+            setWebhookUrl(data.service?.webhookUrl || '');
+            setSlackWebhookUrl(data.service?.slackWebhookUrl || '');
+          }
+        }
       } catch (err) {
         toast.error(err.message);
       } finally {
@@ -147,6 +163,41 @@ export default function ProjectSettings() {
       toast.success(`${label} copied`);
     } catch {
       toast.error('Could not copy');
+    }
+  };
+
+  const handleSaveIntegrations = async (event) => {
+    event.preventDefault();
+    setSavingIntegrations(true);
+    try {
+      const data = await integrationsAPI.update(serviceId, {
+        webhookUrl,
+        slackWebhookUrl,
+      });
+      setWebhookUrl(data.integrations.webhookUrl || '');
+      setSlackWebhookUrl(data.integrations.slackWebhookUrl || '');
+      toast.success('Integrations saved');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingIntegrations(false);
+    }
+  };
+
+  const handleTestIntegration = async (channel) => {
+    setTestingChannel(channel);
+    try {
+      if (channel === 'slack') {
+        await integrationsAPI.testSlack(serviceId);
+        toast.success('Slack test sent');
+      } else {
+        await integrationsAPI.testWebhook(serviceId);
+        toast.success('Webhook test sent');
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setTestingChannel(null);
     }
   };
 
@@ -417,6 +468,67 @@ export default function ProjectSettings() {
           </table>
         </Card>
       ) : null}
+
+      <Card className="mt-8 p-6">
+        <h2 className="font-display text-lg font-semibold text-ink-900">Workflow integrations</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          Outbound webhook (Zapier/Make) and Slack incoming webhook. Fired when a new
+          high/critical severity signal is discovered, or when you send a test.
+        </p>
+        <form onSubmit={handleSaveIntegrations} className="mt-4 space-y-4">
+          <FormField
+            id="webhook-url"
+            label="Outbound webhook URL"
+            hint="POST JSON — see docs/INTEGRATIONS_WEBHOOKS.md"
+          >
+            <input
+              id="webhook-url"
+              type="url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className={inputClassName}
+              placeholder="https://hooks.zapier.com/..."
+              autoComplete="off"
+            />
+          </FormField>
+          <FormField
+            id="slack-webhook-url"
+            label="Slack incoming webhook URL"
+            hint="Native Slack Incoming Webhooks only (no OAuth yet)"
+          >
+            <input
+              id="slack-webhook-url"
+              type="url"
+              value={slackWebhookUrl}
+              onChange={(e) => setSlackWebhookUrl(e.target.value)}
+              className={inputClassName}
+              placeholder="https://hooks.slack.com/services/..."
+              autoComplete="off"
+            />
+          </FormField>
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" disabled={savingIntegrations || loading}>
+              {savingIntegrations ? 'Saving…' : 'Save integrations'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={testingChannel !== null || !webhookUrl}
+              onClick={() => handleTestIntegration('webhook')}
+            >
+              {testingChannel === 'webhook' ? 'Sending…' : 'Test webhook'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={testingChannel !== null || !slackWebhookUrl}
+              onClick={() => handleTestIntegration('slack')}
+            >
+              {testingChannel === 'slack' ? 'Sending…' : 'Test Slack'}
+            </Button>
+          </div>
+        </form>
+      </Card>
     </AppLayout>
   );
 }

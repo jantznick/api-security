@@ -1,4 +1,5 @@
 import { createEnvelope, createSample } from '@apiglimpse/shared';
+import { createProtectController } from './protect.js';
 
 const DEFAULTS = {
   agentUrl: 'http://localhost:8080',
@@ -10,6 +11,11 @@ const DEFAULTS = {
   requestTimeoutMs: 2000,
   circuitFailureThreshold: 3,
   circuitOpenMs: 15000,
+  /**
+   * Protect (SF7) — opt-in. Default disabled / observe-friendly.
+   * @type {{ enabled?: boolean, mode?: 'observe'|'block'|'shadow', policyUrl?: string, failMode?: 'open'|'closed', refreshIntervalMs?: number, policy?: object, onDeny?: Function } | undefined}
+   */
+  protect: undefined,
 };
 
 /**
@@ -19,10 +25,15 @@ const DEFAULTS = {
  * Never awaits the collector on the request path. Errors are swallowed
  * so sampling stays off the critical path.
  *
+ * Optional `protect` (SF7): local policy evaluate before next().
+ * - mode 'observe'|'shadow': allow, count would-block, tag sample
+ * - mode 'block': deny matching requests; fail-open by default
+ *
  * @param {object} options
  * @param {string} [options.agentUrl]
  * @param {string} [options.apiKey]
  * @param {number} [options.sampleRate] 0–1
+ * @param {object} [options.protect]
  */
 export function apiSensor(options = {}) {
   const cfg = { ...DEFAULTS, ...options };
@@ -30,6 +41,11 @@ export function apiSensor(options = {}) {
   let flushing = false;
   let consecutiveFailures = 0;
   let circuitOpenUntil = 0;
+
+  const protect =
+    cfg.protect && typeof cfg.protect === 'object'
+      ? createProtectController(cfg.protect)
+      : null;
 
   function shouldSample() {
     if (cfg.sampleRate >= 1) return true;
@@ -107,14 +123,83 @@ export function apiSensor(options = {}) {
   }, cfg.flushIntervalMs);
   if (typeof interval.unref === 'function') interval.unref();
 
-  return function apiSensorMiddleware(req, res, next) {
+  function enqueueSample(req, res, start, responseBody, protectResult) {
     try {
-      if (!shouldSample()) {
+      if (!shouldSample() && !protectResult?.wouldBlock && !protectResult?.blocked) {
+        return;
+      }
+      if (buffer.length >= cfg.maxBufferSize) {
+        buffer.shift();
+      }
+
+      const sample = createSample({
+        method: req.method,
+        path: req.originalUrl?.split('?')[0] || req.path || '/',
+        statusCode: res.statusCode,
+        latencyMs: Date.now() - start,
+        requestHeaders: req.headers || {},
+        responseHeaders: res.getHeaders?.() || {},
+        requestBody: req.body && typeof req.body === 'object' ? req.body : undefined,
+        responseBody,
+        authObserved: observeAuth(req),
+        wouldBlock: Boolean(protectResult?.wouldBlock),
+        blocked: Boolean(protectResult?.blocked),
+      });
+      buffer.push(sample);
+
+      if (buffer.length >= cfg.maxBatchSize) {
+        flush().catch(() => {});
+      }
+    } catch {
+      /* fail-open */
+    }
+  }
+
+  function apiSensorMiddleware(req, res, next) {
+    const start = Date.now();
+    const authObserved = observeAuth(req);
+    let protectResult = { allow: true, wouldBlock: false, blocked: false, rule: null };
+
+    try {
+      if (protect) {
+        protectResult = protect.decide({
+          method: req.method,
+          path: req.originalUrl?.split('?')[0] || req.path || '/',
+          authObserved,
+          req,
+          res,
+        });
+      }
+    } catch {
+      protectResult = { allow: true, wouldBlock: false, blocked: false, rule: null };
+    }
+
+    if (!protectResult.allow) {
+      try {
+        const onDeny = cfg.protect?.onDeny;
+        if (typeof onDeny === 'function') {
+          onDeny({ req, res, rule: protectResult.rule });
+        } else if (!res.headersSent) {
+          res.status(403).json({ error: 'blocked', ruleId: protectResult.rule?.id || null });
+        }
+        // Still record a sample asynchronously (discovery stays async)
+        setImmediate(() => {
+          enqueueSample(req, res, start, undefined, protectResult);
+        });
+      } catch {
+        /* fail-open path if deny handler throws — allow through */
+        next();
+        return;
+      }
+      return;
+    }
+
+    try {
+      if (!shouldSample() && !protectResult.wouldBlock) {
         next();
         return;
       }
 
-      const start = Date.now();
       const originalJson = res.json.bind(res);
       const originalSend = res.send.bind(res);
       let responseBody;
@@ -145,41 +230,24 @@ export function apiSensor(options = {}) {
         return originalSend(body);
       };
 
-      // Capture request body if express.json already parsed it
-      const requestBody = req.body && typeof req.body === 'object' ? req.body : undefined;
-
       res.on('finish', () => {
-        try {
-          if (buffer.length >= cfg.maxBufferSize) {
-            buffer.shift();
-          }
-
-          const sample = createSample({
-            method: req.method,
-            path: req.originalUrl?.split('?')[0] || req.path || '/',
-            statusCode: res.statusCode,
-            latencyMs: Date.now() - start,
-            requestHeaders: req.headers || {},
-            responseHeaders: res.getHeaders?.() || {},
-            requestBody,
-            responseBody,
-            authObserved: observeAuth(req),
-          });
-          buffer.push(sample);
-
-          if (buffer.length >= cfg.maxBatchSize) {
-            flush().catch(() => {});
-          }
-        } catch {
-          /* fail-open: never break the app */
-        }
+        enqueueSample(req, res, start, responseBody, protectResult);
       });
     } catch {
       /* fail-open */
     }
 
     next();
-  };
+  }
+
+  /** Test / ops hook */
+  apiSensorMiddleware.getProtectStats = protect ? () => protect.getStats() : () => null;
+  apiSensorMiddleware.refreshProtectPolicy = protect
+    ? () => protect.refreshPolicy()
+    : async () => {};
+
+  return apiSensorMiddleware;
 }
 
+export { createProtectController, evaluatePolicy, matchPathTemplate, ruleMatches } from './protect.js';
 export default apiSensor;

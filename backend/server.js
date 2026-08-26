@@ -15,6 +15,8 @@ import billingRoutes, { stripeWebhookHandler } from './routes/billing.js';
 import usageRoutes from './routes/usage.js';
 import orgRoutes from './routes/orgs.js';
 import inviteRoutes from './routes/invites.js';
+import serviceIntegrationsRoutes from './routes/serviceIntegrations.js';
+import nestedServiceIntegrationsRoutes from './routes/nestedServiceIntegrations.js';
 import { ensureDefaultPlans } from './lib/plans.js';
 
 const app = express();
@@ -105,7 +107,12 @@ app.use(
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use(
+  '/api/projects/:projectId/services/:serviceId',
+  nestedServiceIntegrationsRoutes,
+);
 app.use('/api/services', serviceRoutes);
+app.use('/api/services/:serviceId', serviceIntegrationsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/billing', billingRoutes);

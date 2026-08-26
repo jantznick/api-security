@@ -113,6 +113,24 @@ export const inventoryAPI = {
 };
 
 /**
+ * SF6 integrations + SF7 policy suggestions (service-scoped).
+ */
+export const integrationsAPI = {
+  get: (serviceId) => request(`/services/${serviceId}/integrations`),
+  update: (serviceId, body) =>
+    request(`/services/${serviceId}/integrations`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  testWebhook: (serviceId) =>
+    request(`/services/${serviceId}/integrations/webhook/test`, { method: 'POST' }),
+  testSlack: (serviceId) =>
+    request(`/services/${serviceId}/integrations/slack/test`, { method: 'POST' }),
+  policySuggestions: (serviceId) =>
+    request(`/services/${serviceId}/policy-suggestions`),
+};
+
+/**
  * Billing contract (W3/W4) — resilient if routes are not mounted yet.
  * GET  /billing/me       → plan, usage, checkout/portal availability
  * GET  /billing/plans    → public catalog (Plan rows)

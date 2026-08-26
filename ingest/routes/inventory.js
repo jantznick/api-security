@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { requireApiKey } from '../middleware/apiKey.js';
+import { isHighSeverity, notifyHighSeveritySignal } from '../lib/webhooks.js';
 
 const router = express.Router();
 
@@ -139,7 +140,19 @@ router.post('/upsert', async (req, res) => {
         const category = String(signal.category || 'unknown');
         if (!fieldPath) continue;
 
-        await prisma.signal.upsert({
+        const severity = String(signal.severity || 'info');
+        const existingSignal = await prisma.signal.findUnique({
+          where: {
+            endpointId_type_fieldPath_category: {
+              endpointId: endpoint.id,
+              type,
+              fieldPath,
+              category,
+            },
+          },
+        });
+
+        const upsertedSignal = await prisma.signal.upsert({
           where: {
             endpointId_type_fieldPath_category: {
               endpointId: endpoint.id,
@@ -153,16 +166,32 @@ router.post('/upsert', async (req, res) => {
             type,
             fieldPath,
             category,
-            severity: String(signal.severity || 'info'),
+            severity,
             lastSeenAt,
             metadata: signal.metadata ?? undefined,
           },
           update: {
-            severity: String(signal.severity || 'info'),
+            severity,
             lastSeenAt,
             metadata: signal.metadata ?? undefined,
           },
         });
+
+        // SF6: fire outbound webhook / Slack on *new* high/critical signals only.
+        if (!existingSignal && isHighSeverity(severity)) {
+          notifyHighSeveritySignal({
+            service,
+            project: service.project || null,
+            endpoint: {
+              id: endpoint.id,
+              method: endpoint.method,
+              pathTemplate: endpoint.pathTemplate,
+            },
+            signal: upsertedSignal,
+          }).catch((err) => {
+            console.warn('High-severity webhook notify failed:', err?.message || err);
+          });
+        }
       }
 
       upserted += 1;

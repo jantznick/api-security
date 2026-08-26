@@ -221,6 +221,22 @@ Point demo `API_SENSOR_AGENT_URL=http://localhost:8080` and `API_SENSOR_KEY=ask_
 | Agent can't reach ingest from Docker | `INGEST_URL=http://host.docker.internal:3002` + `extra_hosts` in compose |
 | Magic link email | Dev logs tokens to backend console when Resend unset |
 
+## SF6 / SF7 smoke checks
+
+```bash
+# Unit tests (no DB)
+cd backend && npm test
+cd packages/middleware && npm install && npm test
+
+# After migrate + login session cookie:
+# GET  /api/services/:serviceId/policy-suggestions
+# PATCH /api/services/:serviceId/integrations  { "webhookUrl": "https://...", "slackWebhookUrl": "https://..." }
+# POST /api/services/:serviceId/integrations/webhook/test
+# POST /api/services/:serviceId/integrations/slack/test
+```
+
+Webhook payload docs: [INTEGRATIONS_WEBHOOKS.md](./INTEGRATIONS_WEBHOOKS.md). Protect status: [PROTECT_MODE.md](./PROTECT_MODE.md).
+
 ## Done criteria checklist
 
 - [ ] Register / login / magic link works
