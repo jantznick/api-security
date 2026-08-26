@@ -4,16 +4,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 PORT="${PORT:-18080}"
 
-node "$ROOT/mock-collector/server.js" &
+PORT="$PORT" node "$ROOT/mock-collector/server.js" &
 PID=$!
 cleanup() { kill "$PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
-for i in $(seq 1 30); do
+for i in $(seq 1 50); do
   if curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null; then
     break
   fi
   sleep 0.1
+  if [[ "$i" -eq 50 ]]; then
+    echo "mock collector did not become ready on :${PORT}" >&2
+    exit 1
+  fi
 done
 
 curl -sf -X POST "http://127.0.0.1:${PORT}/_reset" >/dev/null
