@@ -8,7 +8,7 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
-import { integratingDocsUrl } from '../lib/urls';
+import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 export default function ProjectSettings() {
   const { projectId } = useParams();
@@ -16,6 +16,7 @@ export default function ProjectSettings() {
   const [loading, setLoading] = useState(true);
   const [keyName, setKeyName] = useState('default');
   const [creating, setCreating] = useState(false);
+  const [revokingId, setRevokingId] = useState(null);
   const [rawKey, setRawKey] = useState(null);
 
   useEffect(() => {
@@ -62,15 +63,47 @@ export default function ProjectSettings() {
     }
   };
 
-  const copyKey = async () => {
-    if (!rawKey) return;
+  const handleRevoke = async (keyId) => {
+    if (!window.confirm('Revoke this API key? Middleware using it will stop reporting.')) {
+      return;
+    }
+    setRevokingId(keyId);
     try {
-      await navigator.clipboard.writeText(rawKey);
-      toast.success('API key copied');
+      await projectsAPI.revokeApiKey(projectId, keyId);
+      toast.success('API key revoked');
+      await reload();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const copyText = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
     } catch {
       toast.error('Could not copy');
     }
   };
+
+  const installSnippet = `# .env
+API_SENSOR_AGENT_URL=${COLLECT_URL}
+API_SENSOR_KEY=${rawKey || 'ask_your_key_here'}
+
+# app.js
+import express from 'express';
+import apiSensor from '@apiglimpse/middleware';
+
+const app = express();
+app.use(apiSensor({
+  agentUrl: process.env.API_SENSOR_AGENT_URL,
+  apiKey: process.env.API_SENSOR_KEY,
+}));`;
+
+  const activeKeys = (project?.apiKeys || []).filter((k) => !k.revokedAt);
+  const revokedKeys = (project?.apiKeys || []).filter((k) => k.revokedAt);
 
   return (
     <AppLayout>
@@ -91,7 +124,7 @@ export default function ProjectSettings() {
         title="Project settings"
         description={
           project
-            ? `API keys for ${project.name}. New keys are shown once.`
+            ? `API keys and install for ${project.name}. New keys are shown once.`
             : 'API keys for this project.'
         }
       />
@@ -107,7 +140,7 @@ export default function ProjectSettings() {
               type="button"
               variant="secondary"
               className="min-h-9 px-3 py-1.5 text-sm"
-              onClick={copyKey}
+              onClick={() => copyText(rawKey, 'API key')}
             >
               Copy key
             </Button>
@@ -135,6 +168,41 @@ export default function ProjectSettings() {
       ) : null}
 
       <Card className="mt-8 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-ink-900">Install</h2>
+            <p className="mt-1 text-sm text-ink-500">
+              Point middleware at the hosted collector. Replace the key after you create one.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-9 px-3 py-1.5 text-sm"
+            onClick={() => copyText(installSnippet, 'Install snippet')}
+          >
+            Copy snippet
+          </Button>
+        </div>
+        <pre className="mt-4 overflow-x-auto rounded-lg bg-ink-950 p-4 text-xs leading-relaxed text-ink-50">
+          <code>{installSnippet}</code>
+        </pre>
+        <p className="mt-3 text-xs text-ink-500">
+          Collector URL:{' '}
+          <code className="font-mono text-ink-700">{COLLECT_URL}</code>
+          {project?.endpointLimit ? (
+            <>
+              {' '}
+              · Endpoint cap:{' '}
+              <span className="text-ink-700">{project.endpointLimit}</span> (billing)
+            </>
+          ) : (
+            <> · Endpoint cap: unlimited</>
+          )}
+        </p>
+      </Card>
+
+      <Card className="mt-8 p-6">
         <h2 className="font-display text-lg font-semibold text-ink-900">Create API key</h2>
         <p className="mt-1 text-sm text-ink-500">
           Use a descriptive name so you know which app or environment uses the key.
@@ -157,13 +225,13 @@ export default function ProjectSettings() {
 
       <Card className="mt-6 overflow-hidden">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink-900">Existing keys</h2>
+          <h2 className="text-sm font-semibold text-ink-900">Active keys</h2>
         </div>
         {loading ? (
           <p className="p-6 text-sm text-ink-600">Loading…</p>
-        ) : !(project?.apiKeys || []).length ? (
+        ) : !activeKeys.length ? (
           <EmptyState
-            title="No API keys"
+            title="No active API keys"
             description="Create a key to connect middleware and start discovering endpoints."
           />
         ) : (
@@ -174,10 +242,13 @@ export default function ProjectSettings() {
                 <th className="px-4 py-3 font-medium">Prefix</th>
                 <th className="px-4 py-3 font-medium">Created</th>
                 <th className="px-4 py-3 font-medium">Last used</th>
+                <th className="px-4 py-3 font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {project.apiKeys.map((k) => (
+              {activeKeys.map((k) => (
                 <tr key={k.id} className="border-b border-ink-100 last:border-0">
                   <td className="px-4 py-3 font-medium text-ink-900">{k.name}</td>
                   <td className="px-4 py-3 font-mono text-ink-600">{k.keyPrefix}…</td>
@@ -187,12 +258,50 @@ export default function ProjectSettings() {
                   <td className="px-4 py-3 text-ink-600">
                     {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleRevoke(k.id)}
+                      disabled={revokingId === k.id}
+                      className="cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                    >
+                      {revokingId === k.id ? 'Revoking…' : 'Revoke'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Card>
+
+      {revokedKeys.length ? (
+        <Card className="mt-6 overflow-hidden">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-500">Revoked keys</h2>
+          </div>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-ink-200 bg-ink-50 text-ink-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Prefix</th>
+                <th className="px-4 py-3 font-medium">Revoked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {revokedKeys.map((k) => (
+                <tr key={k.id} className="border-b border-ink-100 last:border-0 text-ink-400">
+                  <td className="px-4 py-3">{k.name}</td>
+                  <td className="px-4 py-3 font-mono">{k.keyPrefix}…</td>
+                  <td className="px-4 py-3">
+                    {k.revokedAt ? new Date(k.revokedAt).toLocaleString() : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
     </AppLayout>
   );
 }

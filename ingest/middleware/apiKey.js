@@ -27,7 +27,7 @@ export async function requireApiKey(req, res, next) {
       include: { project: true },
     });
 
-    if (!apiKey) {
+    if (!apiKey || apiKey.revokedAt) {
       res.status(401).json({ error: 'Invalid API key' });
       return;
     }

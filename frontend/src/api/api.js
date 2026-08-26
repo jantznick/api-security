@@ -61,6 +61,10 @@ export const projectsAPI = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+  revokeApiKey: (projectId, keyId) =>
+    request(`/projects/${projectId}/api-keys/${keyId}/revoke`, {
+      method: 'POST',
+    }),
 };
 
 export const inventoryAPI = {
