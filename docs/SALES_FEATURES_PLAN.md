@@ -376,12 +376,31 @@ SF0 is cheap insurance (responses already work — harden + message). SF8 should
 
 Before launching agents, confirm:
 
-1. [ ] First wave: **SF0 + SF1 + SF8** (recommended) or custom set  
-2. [ ] SF1: persist `Finding` table vs derived-only scores  
-3. [ ] SF3: require customers to set `x-service-name` vs infer User-Agent only  
-4. [ ] SF5: which gateway is first (Kong / Nginx / Cloudflare / sidecar)  
-5. [ ] SF2: webhook-only vs Slack-native in v1  
-6. [ ] Whether SF7 protect stays deferred until after gateway  
+1. [x] First wave: **SF0 + SF1 + SF8** (launched) + SF2–SF7 in parallel  
+2. [x] SF1: **derived-only scores** (no Finding table unless agent finds strong need)  
+3. [x] SF3: prefer `x-service-name` / `x-client-name` + User-Agent family fallback  
+4. [x] SF5: **Node reverse-proxy sidecar first**; Kong/Nginx as follow-up ADR  
+5. [x] SF2: events + optional generic webhook; SF6 adds Slack incoming webhook  
+6. [x] SF7: ship **detect suggestions + observe mode**; block mode optional fail-open  
+
+---
+
+## Execution status (Cloud Agent kickoff)
+
+Parallel implementation branches (base = this plan branch / `main` once merged):
+
+| Stream | Branch | Status |
+| --- | --- | --- |
+| SF0 | `cursor/sf0-response-capture-925e` | In flight |
+| SF1 | `cursor/sf1-risk-posture-925e` | In flight |
+| SF2 | `cursor/sf2-drift-alerts-925e` | In flight |
+| SF3 | `cursor/sf3-topology-925e` | In flight |
+| SF4 | `cursor/sf4-evidence-export-925e` | In flight |
+| SF5 | `cursor/sf5-gateway-connector-925e` | In flight |
+| SF6+SF7 | `cursor/sf6-sf7-workflow-protect-925e` | In flight |
+| SF8 | `cursor/sf8-sales-packaging-925e` | In flight |
+
+**Merge order (reduce conflicts):** SF0 (shared/connectors) → SF1 (risk lib) → SF4 (evidence, uses openapi) → SF2 (prisma events) → SF3 (prisma edges + envelope) → SF6/SF7 (settings + protect) → SF5 (new package) → SF8 (marketing/UI filters). Rebase each onto the integration branch before merge.
 
 ---
 
