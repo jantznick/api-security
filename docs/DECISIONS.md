@@ -67,3 +67,11 @@ Blocking is designed for (local policy cache, fail-open default) but **not imple
 ## Multi-seat SaaS hierarchy (planned)
 
 Soft launch stays **User → Project**. Next tenancy model (not shipped yet): **Organization → Project → Service**, with org-scoped RBAC and billing moving to the org. Plan of record: [SAAS_PLAN.md](./SAAS_PLAN.md). Do not invent a second hierarchy in ad-hoc PRs.
+
+## Gateway discovery: Node reverse-proxy sidecar first (SF5)
+
+**Decision:** Ship `@apiglimpse/gateway-proxy` — a thin Node reverse-proxy sidecar that forwards HTTP and samples envelope v1 (same as app connectors). Kong / Nginx / Envoy filters are follow-ups.
+
+**Why:** Reuses `@apiglimpse/shared` shaping/redaction and fail-open flush patterns without requiring customers to instrument every service. Access-log-only shippers are weaker (no schemas).
+
+**Non-goals for v1 sidecar:** TLS termination productization, multi-upstream routing UI, Kong plugin marketplace publish.

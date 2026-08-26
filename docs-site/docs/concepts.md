@@ -37,6 +37,20 @@ Required fields = intersection across observations; types widen to unions; prope
 
 From a service’s inventory in the dashboard, use **Export OpenAPI** to download an OpenAPI 3.0 JSON document built from discovered endpoints (method, path template, request/response schemas, and auth hints). Only paths that appear in inventory are included — nothing is invented.
 
+## Evidence pack (audit export)
+
+From the same inventory page, use **Download evidence pack** to get a dated JSON snapshot suitable for attaching to an audit questionnaire. The pack includes:
+
+- Inventory snapshot (method, path template, hit counts, first/last seen, auth modes)
+- Signals list with severity (sensitive-field tags from sampled shapes)
+- Generated OpenAPI document for the service
+- `generatedAt` timestamp plus organization / project / service ids
+- Optional posture summary when risk scoring is available in the deployment
+
+**What this is:** observational evidence of what API Glimpse saw in sampled traffic for that service at export time.
+
+**What this is not:** a SOC 2, ISO 27001, PCI, HIPAA, or other compliance certification; not a legal attestation; not proof that your API surface is complete. Absence of an endpoint or signal does not prove it does not exist. Auth modes are traffic observations, not enforcement guarantees.
+
 ## Sampling and availability
 
 Sampling is asynchronous: the connector does not wait on API Glimpse before finishing your request. If API Glimpse is unreachable, samples drop and your app continues to serve traffic. See [Connect your app → Troubleshooting](/integrating#troubleshooting).
