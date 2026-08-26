@@ -15,26 +15,26 @@ Your app
 
 | Connector | Status |
 | --- | --- |
-| Express | Available now |
-| Fastify | Coming soon |
+| Express | Available (`npm install @apiglimpse/middleware`) |
+| Fastify | Available (`npm install @apiglimpse/fastify`) |
+| FastAPI | Available (`pip install apiglimpse`) |
+| Go (chi) | Available (`go get …/connectors/go/apiglimpse`) |
 | NestJS | Coming soon |
 | Next.js (Route Handlers / API routes) | Coming soon |
 | Hono | Coming soon |
-| FastAPI | Coming soon |
-| Go (chi) | Coming soon |
 | Proxy / gateway | Coming soon |
 
-Install guides use **Express** as the worked example today.
+See [Connect your app](/integrating) for install snippets.
 
 ## Signup
 
 Create an account on [app.apiglimpse.com](https://app.apiglimpse.com), then create a project and API key.
 
-For Express: `npm install @apiglimpse/middleware`.
+For Express: `npm install @apiglimpse/middleware`. Other stacks: [Connect your app](/integrating).
 
 ## Next
 
 - [Quick start](/quick-start) — account → project → API key → connector
-- [Connect your app](/integrating) — Express connector guide
+- [Connect your app](/integrating) — Express, Fastify, FastAPI, Go
 - [Architecture](/architecture) — how data moves
 - [Concepts](/concepts) — API keys, schemas, endpoint limits

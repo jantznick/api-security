@@ -42,11 +42,11 @@ Later / optional: **W6, W7, W8**.
 **Steps:** Resend account → verify `apiglimpse.com` DNS → API key → Railway **core** `RESEND_API_KEY` + `RESEND_FROM_EMAIL` → redeploy core → test magic link.  
 **Done when:** Magic-link email arrives from production.
 
-### N2 — npm publish
+### N2 — Publish connectors (npm / PyPI / Go)
 
-**Doc:** [NPM_PUBLISH.md](./NPM_PUBLISH.md)  
-**Steps:** Org `@apiglimpse` + 2FA → publish `shared` then `middleware`.  
-**Done when:** `npm view @apiglimpse/middleware version` works outside the repo.
+**Doc:** [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md) (overview) · [NPM_PUBLISH.md](./NPM_PUBLISH.md) (npm account/org)  
+**Steps:** Org `@apiglimpse` + 2FA → publish `shared` then `middleware` + `fastify` → PyPI `apiglimpse` → tag `connectors/go/v0.1.0`.  
+**Done when:** `npm view @apiglimpse/middleware version`, `pip install apiglimpse`, and `go get …@v0.1.0` work outside the repo.
 
 ### N3 — Stripe account + keys
 
