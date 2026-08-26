@@ -383,7 +383,20 @@ Decisions locked 2026-08-26:
 5. [x] **Webhook-only** (no Slack-native yet)  
 6. [x] Protect MVP: dashboard toggle + single rule; connectors poll `/v1/policy` ~15m (version bump on save)
 
-Integration branch: `cursor/sf-implement-925e`.
+Integration branch: `cursor/sf-implement-925e` (PR consolidates all streams).
+
+### Verification (local, 2026-08-26)
+
+| Stream | Evidence | Tests |
+| --- | --- | --- |
+| SF0 | Express/Fastify/Python/Go `responseBodyCaptured` | shared 11, middleware 8, fastify 6, pytest 17, go ok |
+| SF1 | `risk.js` + `/posture` + inventory rollup | backend risk 16 |
+| SF2 | `InventoryEvent` + webhook on upsert | schema + ingest wired |
+| SF3 | `TrafficEdge` + service-name on all connectors | caller.test.js |
+| SF4 | `/evidence` pack + UI download | evidence.js attestation notes |
+| SF5 | Nginx Lua + Kong docs + `gateway-proxy` | gateway-proxy 6 |
+| SF7 | protect settings + `/v1/policy` poll | middleware refreshPolicy |
+| SF8 | marketing/docs use-cases + inventory filters | pages present |
 
 ---
 
