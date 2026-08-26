@@ -108,6 +108,8 @@ export const inventoryAPI = {
   listEndpoints: (serviceId) => request(`/inventory/${serviceId}/endpoints`),
   getEndpoint: (serviceId, endpointId) =>
     request(`/inventory/${serviceId}/endpoints/${endpointId}`),
+  /** Derived risk posture (SF1) — score + per-endpoint severity/reasons */
+  getPosture: (serviceId) => request(`/inventory/${serviceId}/posture`),
   /** OpenAPI 3.0 JSON document for the service inventory */
   exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
 };

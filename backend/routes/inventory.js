@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildOpenApiDocument } from '../lib/openapi.js';
 import { accessibleService } from '../lib/orgs.js';
+import { scoreServicePosture } from '../lib/risk.js';
 
 const router = express.Router();
 
@@ -12,6 +13,41 @@ router.use(requireAuth);
  * Inventory is scoped by Service (today's Project).
  * Paths keep :serviceId; legacy clients may still call this "projectId".
  */
+
+/**
+ * Risk posture for a service — derived from Endpoint.authModes + Signal categories.
+ * Auth: session + org membership via service (same as endpoints list).
+ */
+router.get('/:serviceId/posture', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const endpoints = await prisma.endpoint.findMany({
+      where: { serviceId: service.id },
+      orderBy: [{ pathTemplate: 'asc' }, { method: 'asc' }],
+      include: {
+        signals: {
+          where: { type: 'sensitive_field' },
+          select: {
+            type: true,
+            category: true,
+            fieldPath: true,
+            severity: true,
+          },
+        },
+      },
+    });
+
+    const posture = scoreServicePosture(endpoints);
+    res.json(posture);
+  } catch (error) {
+    console.error('Posture error:', error);
+    res.status(500).json({ error: 'Failed to compute posture' });
+  }
+});
 
 /**
  * Export discovered inventory as OpenAPI 3.0 JSON.

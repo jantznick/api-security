@@ -7,6 +7,7 @@
     "dev": "node --watch server.js",
     "start": "node scripts/safe-migrate.js && node server.js",
     "build": "prisma generate",
+    "test": "node --test test/**/*.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
