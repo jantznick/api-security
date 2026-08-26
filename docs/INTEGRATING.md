@@ -135,6 +135,10 @@ Reference implementation (repo): [`demo/express-app/server.js`](../demo/express-
 
 API Glimpse stores inferred schemas and tags — not long-lived raw request bodies.
 
+### Wire protocol (implementing a connector)
+
+Every connector speaks the same envelope v1 to `POST /v1/samples`. Details, status codes, fail-open rules, and golden fixtures: **[WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)**.
+
 ### Placement tips
 
 - Prefer mounting once at the app root so all routes are visible.

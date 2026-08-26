@@ -5,10 +5,15 @@
   "type": "module",
   "main": "src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./fixtures/*": "./fixtures/*"
+  },
+  "scripts": {
+    "test": "node --test test/**/*.test.js"
   },
   "files": [
     "src",
+    "fixtures",
     "README.md"
   ],
   "license": "MIT",

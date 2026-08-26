@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import inventoryRoutes from './routes/inventory.js';
+import authRoutes from './routes/auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -13,6 +14,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'ingest', date: new Date().toISOString() });
 });
 
+app.use('/v1/auth', authRoutes);
 app.use('/v1/inventory', inventoryRoutes);
 
 app.listen(PORT, '0.0.0.0', () => {
