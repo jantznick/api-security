@@ -6,6 +6,7 @@
 
 import prisma from './prisma.js';
 import { ensureDefaultPlans, listPlans } from './plans.js';
+import { listMembershipIncludeForSummary, mapListedUser } from './adminUsers.js';
 
 function startOfUtcDay(date) {
   const d = new Date(date);
@@ -62,20 +63,7 @@ function countProjectsForUser(memberships) {
   return n;
 }
 
-const membershipInventorySelect = {
-  select: {
-    organization: {
-      select: {
-        projects: {
-          select: {
-            id: true,
-            _count: { select: { services: true } },
-          },
-        },
-      },
-    },
-  },
-};
+const membershipInventorySelect = listMembershipIncludeForSummary;
 
 export async function getAdminOverview() {
   await ensureDefaultPlans();
@@ -276,6 +264,7 @@ export async function listAdminUsers({ limit = 50, offset = 0, q = '', plan = ''
       select: {
         id: true,
         email: true,
+        displayName: true,
         planSlug: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
@@ -290,16 +279,6 @@ export async function listAdminUsers({ limit = 50, offset = 0, q = '', plan = ''
     total,
     limit: take,
     offset: skip,
-    users: users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      planSlug: u.planSlug,
-      projectCount: countProjectsForUser(u.memberships),
-      serviceCount: countServicesForUser(u.memberships),
-      hasStripeCustomer: Boolean(u.stripeCustomerId),
-      hasSubscription: Boolean(u.stripeSubscriptionId),
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    })),
+    users: users.map(mapListedUser),
   };
 }

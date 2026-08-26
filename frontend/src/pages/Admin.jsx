@@ -6,6 +6,7 @@ import useAuthStore from '../store/authStore';
 import AppLayout from '../components/AppLayout';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
+import AdminUserDetail from '../components/AdminUserDetail';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -231,7 +232,7 @@ export default function Admin() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [assigningUserId, setAssigningUserId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   const loadOverviewAndPlans = useCallback(async () => {
     setLoading(true);
@@ -344,22 +345,6 @@ export default function Admin() {
       }
       return [...prev, newPlanDraft({ ...preset, slug })];
     });
-  };
-
-  const handleAssignPlan = async (userId, planSlug) => {
-    if (!planSlug) return;
-    setAssigningUserId(userId);
-    try {
-      await adminAPI.assignUserPlan(userId, planSlug);
-      toast.success(`Assigned ${planSlug}`);
-      await loadUsers({ q: userQuery, plan: userPlanFilter });
-      const overviewData = await adminAPI.overview();
-      setOverview(overviewData);
-    } catch (err) {
-      toast.error(err.message || 'Failed to assign plan');
-    } finally {
-      setAssigningUserId(null);
-    }
   };
 
   const handleUserSearch = (e) => {
@@ -633,7 +618,7 @@ export default function Admin() {
         {activeTab === 'users' ? (
           <Section
             title="Users"
-            description={`${formatInt(usersTotal)} accounts — search and filter by plan.`}
+            description={`${formatInt(usersTotal)} accounts — open a user to manage orgs, roles, and deletion.`}
             className="mt-0"
           >
             <form
@@ -672,16 +657,16 @@ export default function Admin() {
             </form>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+              <table className="w-full min-w-[52rem] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200 text-ink-500">
                     <th className="py-2 pr-3 font-medium">Email</th>
                     <th className="py-2 pr-3 font-medium">Plan</th>
+                    <th className="py-2 pr-3 font-medium">Orgs</th>
                     <th className="py-2 pr-3 font-medium">Services</th>
                     <th className="py-2 pr-3 font-medium">Stripe</th>
-                    <th className="py-2 pr-3 font-medium">Sub</th>
                     <th className="py-2 pr-3 font-medium">Joined</th>
-                    <th className="py-2 font-medium">Assign plan</th>
+                    <th className="py-2 font-medium"> </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -694,9 +679,30 @@ export default function Admin() {
                   ) : (
                     users.map((row) => (
                       <tr key={row.id} className="border-b border-ink-100">
-                        <td className="py-2.5 pr-3 font-medium text-ink-900">{row.email}</td>
+                        <td className="py-2.5 pr-3">
+                          <button
+                            type="button"
+                            className="text-left font-medium text-ink-900 hover:text-signal-700"
+                            onClick={() => setSelectedUserId(row.id)}
+                          >
+                            {row.email}
+                          </button>
+                          {row.displayName ? (
+                            <p className="text-xs text-ink-400">{row.displayName}</p>
+                          ) : null}
+                        </td>
                         <td className="py-2.5 pr-3 font-mono text-xs text-ink-700">
                           {row.planSlug}
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <span className="tabular-nums">{row.orgCount ?? row.orgs?.length ?? 0}</span>
+                          {row.orgs?.length ? (
+                            <p className="mt-0.5 max-w-[12rem] truncate text-[11px] text-ink-400">
+                              {row.orgs
+                                .map((o) => `${o.name} (${o.roleName || o.roleKey})`)
+                                .join(', ')}
+                            </p>
+                          ) : null}
                         </td>
                         <td className="py-2.5 pr-3 tabular-nums">
                           {row.serviceCount ?? row.projectCount}
@@ -704,27 +710,15 @@ export default function Admin() {
                         <td className="py-2.5 pr-3">
                           <StatusPill ok={row.hasStripeCustomer} />
                         </td>
-                        <td className="py-2.5 pr-3">
-                          <StatusPill ok={row.hasSubscription} />
-                        </td>
                         <td className="py-2.5 pr-3 text-ink-600">{formatDate(row.createdAt)}</td>
-                        <td className="py-2.5">
-                          <select
-                            className="rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-xs text-ink-900"
-                            value={row.planSlug}
-                            disabled={assigningUserId === row.id}
-                            onChange={(e) => handleAssignPlan(row.id, e.target.value)}
-                            aria-label={`Assign plan for ${row.email}`}
+                        <td className="py-2.5 text-right">
+                          <Button
+                            variant="secondary"
+                            className="min-h-8 px-2.5 py-1 text-xs"
+                            onClick={() => setSelectedUserId(row.id)}
                           >
-                            {planFilterOptions.map((slug) => (
-                              <option key={slug} value={slug}>
-                                {slug}
-                              </option>
-                            ))}
-                            {!planFilterOptions.includes(row.planSlug) ? (
-                              <option value={row.planSlug}>{row.planSlug}</option>
-                            ) : null}
-                          </select>
+                            Manage
+                          </Button>
                         </td>
                       </tr>
                     ))
@@ -732,6 +726,15 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+
+            {selectedUserId ? (
+              <AdminUserDetail
+                userId={selectedUserId}
+                planOptions={planFilterOptions}
+                onClose={() => setSelectedUserId(null)}
+                onChanged={() => loadUsers({ q: userQuery, plan: userPlanFilter })}
+              />
+            ) : null}
           </Section>
         ) : null}
 

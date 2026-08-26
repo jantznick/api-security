@@ -4,6 +4,12 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
 import { applyPlanToUser, ensureDefaultPlans, getPlanBySlug, listPlans } from '../lib/plans.js';
 import { getAdminOverview, listAdminUsers } from '../lib/adminMetrics.js';
+import {
+  adminDeleteUser,
+  adminRemoveMembership,
+  adminUpdateMembership,
+  getAdminUser,
+} from '../lib/adminUsers.js';
 
 const router = express.Router();
 
@@ -51,6 +57,76 @@ router.get('/users', async (req, res) => {
   } catch (error) {
     console.error('Admin list users error:', error);
     res.status(500).json({ error: 'Failed to list users' });
+  }
+});
+
+/** GET /api/admin/users/:id — user detail + org memberships */
+router.get('/users/:id', async (req, res) => {
+  try {
+    const userId = String(req.params.id || '').trim();
+    const detail = await getAdminUser(userId);
+    if (!detail) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json({ user: detail });
+  } catch (error) {
+    console.error('Admin get user error:', error);
+    res.status(500).json({ error: 'Failed to load user' });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/memberships/:orgId
+ * Body: { role } or { customRoleId }
+ */
+router.patch('/users/:id/memberships/:orgId', async (req, res) => {
+  try {
+    const userId = String(req.params.id || '').trim();
+    const orgId = String(req.params.orgId || '').trim();
+    const org = await adminUpdateMembership(userId, orgId, req.body || {});
+    res.json({ org });
+  } catch (error) {
+    console.error('Admin update membership error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      error: error.message || 'Failed to update membership',
+    });
+  }
+});
+
+/** DELETE /api/admin/users/:id/memberships/:orgId — remove from team org */
+router.delete('/users/:id/memberships/:orgId', async (req, res) => {
+  try {
+    const userId = String(req.params.id || '').trim();
+    const orgId = String(req.params.orgId || '').trim();
+    const result = await adminRemoveMembership(userId, orgId);
+    res.json(result);
+  } catch (error) {
+    console.error('Admin remove membership error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      error: error.message || 'Failed to remove membership',
+    });
+  }
+});
+
+/** DELETE /api/admin/users/:id — delete account (safe guards for last owner / admin) */
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const userId = String(req.params.id || '').trim();
+    const result = await adminDeleteUser(userId, {
+      actorUserId: req.session.userId,
+      actorEmail: req.adminUser?.email,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      error: error.message || 'Failed to delete user',
+      blockingOrgs: error.blockingOrgs || undefined,
+    });
   }
 });
 
