@@ -42,6 +42,9 @@ export default function SiteHeader() {
           <NavLink to="/get-started" className={linkClass}>
             Get started
           </NavLink>
+          <NavLink to="/pricing" className={linkClass}>
+            Pricing
+          </NavLink>
           <a
             href={DOCS_URL}
             className="relative text-[0.95rem] tracking-tight text-muted transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-signal after:transition-transform after:duration-200 hover:text-ink hover:after:scale-x-100"
@@ -101,6 +104,15 @@ export default function SiteHeader() {
             onClick={() => setOpen(false)}
           >
             Get started
+          </NavLink>
+          <NavLink
+            to="/pricing"
+            className={({ isActive }) =>
+              `py-2.5 text-[0.95rem] ${isActive ? 'text-ink' : 'text-muted'}`
+            }
+            onClick={() => setOpen(false)}
+          >
+            Pricing
           </NavLink>
           <a
             href={DOCS_URL}

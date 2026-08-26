@@ -141,7 +141,7 @@ After N1–N2 (+ Phase A deploy): register/login → project → key → middlew
 
 **Out of scope:** Marketing pricing page (W4). Protect mode.  
 
-**Decision to confirm with Nick before coding:** Bill per **user** (all projects share one cap) vs per **project** (separate subscriptions). Productization doc implies per-endpoint plans; recommend **user-level subscription, cap applied to each project or sum of endpoints across projects** — pick one and document in `plans.js`.
+**Decision (locked):** **User-level subscription**; `Plan.endpointLimit` applied to **each** owned project on plan change. Documented in `backend/lib/plans.js` and [STRIPE.md](./STRIPE.md).
 
 ---
 

@@ -41,6 +41,14 @@ export default function AppLayout({ children }) {
               <NavLink to="/account" className={navLinkClass}>
                 Account
               </NavLink>
+              <NavLink to="/billing" className={navLinkClass}>
+                Billing
+              </NavLink>
+              {user?.isAdmin ? (
+                <NavLink to="/admin" className={navLinkClass}>
+                  Admin
+                </NavLink>
+              ) : null}
               <a
                 href={DOCS_URL}
                 target="_blank"
@@ -74,6 +82,14 @@ export default function AppLayout({ children }) {
           <NavLink to="/account" className={navLinkClass}>
             Account
           </NavLink>
+          <NavLink to="/billing" className={navLinkClass}>
+            Billing
+          </NavLink>
+          {user?.isAdmin ? (
+            <NavLink to="/admin" className={navLinkClass}>
+              Admin
+            </NavLink>
+          ) : null}
           <a href={DOCS_URL} target="_blank" rel="noreferrer" className="text-sm text-ink-500">
             Docs
           </a>

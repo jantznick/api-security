@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { generateApiKey } from '../lib/apiKeys.js';
 import { requireAuth } from '../middleware/auth.js';
+import { resolveEndpointLimit } from '../lib/plans.js';
 
 const router = express.Router();
 
@@ -47,10 +48,17 @@ router.post('/', async (req, res) => {
     const name = String(req.body?.name || '').trim() || 'Default project';
     const key = generateApiKey();
 
+    const owner = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      select: { planSlug: true },
+    });
+    const endpointLimit = await resolveEndpointLimit(owner?.planSlug || 'free');
+
     const project = await prisma.project.create({
       data: {
         name,
         ownerId: req.session.userId,
+        endpointLimit,
         apiKeys: {
           create: {
             name: 'default',

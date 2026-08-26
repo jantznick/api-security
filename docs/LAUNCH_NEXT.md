@@ -94,6 +94,5 @@ Local checklist details: [TESTING.md](./TESTING.md).
 ## Explicitly deferred
 
 - Password reset / change-password flows  
-- Stripe / endpoint billing  
-- Key revoke UI polish  
+- Stripe live keys / soft-launch Checkout (scaffold + Admin plans are in-repo — see [STRIPE.md](./STRIPE.md))  
 - Extra language connectors  

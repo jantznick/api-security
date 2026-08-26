@@ -1,0 +1,117 @@
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/admin.js';
+import { ensureDefaultPlans, listPlans } from '../lib/plans.js';
+
+const router = express.Router();
+
+router.use(requireAuth, requireAdmin);
+
+function serializePlan(plan) {
+  return {
+    id: plan.id,
+    slug: plan.slug,
+    name: plan.name,
+    endpointLimit: plan.endpointLimit,
+    priceCentsMonthly: plan.priceCentsMonthly,
+    stripePriceId: plan.stripePriceId,
+    active: plan.active,
+    sortOrder: plan.sortOrder,
+    updatedAt: plan.updatedAt,
+  };
+}
+
+/** GET /api/admin/plans — all plans (including inactive) */
+router.get('/plans', async (_req, res) => {
+  try {
+    const plans = await listPlans({ activeOnly: false });
+    res.json({ plans: plans.map(serializePlan) });
+  } catch (error) {
+    console.error('Admin list plans error:', error);
+    res.status(500).json({ error: 'Failed to list plans' });
+  }
+});
+
+/**
+ * PUT /api/admin/plans
+ * Body: { plans: [{ id?, slug, name, endpointLimit, priceCentsMonthly, stripePriceId, active, sortOrder }] }
+ * Updates existing rows by id or slug; creates missing slugs.
+ */
+router.put('/plans', async (req, res) => {
+  try {
+    await ensureDefaultPlans();
+    const incoming = Array.isArray(req.body?.plans) ? req.body.plans : null;
+    if (!incoming) {
+      res.status(400).json({ error: 'Body must include plans: []' });
+      return;
+    }
+
+    const updated = [];
+    for (const row of incoming) {
+      const slug = String(row.slug || '')
+        .trim()
+        .toLowerCase();
+      if (!slug) {
+        res.status(400).json({ error: 'Each plan requires a slug' });
+        return;
+      }
+
+      const name = String(row.name || slug).trim() || slug;
+      const endpointLimit =
+        row.endpointLimit === null || row.endpointLimit === '' || row.endpointLimit === undefined
+          ? null
+          : Number(row.endpointLimit);
+      if (endpointLimit !== null && (!Number.isFinite(endpointLimit) || endpointLimit < 0)) {
+        res.status(400).json({ error: `Invalid endpointLimit for plan ${slug}` });
+        return;
+      }
+
+      const priceCentsMonthly = Number(row.priceCentsMonthly ?? 0);
+      if (!Number.isFinite(priceCentsMonthly) || priceCentsMonthly < 0) {
+        res.status(400).json({ error: `Invalid priceCentsMonthly for plan ${slug}` });
+        return;
+      }
+
+      const stripePriceId =
+        row.stripePriceId === null || row.stripePriceId === undefined || row.stripePriceId === ''
+          ? null
+          : String(row.stripePriceId).trim();
+
+      const active = row.active !== false;
+      const sortOrder = Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : 0;
+
+      const data = {
+        name,
+        endpointLimit,
+        priceCentsMonthly,
+        stripePriceId,
+        active,
+        sortOrder,
+      };
+
+      let plan;
+      if (row.id) {
+        plan = await prisma.plan.update({
+          where: { id: row.id },
+          data: { ...data, slug },
+        });
+      } else {
+        plan = await prisma.plan.upsert({
+          where: { slug },
+          create: { slug, ...data },
+          update: data,
+        });
+      }
+      updated.push(serializePlan(plan));
+    }
+
+    const plans = await listPlans({ activeOnly: false });
+    res.json({ plans: plans.map(serializePlan), updated });
+  } catch (error) {
+    console.error('Admin update plans error:', error);
+    res.status(500).json({ error: 'Failed to update plans' });
+  }
+});
+
+export default router;

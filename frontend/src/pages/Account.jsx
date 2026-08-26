@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { authAPI } from '../api/api';
 import useAuthStore from '../store/authStore';
@@ -62,7 +63,12 @@ export default function Account() {
           ) : null}
         </dl>
 
-        <div className="mt-8 border-t border-ink-100 pt-6">
+        <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-6">
+          <Link to="/billing">
+            <Button type="button" variant="secondary">
+              Billing
+            </Button>
+          </Link>
           <Button variant="secondary" onClick={handleLogout}>
             Sign out
           </Button>

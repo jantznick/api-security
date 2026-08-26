@@ -15,12 +15,35 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  projects  Project[]
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  password             String?
+  /// Stripe Customer id (cus_…); set on first Checkout
+  stripeCustomerId     String?   @unique
+  /// Active subscription id (sub_…) when subscribed
+  stripeSubscriptionId String?
+  /// Matches Plan.slug — free | pro | …
+  planSlug             String    @default("free")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  projects             Project[]
+
+  @@index([planSlug])
+}
+
+model Plan {
+  id                String   @id @default(uuid())
+  slug              String   @unique
+  name              String
+  /// Cap applied to each of the user's projects on plan change. null = unlimited.
+  endpointLimit     Int?
+  priceCentsMonthly Int      @default(0)
+  /// Stripe Price id (price_…) for Checkout; null for free / unpaid plans
+  stripePriceId     String?
+  active            Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model MagicToken {
@@ -49,7 +72,7 @@ model Project {
   ownerId   String
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   /// Cap on *new* endpoints for this project. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
-  /// Stripe webhooks will set this from the customer's plan.
+  /// Stripe webhooks / plan changes set this from the owner's Plan.endpointLimit.
   endpointLimit Int?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
