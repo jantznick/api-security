@@ -47,18 +47,21 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 | `frontend/` | Dashboard (Vite + React + Tailwind v4) → **Render** → `app.apiglimpse.com` |
 | `marketing/` | Marketing site (Vite + React) → **Render** → `apiglimpse.com` |
 | `docs-site/` | Developer docs (VitePress) → **Render** → `docs.apiglimpse.com` |
-| `packages/middleware` | Public SDK — Express middleware (npm: `@apiglimpse/middleware`) |
-| `packages/shared` | Internal helpers for middleware (npm: `@apiglimpse/shared`) |
-| `packages/gateway-proxy` | Node reverse-proxy sidecar — discover traffic without app middleware |
+| `packages/middleware` | Express SDK (`@apiglimpse/middleware`) |
+| `packages/fastify` / `nestjs` / `next` | Other Node SDKs |
+| `packages/shared` | Envelope + redaction helpers (`@apiglimpse/shared`) |
+| `packages/gateway-proxy` | Node reverse-proxy sidecar |
+| `connectors/` | Python, Go, Java, .NET, Nginx, Kong |
 | `agent/` | Dockerized collector/processor |
-| `demo/express-app/` | Sample app with one-line middleware |
+| `demo/*` | Sample apps per connector |
 | `docker-compose.yml` | Postgres + collector only |
 
 ## Docs
 
 **Customer-facing**
 
-- [Integrating into an existing app](docs/INTEGRATING.md) — Express middleware (canonical; also published via `docs-site/`)
+- [Integrating into an existing app](docs/INTEGRATING.md) — all connectors (canonical; also published via `docs-site/`)
+- [Connector publish](docs/CONNECTOR_PUBLISH.md) — maintainer registry playbook
 - Marketing site: `marketing/` → `apiglimpse.com`
 - Developer docs: `docs-site/` → `docs.apiglimpse.com`
 
