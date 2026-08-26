@@ -269,7 +269,7 @@ Detail: [MARKETING_PLAN.md](./MARKETING_PLAN.md) phases G0–G1.
 | Campaign LP + Google/LinkedIn copy packages | Agents M3–M5; you approve (N-M3) |
 | Live Stripe | After test Checkout is boringly reliable |
 | Protect / “API security platform” ads | Only after [PROTECT_MODE.md](./PROTECT_MODE.md) PM2 + explicit unlock |
-| Nest / Next / Hono / proxy connectors | Product backlog, not launch blockers |
+| Nest / Next / Hono / Spring / ASP.NET / Django+Flask / Nginx | See [CONNECTORS_WAVE2_PLAN.md](./CONNECTORS_WAVE2_PLAN.md) — not soft-launch blockers |
 | Password reset | Deferred (magic-link oriented) |
 
 ---

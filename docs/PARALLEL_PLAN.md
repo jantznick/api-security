@@ -2,7 +2,8 @@
 
 **Audience:** Nick reviews → launches parallel agents.  
 **Prior plans:** Dashboard SaaS + Railway/Render productization are **DONE** — do not rebuild.  
-**In flight (PR #3):** Phase A billing foundation (key revoke, `endpointLimit`, install snippet). Merge/redeploy before Stripe agents touch the same schema.
+**In flight (PR #3):** Phase A billing foundation (key revoke, `endpointLimit`, install snippet). Merge/redeploy before Stripe agents touch the same schema.  
+**Connectors wave 2:** Nest / Next / Spring / ASP.NET / Django+Flask / Nginx — [CONNECTORS_WAVE2_PLAN.md](./CONNECTORS_WAVE2_PLAN.md).
 
 Plan mode is unavailable in the current Cloud Agent session; this doc is the reviewable plan of record.
 

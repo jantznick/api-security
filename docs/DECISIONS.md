@@ -77,3 +77,5 @@ Soft launch stays **User → Project**. Next tenancy model (not shipped yet): **
 **Topology:** Callers should set `API_SENSOR_SERVICE_NAME` or `X-Service-Name` for quality edges (UA-only is fallback noise).
 
 **Non-goals for v1:** Full body capture at the gateway, protect enforcement inside Kong/Nginx (use app middleware protect MVP or external WAF).
+
+**Implementation plan:** Productionize Nginx then Kong — [CONNECTORS_WAVE2_PLAN.md](./CONNECTORS_WAVE2_PLAN.md) (`C2-NGINX`, `C2-KONG`).

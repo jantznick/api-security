@@ -22,7 +22,11 @@ All connectors speak the same [wire protocol](./WIRE_PROTOCOL.md). There is one 
 | NestJS | Coming soon | — |
 | Next.js (Route Handlers / API routes) | Coming soon | — |
 | Hono | Coming soon | — |
-| Proxy / gateway | Coming soon | — |
+| Django / Flask | Coming soon | — |
+| Spring Boot / ASP.NET Core | Coming soon | — |
+| Proxy / gateway (Nginx) | Coming soon (Lua MVP in-repo) | — |
+
+Wave 2 implementation plan (parallel agents): **[CONNECTORS_WAVE2_PLAN.md](./CONNECTORS_WAVE2_PLAN.md)**.
 
 > **Note:** npm / PyPI / Go module versions must be [published by maintainers](./CONNECTOR_PUBLISH.md) before customers can install from public registries. Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths.
 

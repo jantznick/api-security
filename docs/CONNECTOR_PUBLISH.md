@@ -4,7 +4,7 @@ Maintainer guide for shipping **language connectors** the same way we ship Expre
 
 **Important:** Connectors are **client SDKs**, not extra hosted “language agents.” There is still **one** collector at `https://collect.apiglimpse.com` (Railway). Publishing a connector means putting an installable package on a public registry so customers can `npm install` / `pip install` / `go get` it and point at that same URL.
 
-Customer install after publish: [INTEGRATING.md](./INTEGRATING.md). Wire format: [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md). Express-only deep dive: [NPM_PUBLISH.md](./NPM_PUBLISH.md).
+Customer install after publish: [INTEGRATING.md](./INTEGRATING.md). Wire format: [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md). Express-only deep dive: [NPM_PUBLISH.md](./NPM_PUBLISH.md). Next connectors epic: [CONNECTORS_WAVE2_PLAN.md](./CONNECTORS_WAVE2_PLAN.md).
 
 ---
 
