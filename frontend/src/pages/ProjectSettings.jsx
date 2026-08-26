@@ -10,6 +10,13 @@ import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
 import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
+/** Name for the replacement key created during rotate. */
+function rotatedKeyName(name) {
+  const base = String(name || 'default').trim() || 'default';
+  if (/\(rotated\)\s*$/i.test(base)) return base;
+  return `${base} (rotated)`;
+}
+
 export default function ProjectSettings() {
   const { projectId } = useParams();
   const [project, setProject] = useState(null);
@@ -17,7 +24,9 @@ export default function ProjectSettings() {
   const [keyName, setKeyName] = useState('default');
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState(null);
+  const [rotatingId, setRotatingId] = useState(null);
   const [rawKey, setRawKey] = useState(null);
+  const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,11 +80,52 @@ export default function ProjectSettings() {
     try {
       await projectsAPI.revokeApiKey(projectId, keyId);
       toast.success('API key revoked');
+      if (pendingRevokeAfterRotate === keyId) {
+        setPendingRevokeAfterRotate(null);
+      }
       await reload();
     } catch (err) {
       toast.error(err.message);
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  /**
+   * Rotate = create replacement key (show raw once), then revoke the old key.
+   * Uses existing create + revoke APIs — no dedicated rotate endpoint.
+   */
+  const handleRotate = async (key) => {
+    const confirmed = window.confirm(
+      'Rotate this API key?\n\n' +
+        '1. A new key is created and shown once — copy it into your middleware.\n' +
+        '2. The old key is then revoked so traffic with the old secret stops.',
+    );
+    if (!confirmed) return;
+
+    setRotatingId(key.id);
+    setRawKey(null);
+    setPendingRevokeAfterRotate(null);
+    try {
+      const data = await projectsAPI.createApiKey(projectId, rotatedKeyName(key.name));
+      setRawKey(data.rawKey);
+
+      try {
+        await projectsAPI.revokeApiKey(projectId, key.id);
+        setPendingRevokeAfterRotate(null);
+        toast.success('Key rotated — copy the new key; old key is revoked');
+      } catch (revokeErr) {
+        setPendingRevokeAfterRotate(key.id);
+        toast.error(
+          revokeErr.message ||
+            'New key was created, but the old key could not be revoked. Revoke it manually.',
+        );
+      }
+      await reload();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRotatingId(null);
     }
   };
 
@@ -124,7 +174,7 @@ app.use(apiSensor({
         title="Project settings"
         description={
           project
-            ? `API keys and install for ${project.name}. New keys are shown once.`
+            ? `API keys and install for ${project.name}. New keys are shown once; use Rotate to replace an active key.`
             : 'API keys for this project.'
         }
       />
@@ -163,6 +213,23 @@ app.use(apiSensor({
               connect guide
             </a>
             .
+          </p>
+          {pendingRevokeAfterRotate ? (
+            <p className="mt-2 text-xs text-warn-700">
+              The old key is still active. Use Revoke on that row after you update middleware.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!loading && project && !activeKeys.length ? (
+        <div
+          role="status"
+          className="mt-6 rounded-lg border border-warn-700/25 bg-warn-50 px-4 py-3 text-sm text-warn-700"
+        >
+          <p className="font-medium">No active API keys</p>
+          <p className="mt-1">
+            Middleware cannot report inventory until you create a key below.
           </p>
         </div>
       ) : null}
@@ -259,14 +326,24 @@ app.use(apiSensor({
                     {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleRevoke(k.id)}
-                      disabled={revokingId === k.id}
-                      className="cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
-                    >
-                      {revokingId === k.id ? 'Revoking…' : 'Revoke'}
-                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleRotate(k)}
+                        disabled={rotatingId === k.id || revokingId === k.id || creating}
+                        className="cursor-pointer text-sm font-medium text-signal-700 hover:text-signal-800 disabled:opacity-50"
+                      >
+                        {rotatingId === k.id ? 'Rotating…' : 'Rotate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRevoke(k.id)}
+                        disabled={revokingId === k.id || rotatingId === k.id}
+                        className="cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                      >
+                        {revokingId === k.id ? 'Revoking…' : 'Revoke'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
