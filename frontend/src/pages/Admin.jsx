@@ -273,9 +273,9 @@ export default function Admin() {
                 hint={`${formatMoney(revenue?.arrCents)} ARR est.`}
               />
               <Kpi
-                label="Projects"
-                value={formatInt(usage?.totalProjects)}
-                hint={`${formatInt(accounts?.usersWithProjects)} active accounts`}
+                label="Services"
+                value={formatInt(usage?.totalServices ?? usage?.totalProjects)}
+                hint={`${formatInt(accounts?.organizations)} orgs · ${formatInt(usage?.totalProjects)} projects`}
               />
               <Kpi
                 label="Endpoints"
@@ -289,8 +289,8 @@ export default function Admin() {
               />
             </div>
             <p className="mt-3 text-xs text-ink-500">
-              Organizations are not modeled yet — accounts above are individual users (current billing
-              unit). {revenue?.note}
+              Tenancy is Organization → Project → Service. Billing remains per user until org billing
+              (S5). {revenue?.note}
             </p>
           </Section>
 
@@ -368,7 +368,9 @@ export default function Admin() {
           <Section title="Platform usage" description="Inventory and ingest activity across all projects.">
             <dl className="grid grid-cols-2 gap-6 sm:grid-cols-4">
               {[
+                { label: 'Organizations', value: accounts?.organizations },
                 { label: 'Projects', value: usage?.totalProjects },
+                { label: 'Services', value: usage?.totalServices },
                 { label: 'Discovered endpoints', value: usage?.totalEndpoints },
                 { label: 'Total traffic hits', value: usage?.totalHits },
                 { label: 'Security signals', value: usage?.totalSignals },
@@ -434,7 +436,7 @@ export default function Admin() {
                   <tr className="border-b border-ink-200 text-ink-500">
                     <th className="py-2 pr-3 font-medium">Email</th>
                     <th className="py-2 pr-3 font-medium">Plan</th>
-                    <th className="py-2 pr-3 font-medium">Projects</th>
+                    <th className="py-2 pr-3 font-medium">Services</th>
                     <th className="py-2 pr-3 font-medium">Stripe</th>
                     <th className="py-2 pr-3 font-medium">Sub</th>
                     <th className="py-2 font-medium">Joined</th>
@@ -454,7 +456,9 @@ export default function Admin() {
                         <td className="py-2.5 pr-3 font-mono text-xs text-ink-700">
                           {row.planSlug}
                         </td>
-                        <td className="py-2.5 pr-3 tabular-nums">{row.projectCount}</td>
+                        <td className="py-2.5 pr-3 tabular-nums">
+                          {row.serviceCount ?? row.projectCount}
+                        </td>
                         <td className="py-2.5 pr-3">
                           <StatusPill ok={row.hasStripeCustomer} />
                         </td>

@@ -1,6 +1,7 @@
 /**
  * Aggregate SaaS owner metrics for the platform admin dashboard.
- * Billing is user-level today (no Organization model yet).
+ * Hierarchy: Organization → Project → Service (inventory unit).
+ * Billing remains user-level until S5.
  */
 
 import prisma from './prisma.js';
@@ -43,6 +44,39 @@ function buildSignupSeries(users, days = 30) {
   return buckets.map((b) => ({ date: b.date, count: counts.get(b.date) || 0 }));
 }
 
+function countServicesForUser(memberships) {
+  let n = 0;
+  for (const m of memberships || []) {
+    for (const p of m.organization?.projects || []) {
+      n += p._count?.services ?? 0;
+    }
+  }
+  return n;
+}
+
+function countProjectsForUser(memberships) {
+  let n = 0;
+  for (const m of memberships || []) {
+    n += m.organization?.projects?.length ?? 0;
+  }
+  return n;
+}
+
+const membershipInventorySelect = {
+  select: {
+    organization: {
+      select: {
+        projects: {
+          select: {
+            id: true,
+            _count: { select: { services: true } },
+          },
+        },
+      },
+    },
+  },
+};
+
 export async function getAdminOverview() {
   await ensureDefaultPlans();
   const plans = await listPlans({ activeOnly: false });
@@ -59,7 +93,9 @@ export async function getAdminOverview() {
     newUsers30d,
     subscribedUsers,
     stripeCustomers,
+    totalOrganizations,
     totalProjects,
+    totalServices,
     totalEndpoints,
     totalApiKeys,
     activeApiKeys,
@@ -68,7 +104,7 @@ export async function getAdminOverview() {
     hitAggregate,
     recentUsers,
     signupUsers,
-    projectOwners,
+    ownersWithServices,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.groupBy({
@@ -83,7 +119,9 @@ export async function getAdminOverview() {
     prisma.user.count({
       where: { stripeCustomerId: { not: null } },
     }),
+    prisma.organization.count(),
     prisma.project.count(),
+    prisma.service.count(),
     prisma.endpoint.count(),
     prisma.apiKey.count(),
     prisma.apiKey.count({ where: { revokedAt: null } }),
@@ -100,20 +138,26 @@ export async function getAdminOverview() {
         stripeCustomerId: true,
         stripeSubscriptionId: true,
         createdAt: true,
-        _count: { select: { projects: true } },
+        memberships: membershipInventorySelect,
       },
     }),
     prisma.user.findMany({
       where: { createdAt: { gte: since30Inclusive } },
       select: { createdAt: true },
     }),
-    prisma.project.groupBy({
-      by: ['ownerId'],
-      _count: { _all: true },
+    prisma.membership.findMany({
+      where: {
+        role: 'owner',
+        organization: {
+          projects: { some: { services: { some: {} } } },
+        },
+      },
+      distinct: ['userId'],
+      select: { userId: true },
     }),
   ]);
 
-  const usersWithProjects = projectOwners.length;
+  const usersWithProjects = ownersWithServices.length;
   const usersWithoutProjects = Math.max(0, totalUsers - usersWithProjects);
 
   const planBreakdown = plans.map((plan) => {
@@ -126,6 +170,7 @@ export async function getAdminOverview() {
       active: plan.active,
       priceCentsMonthly: plan.priceCentsMonthly,
       endpointLimit: plan.endpointLimit,
+      seatLimit: plan.seatLimit ?? null,
       userCount,
       mrrCents: formatMoneyCents(mrrCents),
     };
@@ -141,6 +186,7 @@ export async function getAdminOverview() {
       active: false,
       priceCentsMonthly: 0,
       endpointLimit: null,
+      seatLimit: null,
       userCount,
       mrrCents: 0,
     });
@@ -168,8 +214,7 @@ export async function getAdminOverview() {
       newUsers30d,
       usersWithProjects,
       usersWithoutProjects,
-      // Orgs are not modeled yet; surface the planned unit for UI honesty
-      organizations: null,
+      organizations: totalOrganizations,
       billingUnit: 'user',
     },
     revenue: {
@@ -180,6 +225,7 @@ export async function getAdminOverview() {
     },
     usage: {
       totalProjects,
+      totalServices,
       totalEndpoints,
       totalHits,
       totalApiKeys,
@@ -193,7 +239,8 @@ export async function getAdminOverview() {
       id: u.id,
       email: u.email,
       planSlug: u.planSlug,
-      projectCount: u._count.projects,
+      projectCount: countProjectsForUser(u.memberships),
+      serviceCount: countServicesForUser(u.memberships),
       hasStripeCustomer: Boolean(u.stripeCustomerId),
       hasSubscription: Boolean(u.stripeSubscriptionId),
       createdAt: u.createdAt,
@@ -234,7 +281,7 @@ export async function listAdminUsers({ limit = 50, offset = 0, q = '', plan = ''
         stripeSubscriptionId: true,
         createdAt: true,
         updatedAt: true,
-        _count: { select: { projects: true } },
+        memberships: membershipInventorySelect,
       },
     }),
   ]);
@@ -247,7 +294,8 @@ export async function listAdminUsers({ limit = 50, offset = 0, q = '', plan = ''
       id: u.id,
       email: u.email,
       planSlug: u.planSlug,
-      projectCount: u._count.projects,
+      projectCount: countProjectsForUser(u.memberships),
+      serviceCount: countServicesForUser(u.memberships),
       hasStripeCustomer: Boolean(u.stripeCustomerId),
       hasSubscription: Boolean(u.stripeSubscriptionId),
       createdAt: u.createdAt,

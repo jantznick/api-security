@@ -1,11 +1,8 @@
 /**
  * Usage & license (S1) — entitlement vs consumption.
  *
- * Until Org → Project → Service (S2), each owned Project is exposed as a
- * "service" (today's inventory unit). projectId / projectName stay null.
- *
- * Seats (D11): Free = 3 total members (owner counts). Until orgs/invites,
- * seats.used is always 1. Pro seat cap is null (unlimited) until priced.
+ * After S2: services are the inventory unit under Org → Project → Service.
+ * Seat limits: Free = 3 (D11); Pro = unlimited until priced.
  */
 
 import express from 'express';
@@ -24,9 +21,13 @@ const FREE_SEAT_LIMIT = 3;
 
 /**
  * Pro / paid plans: seat cap TBD when pricing locks — treat as unlimited.
+ * Prefers Plan.seatLimit when set.
  * @returns {number | null} null = unlimited
  */
-function seatLimitForPlan(planSlug) {
+function seatLimitForPlan(planSlug, planSeatLimit) {
+  if (planSeatLimit !== undefined && planSeatLimit !== null) {
+    return planSeatLimit;
+  }
   const slug = String(planSlug || DEFAULT_PLAN_SLUG).toLowerCase();
   if (slug === 'free') return FREE_SEAT_LIMIT;
   return null;
@@ -60,31 +61,6 @@ router.get('/me', requireAuth, async (req, res) => {
         id: true,
         planSlug: true,
         stripeSubscriptionId: true,
-        projects: {
-          select: {
-            id: true,
-            name: true,
-            endpointLimit: true,
-            _count: {
-              select: {
-                endpoints: true,
-                apiKeys: { where: { revokedAt: null } },
-              },
-            },
-            endpoints: {
-              select: { lastSeenAt: true },
-              orderBy: { lastSeenAt: 'desc' },
-              take: 1,
-            },
-            apiKeys: {
-              where: { revokedAt: null },
-              select: { lastUsedAt: true },
-              orderBy: { lastUsedAt: 'desc' },
-              take: 1,
-            },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
       },
     });
 
@@ -93,35 +69,86 @@ router.get('/me', requireAuth, async (req, res) => {
       return;
     }
 
+    const memberships = await prisma.membership.findMany({
+      where: { userId: user.id },
+      select: {
+        role: true,
+        organizationId: true,
+        organization: {
+          select: {
+            id: true,
+            isPersonal: true,
+            _count: { select: { memberships: true } },
+          },
+        },
+      },
+    });
+
+    const orgIds = memberships.map((m) => m.organizationId);
+
+    const serviceRows =
+      orgIds.length === 0
+        ? []
+        : await prisma.service.findMany({
+            where: { project: { organizationId: { in: orgIds } } },
+            select: {
+              id: true,
+              name: true,
+              endpointLimit: true,
+              projectId: true,
+              project: { select: { id: true, name: true } },
+              _count: {
+                select: {
+                  endpoints: true,
+                  apiKeys: { where: { revokedAt: null } },
+                },
+              },
+              endpoints: {
+                select: { lastSeenAt: true },
+                orderBy: { lastSeenAt: 'desc' },
+                take: 1,
+              },
+              apiKeys: {
+                where: { revokedAt: null },
+                select: { lastUsedAt: true },
+                orderBy: { lastUsedAt: 'desc' },
+                take: 1,
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
     const planSlug = user.planSlug || DEFAULT_PLAN_SLUG;
     const plan = await getPlanBySlug(planSlug);
     const planLimit = await resolveEndpointLimit(planSlug);
 
-    // Today's Project = future Service (S2). No parent Project yet.
-    const services = user.projects.map((p) => {
-      const endpointCount = p._count.endpoints;
-      const endpointLimit = p.endpointLimit ?? planLimit;
-      const lastEndpoint = p.endpoints[0]?.lastSeenAt ?? null;
-      const lastKey = p.apiKeys[0]?.lastUsedAt ?? null;
+    const services = serviceRows.map((s) => {
+      const endpointCount = s._count.endpoints;
+      const endpointLimit = s.endpointLimit ?? planLimit;
+      const lastEndpoint = s.endpoints[0]?.lastSeenAt ?? null;
+      const lastKey = s.apiKeys[0]?.lastUsedAt ?? null;
 
       return {
-        id: p.id,
-        name: p.name,
-        /** Parent Project after S2; null while Project ≡ Service */
-        projectId: null,
-        projectName: null,
+        id: s.id,
+        name: s.name,
+        projectId: s.projectId,
+        projectName: s.project?.name ?? null,
         endpointCount,
         endpointLimit,
-        apiKeyCount: p._count.apiKeys,
+        apiKeyCount: s._count.apiKeys,
         lastIngestAt: maxDate(lastEndpoint, lastKey),
       };
     });
 
+    const projectIds = new Set(services.map((s) => s.projectId).filter(Boolean));
+
+    const personal = memberships.find((m) => m.organization.isPersonal);
+    const seatsUsed = personal?.organization._count.memberships ?? 1;
+
     const totals = {
       endpoints: services.reduce((sum, s) => sum + s.endpointCount, 0),
       services: services.length,
-      /** Distinct parent projects after S2; 0 until hierarchy exists */
-      projects: 0,
+      projects: projectIds.size,
     };
 
     res.json({
@@ -136,11 +163,11 @@ router.get('/me', requireAuth, async (req, res) => {
       services,
       totals,
       seats: {
-        used: 1,
-        limit: seatLimitForPlan(planSlug),
+        used: seatsUsed,
+        limit: seatLimitForPlan(planSlug, plan.seatLimit),
       },
       billingUnit: 'user',
-      limitScope: 'per_project',
+      limitScope: 'per_service',
     });
   } catch (error) {
     console.error('Usage me error:', error);
