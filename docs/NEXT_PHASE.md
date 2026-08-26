@@ -1,5 +1,7 @@
 # Next phase — billing foundation → Stripe
 
+**Full parallel-agent plan of record:** [PARALLEL_PLAN.md](./PARALLEL_PLAN.md)
+
 ## Prior plan status
 
 | Prior plan | Status |
