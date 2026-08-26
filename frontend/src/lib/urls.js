@@ -19,6 +19,13 @@ export const COLLECT_URL = trimSlash(
   import.meta.env.VITE_COLLECT_URL ||
     (isDev ? 'http://localhost:8080' : 'https://collect.apiglimpse.com'),
 );
+
+/** Public Acme demo URLs (optional — set on Render after Railway deploy). */
+export const ACME_DEMO_STOREFRONT_URL = trimSlash(
+  import.meta.env.VITE_ACME_DEMO_STOREFRONT_URL || '',
+);
+export const ACME_DEMO_WEB_URL = trimSlash(import.meta.env.VITE_ACME_DEMO_WEB_URL || '');
+export const ACME_DEMO_PROJECT_ID = import.meta.env.VITE_ACME_DEMO_PROJECT_ID || '';
 export const integratingDocsUrl = `${DOCS_URL}/integrating/`;
 
 /** Absolute marketing auth deep link (optional cross-origin). */

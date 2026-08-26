@@ -65,6 +65,7 @@ export default defineConfig({
           { text: 'Quick start', link: '/quick-start' },
           { text: 'Connect your app', link: '/integrating' },
           { text: 'Use cases', link: '/use-cases' },
+          { text: 'Sales demo (Acme)', link: '/sales-demo' },
         ],
       },
       {

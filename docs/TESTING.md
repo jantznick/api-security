@@ -237,3 +237,16 @@ Point demo `API_SENSOR_AGENT_URL=http://localhost:8080` and `API_SENSOR_KEY=ask_
 - [ ] Path IDs collapsed to templates
 - [ ] No raw bodies in DB
 - [ ] Kill agent → demo still works (fail-open)
+
+## Acme sales demo stack (optional)
+
+Five-service chain under `demo/acme/` for topology compare + sales calls. See [ACME_DEMO_SMOKE.md](./ACME_DEMO_SMOKE.md) and [RAILWAY_ACME_DEMO.md](./RAILWAY_ACME_DEMO.md).
+
+Local:
+
+```bash
+cd demo/acme && docker compose up --build
+node demo/acme/traffic.mjs --profile full --once
+```
+
+Railway: follow RAILWAY_ACME_DEMO.md; then `node demo/acme/scripts/smoke-test.mjs --once` with public `STOREFRONT_URL`.

@@ -326,3 +326,5 @@ Then follow CONNECTOR_PUBLISH for **PyPI** (`apiglimpse`) and **Go** (`connector
 - [CONNECTOR_PUBLISH.md](./CONNECTOR_PUBLISH.md) — npm / PyPI / Go publish
 - [NPM_PUBLISH.md](./NPM_PUBLISH.md) — first-time npm publish
 - [TESTING.md](./TESTING.md) — local verification
+- [RAILWAY_ACME_DEMO.md](./RAILWAY_ACME_DEMO.md) — **Acme sales demo** (5 services on Railway)
+- [ACME_DEMO_SMOKE.md](./ACME_DEMO_SMOKE.md) — post-deploy smoke checklist

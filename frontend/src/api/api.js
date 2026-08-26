@@ -88,6 +88,28 @@ export const projectsAPI = {
     request(`/projects/${projectId}/services/${serviceId}/api-keys/${keyId}/revoke`, {
       method: 'POST',
     }),
+  getTopologyBaseline: (projectId) => request(`/projects/${projectId}/topology/baseline`),
+  putTopologyBaseline: (projectId, baseline) =>
+    request(`/projects/${projectId}/topology/baseline`, {
+      method: 'PUT',
+      body: JSON.stringify({ baseline }),
+    }),
+  getTopologyCompare: (projectId, { recordDrift = false } = {}) => {
+    const qs = recordDrift ? '?recordDrift=1' : '';
+    return request(`/projects/${projectId}/topology/compare${qs}`);
+  },
+  getTopologyEvents: (projectId, params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.unread) qs.set('unread', '1');
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request(`/projects/${projectId}/topology/events${suffix}`);
+  },
+  markTopologyEventsRead: (projectId, ids) =>
+    request(`/projects/${projectId}/topology/events/read`, {
+      method: 'POST',
+      body: JSON.stringify(ids ? { ids } : {}),
+    }),
 };
 
 /** Flat service routes (legacy service UUID = old project UUID). */
