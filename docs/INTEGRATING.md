@@ -260,6 +260,27 @@ If API Glimpse is unreachable, the connector drops samples and your app continue
 
 ---
 
+## Node gateway sidecar
+
+Discover traffic **without** installing app middleware. Run the `@apiglimpse/gateway-proxy` reverse-proxy sidecar in front of your service; it forwards HTTP and samples the same envelope v1 as Express/Fastify.
+
+```bash
+cd packages/gateway-proxy && npm install
+
+API_SENSOR_UPSTREAM=http://app:3000 \
+API_SENSOR_AGENT_URL=https://collect.apiglimpse.com \
+API_SENSOR_KEY=ask_YOUR_PROJECT_KEY \
+npm start
+```
+
+Point clients at the proxy (default port `9080`). Same collector env vars as app connectors, plus required `API_SENSOR_UPSTREAM`.
+
+Kong / Nginx / Envoy native filters are **follow-ups** (see [DECISIONS.md](./DECISIONS.md)) — not available yet.
+
+Package README: [`packages/gateway-proxy/README.md`](../packages/gateway-proxy/README.md).
+
+---
+
 ## Maintainer publish
 
 | Registry | Guide |

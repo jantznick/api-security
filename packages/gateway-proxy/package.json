@@ -1,0 +1,49 @@
+{
+  "name": "@apiglimpse/gateway-proxy",
+  "version": "0.1.0",
+  "description": "Node reverse-proxy sidecar that samples HTTP traffic for API Glimpse without app middleware",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "apiglimpse-gateway-proxy": "./src/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "reverse-proxy",
+    "gateway",
+    "sidecar",
+    "api-security",
+    "discovery",
+    "observability",
+    "apiglimpse"
+  ],
+  "homepage": "https://github.com/jantznick/api-security/tree/main/packages/gateway-proxy",
+  "bugs": {
+    "url": "https://github.com/jantznick/api-security/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jantznick/api-security.git",
+    "directory": "packages/gateway-proxy"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@apiglimpse/shared": "file:../shared"
+  }
+}
