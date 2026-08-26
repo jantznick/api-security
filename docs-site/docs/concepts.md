@@ -32,6 +32,10 @@ Stable path templates via classifiers (UUID, numeric, hex, email, opaque tokens)
 
 Required fields = intersection across observations; types widen to unions; property fan-out is capped. Merged fragments become the latest view of each endpoint’s fields.
 
+## OpenAPI export
+
+From a project’s inventory in the dashboard, use **Export OpenAPI** to download an OpenAPI 3.0 JSON document built from discovered endpoints (method, path template, request/response schemas, and auth hints). Only paths that appear in inventory are included — nothing is invented.
+
 ## Sampling and availability
 
 Sampling is asynchronous: the connector does not wait on API Glimpse before finishing your request. If API Glimpse is unreachable, samples drop and your app continues to serve traffic. See [Connect your app → Troubleshooting](/integrating#troubleshooting).
