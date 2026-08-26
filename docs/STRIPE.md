@@ -1,12 +1,12 @@
 # Stripe + admin plans setup
 
-Billing is **user-level** (one subscription per account). When the plan changes, each owned project’s `endpointLimit` is updated from the Plan row in the database (not a shared pool across projects).
+Billing is **user-level** (one subscription per account). When a plan is **assigned** (Stripe webhook or Admin → Users), the catalog `Plan` limits are **snapshotted onto the user's personal Organization** (`planSlug`, `endpointLimit`, `seatLimit`, `planAssignedAt`) and copied onto each service’s `endpointLimit`. Editing a Plan in Admin updates the **catalog only** — existing orgs keep their snapshotted limits until you re-assign.
 
-Plan **names, prices, endpoint caps, Stripe Price IDs, and contact-sales flags** are editable in the **Admin** dashboard (`/admin`) for the user whose email matches Railway env `ADMIN_EMAIL`.
+Plan **names, prices, endpoint/seat caps, Stripe Price IDs, and contact-sales flags** are editable in the **Admin** dashboard (`/admin`) for the user whose email matches Railway env `ADMIN_EMAIL`.
 
-Defaults (migration seed): **Free** (25 endpoints, $0) and **Pro** (500 endpoints, $29.00 display placeholder until Nick sets real cents / `stripePriceId`). Add **Enterprise** (or any other plan) from Admin → **Add plan** / **Add Enterprise**.
+Defaults (migration seed): **Free** (25 endpoints, 3 seats, $0) and **Pro** (500 endpoints, unlimited seats, $29.00 display placeholder until Nick sets real cents / `stripePriceId`). Add **Enterprise** (or any other plan) from Admin → **Add plan** / **Add Enterprise**.
 
-Helpers: `backend/lib/plans.js` (`applyPlanToUser`, fallback constants if DB empty).
+Helpers: `backend/lib/plans.js` (`applyPlanToUser`, `applyPlanToOrganization`, org limit resolvers). Design: [ORG_PLAN_LIMITS.md](./ORG_PLAN_LIMITS.md).
 
 ---
 
@@ -129,4 +129,5 @@ Dashboard: **`/admin`** (owner overview + plans) and **`/billing`** (user billin
 - [ ] Test Checkout from `/billing` for Pro  
 - [ ] Confirm Contact sales form on `/billing` + marketing `/pricing`  
 - [ ] Confirm lead appears in Admin → Sales leads  
-- [ ] Confirm project `endpointLimit` updates after subscribe / admin assign  
+- [ ] Confirm org + service `endpointLimit` (and org `seatLimit`) snapshot after subscribe / admin assign  
+- [ ] Confirm Admin → Plans save does **not** change existing org limits until re-assign  

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { ensurePersonalOrg } from '../lib/orgs.js';
-import { resolveSeatLimit } from '../lib/plans.js';
+import { resolveOrgSeatLimit } from '../lib/plans.js';
 import {
   completeMagicLogin,
   establishUserSession,
@@ -300,6 +300,9 @@ router.get('/me', async (req, res) => {
             slug: true,
             isPersonal: true,
             planSlug: true,
+            seatLimit: true,
+            endpointLimit: true,
+            planAssignedAt: true,
             _count: { select: { memberships: true } },
           },
         },
@@ -311,13 +314,15 @@ router.get('/me', async (req, res) => {
     const orgs = await Promise.all(
       memberships.map(async (m) => {
         const planSlug = m.organization.planSlug || 'free';
-        const seatLimit = await resolveSeatLimit(planSlug);
+        const seatLimit = await resolveOrgSeatLimit(m.organization);
         return {
           id: m.organization.id,
           name: m.organization.name,
           slug: m.organization.slug,
           isPersonal: m.organization.isPersonal,
           planSlug,
+          endpointLimit: m.organization.endpointLimit ?? null,
+          seatLimit,
           role: m.customRoleId ? null : m.role,
           customRoleId: m.customRoleId || null,
           roleName: m.customRole?.name || m.role,

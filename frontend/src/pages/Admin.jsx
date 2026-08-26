@@ -21,7 +21,7 @@ const TAB_DESCRIPTIONS = {
   overview: 'Accounts, revenue, signups, and platform usage.',
   leads: 'Contact-sales inquiries from the Enterprise form.',
   users: 'Search accounts and assign plans.',
-  plans: 'Configure self-serve and contact-sales plans.',
+  plans: 'Catalog templates only — saving does not change existing org limits.',
 };
 
 function emptyDraft(plan) {
@@ -34,6 +34,10 @@ function emptyDraft(plan) {
       plan.endpointLimit === null || plan.endpointLimit === undefined
         ? ''
         : String(plan.endpointLimit),
+    seatLimit:
+      plan.seatLimit === null || plan.seatLimit === undefined
+        ? ''
+        : String(plan.seatLimit),
     priceCentsMonthly: String(plan.priceCentsMonthly ?? 0),
     stripePriceId: plan.stripePriceId ?? '',
     contactSales: Boolean(plan.contactSales),
@@ -53,6 +57,7 @@ function newPlanDraft({ slug, name, contactSales = false, ...rest } = {}) {
     name: name || 'New plan',
     description: rest.description ?? '',
     endpointLimit: rest.endpointLimit ?? '',
+    seatLimit: rest.seatLimit ?? '',
     priceCentsMonthly: rest.priceCentsMonthly ?? 0,
     stripePriceId: '',
     contactSales,
@@ -315,6 +320,7 @@ export default function Admin() {
         name: d.name.trim(),
         description: d.description.trim() || null,
         endpointLimit: d.endpointLimit === '' ? null : Number(d.endpointLimit),
+        seatLimit: d.seatLimit === '' ? null : Number(d.seatLimit),
         priceCentsMonthly: Number(d.priceCentsMonthly || 0),
         stripePriceId: d.contactSales ? null : d.stripePriceId.trim() || null,
         contactSales: Boolean(d.contactSales),
@@ -741,7 +747,7 @@ export default function Admin() {
         {activeTab === 'plans' ? (
           <Section
             title="Plan configuration"
-            description="Add self-serve or contact-sales plans. Contact-sales skips Checkout and uses the inquiry form. After a deal, assign the plan under Users."
+            description="Catalog templates for new assigns and marketing. Saving here does not change limits already snapshotted onto orgs — re-assign a plan under Users to refresh an account."
             className="mt-0"
             actions={
               <div className="flex flex-wrap gap-2">
@@ -752,6 +758,7 @@ export default function Admin() {
                       slug: 'new-plan',
                       name: 'New plan',
                       endpointLimit: 1000,
+                      seatLimit: '',
                       priceCentsMonthly: 0,
                       sortOrder: 50,
                     })
@@ -769,6 +776,7 @@ export default function Admin() {
                       description:
                         'Custom limits, dedicated support, and onboarding. Contact us for pricing.',
                       endpointLimit: '',
+                      seatLimit: '',
                       priceCentsMonthly: 0,
                       contactSales: true,
                       sortOrder: 100,
@@ -789,13 +797,14 @@ export default function Admin() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
+                  <table className="w-full min-w-[72rem] border-collapse text-left text-sm">
                     <thead>
                       <tr className="border-b border-ink-200 text-ink-500">
                         <th className="py-2 pr-3 font-medium">Slug</th>
                         <th className="py-2 pr-3 font-medium">Name</th>
                         <th className="py-2 pr-3 font-medium">Description</th>
                         <th className="py-2 pr-3 font-medium">Endpoint limit</th>
+                        <th className="py-2 pr-3 font-medium">Seat limit</th>
                         <th className="py-2 pr-3 font-medium">Price (¢/mo)</th>
                         <th className="py-2 pr-3 font-medium">Contact sales</th>
                         <th className="py-2 pr-3 font-medium">Contact URL</th>
@@ -856,6 +865,19 @@ export default function Admin() {
                                 updateDraft(index, { endpointLimit: e.target.value })
                               }
                               aria-label={`Endpoint limit for ${row.slug}`}
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="∞"
+                              className="w-20 rounded-md border border-ink-200 bg-white px-2 py-1.5 font-mono text-ink-900"
+                              value={row.seatLimit}
+                              onChange={(e) =>
+                                updateDraft(index, { seatLimit: e.target.value })
+                              }
+                              aria-label={`Seat limit for ${row.slug}`}
                             />
                           </td>
                           <td className="py-2 pr-3">
@@ -938,9 +960,10 @@ export default function Admin() {
                   </table>
                 </div>
                 <p className="mt-3 text-xs text-ink-500">
-                  Empty endpoint limit = unlimited. Contact-sales plans use the inquiry form; leads
-                  appear under the Leads tab. Self-serve paid plans need a{' '}
-                  <code className="font-mono">stripePriceId</code>.
+                  Empty endpoint or seat limit = unlimited. Plan saves update the catalog only;
+                  existing orgs keep their snapshotted limits until you re-assign under Users.
+                  Contact-sales plans use the inquiry form; leads appear under the Leads tab.
+                  Self-serve paid plans need a <code className="font-mono">stripePriceId</code>.
                 </p>
               </>
             )}

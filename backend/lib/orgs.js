@@ -1,9 +1,11 @@
 /**
  * Personal organization helpers (S2).
  * Every user always has a personal org + owner membership + Default project.
+ * New personal orgs snapshot plan limits from the catalog Plan (not live-linked).
  */
 
 import prisma from './prisma.js';
+import { getPlanBySlug, DEFAULT_PLAN_SLUG } from './plans.js';
 
 function personalSlug(userId) {
   return `personal-${String(userId).replace(/-/g, '')}`;
@@ -57,7 +59,11 @@ export async function ensurePersonalOrg(user) {
   }
 
   const slug = personalSlug(user.id);
-  const planSlug = user.planSlug || 'free';
+  const planSlug = user.planSlug || DEFAULT_PLAN_SLUG;
+  const plan = await getPlanBySlug(planSlug);
+  const endpointLimit = plan.endpointLimit ?? null;
+  const seatLimit = plan.seatLimit ?? null;
+  const planAssignedAt = new Date();
 
   const organization = await prisma.organization.create({
     data: {
@@ -65,6 +71,9 @@ export async function ensurePersonalOrg(user) {
       slug,
       isPersonal: true,
       planSlug,
+      endpointLimit,
+      seatLimit,
+      planAssignedAt,
       stripeSubscriptionId: user.stripeSubscriptionId ?? null,
       memberships: {
         create: {

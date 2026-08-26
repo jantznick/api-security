@@ -2,12 +2,11 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { generateApiKey } from '../lib/apiKeys.js';
 import { requireAuth } from '../middleware/auth.js';
-import { resolveEndpointLimit } from '../lib/plans.js';
+import { resolveOrgEndpointLimit } from '../lib/plans.js';
 import {
   accessibleProject,
   accessibleService,
   ensurePersonalOrg,
-  getPersonalDefaultProject,
   memberOrgIds,
 } from '../lib/orgs.js';
 
@@ -62,9 +61,9 @@ async function loadUserForOrg(userId) {
 async function createServiceInDefaultProject(userId, name) {
   const user = await loadUserForOrg(userId);
   if (!user) throw new Error('Unauthorized');
-  const project = await getPersonalDefaultProject(user);
+  const { organization, project } = await ensurePersonalOrg(user);
   const key = generateApiKey();
-  const endpointLimit = await resolveEndpointLimit(user.planSlug || 'free');
+  const endpointLimit = await resolveOrgEndpointLimit(organization);
 
   const service = await prisma.service.create({
     data: {
@@ -219,8 +218,16 @@ router.post('/:projectId/services', async (req, res) => {
     const name = String(req.body?.name || '').trim() || 'Default service';
     const key = generateApiKey();
 
-    const owner = await loadUserForOrg(req.session.userId);
-    const endpointLimit = await resolveEndpointLimit(owner?.planSlug || 'free');
+    const org = await prisma.organization.findUnique({
+      where: { id: project.organizationId },
+      select: {
+        id: true,
+        planSlug: true,
+        endpointLimit: true,
+        planAssignedAt: true,
+      },
+    });
+    const endpointLimit = await resolveOrgEndpointLimit(org);
 
     const service = await prisma.service.create({
       data: {

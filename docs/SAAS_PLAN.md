@@ -414,7 +414,8 @@ Token stored hashed (same idea as API keys). TTL e.g. 7 days.
 ### Changes
 
 - Stripe Customer + subscription ids live on `Organization`.
-- `applyPlanToUser` becomes `applyPlanToOrganization` → sync `endpointLimit` to all **services** in the org.
+- Prefer `applyPlanToOrganization` (already snapshots `endpointLimit` / `seatLimit` onto the org and syncs services) as the primary path; shrink or remove `applyPlanToUser`.
+- Org entitlements are **snapshotted on assign** — see [ORG_PLAN_LIMITS.md](./ORG_PLAN_LIMITS.md). Catalog Plan edits must not cascade.
 - Usage + billing pages become org-scoped.
 - Personal org keeps solo-dev UX identical.
 

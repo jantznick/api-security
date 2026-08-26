@@ -168,6 +168,8 @@ router.put('/users/:id/plan', async (req, res) => {
       email: user.email,
       planSlug: result.planSlug,
       endpointLimit: result.endpointLimit,
+      seatLimit: result.seatLimit,
+      organizationIds: result.organizationIds,
       plan: serializePlan(plan),
     });
   } catch (error) {
