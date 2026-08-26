@@ -5,6 +5,7 @@ import useAuthStore from './store/authStore';
 import AuthModal from './components/AuthModal';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthModalProvider } from './context/AuthModalContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import AuthDeepLink from './pages/AuthDeepLink';
 import RootRedirect from './pages/RootRedirect';
 import Projects from './pages/Projects';
@@ -32,8 +33,9 @@ export default function App() {
 
   return (
     <AuthModalProvider>
-      <AuthModal />
-      <Routes>
+      <ConfirmProvider>
+        <AuthModal />
+        <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<AuthDeepLink mode="login" />} />
         <Route path="/register" element={<AuthDeepLink mode="register" />} />
@@ -144,6 +146,7 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ConfirmProvider>
     </AuthModalProvider>
   );
 }

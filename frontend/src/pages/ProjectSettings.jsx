@@ -8,6 +8,7 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
+import { useConfirm } from '../context/ConfirmContext';
 import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 /** Name for the replacement key created during rotate. */
@@ -19,6 +20,7 @@ function rotatedKeyName(name) {
 
 export default function ProjectSettings() {
   const { projectId, serviceId } = useParams();
+  const confirm = useConfirm();
   const basePath = `/projects/${projectId}/services/${serviceId}`;
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,9 +76,13 @@ export default function ProjectSettings() {
   };
 
   const handleRevoke = async (keyId) => {
-    if (!window.confirm('Revoke this API key? Middleware using it will stop reporting.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Revoke API key?',
+      message: 'Middleware using this key will stop reporting until you create a new one.',
+      confirmLabel: 'Revoke key',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setRevokingId(keyId);
     try {
       await projectsAPI.revokeApiKey(projectId, serviceId, keyId);
@@ -97,12 +103,15 @@ export default function ProjectSettings() {
    * Uses existing create + revoke APIs — no dedicated rotate endpoint.
    */
   const handleRotate = async (key) => {
-    const confirmed = window.confirm(
-      'Rotate this API key?\n\n' +
+    const ok = await confirm({
+      title: 'Rotate API key?',
+      message:
         '1. A new key is created and shown once — copy it into your middleware.\n' +
         '2. The old key is then revoked so traffic with the old secret stops.',
-    );
-    if (!confirmed) return;
+      confirmLabel: 'Rotate key',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     setRotatingId(key.id);
     setRawKey(null);
