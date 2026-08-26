@@ -15,17 +15,22 @@ Your app
 | --- | --- | --- |
 | [Express](#express) | Available | `npm install @apiglimpse/middleware` |
 | [Fastify](#fastify) | Available | `npm install @apiglimpse/fastify` |
+| [NestJS](#nestjs) | Available | `npm install @apiglimpse/nestjs` |
+| [Next.js](#nextjs) | Available | `npm install @apiglimpse/next` |
 | [FastAPI](#fastapi) | Available | `pip install apiglimpse` |
-| [Go (chi)](#go-chi) | Available | `go get github.com/jantznick/api-security/connectors/go/apiglimpse` |
-| NestJS | Coming soon | — |
-| Next.js (Route Handlers / API routes) | Coming soon | — |
+| [Django](#django) | Available | `pip install "apiglimpse[django]"` |
+| [Flask](#flask) | Available | `pip install "apiglimpse[flask]"` |
+| [Go (chi)](#go-chi) | Available | `go get …/connectors/go/apiglimpse` |
+| [Spring Boot](#spring-boot) | Available | Maven starter |
+| [ASP.NET Core](#aspnet-core) | Available | `ApiGlimpse.AspNetCore` |
+| [Node gateway sidecar](#node-gateway-sidecar) | Available | `@apiglimpse/gateway-proxy` |
+| Nginx (OpenResty) | Available | See repo `docs/GATEWAY_NGINX.md` |
+| Kong | Available | See repo `docs/GATEWAY_KONG.md` |
 | Hono | Coming soon | — |
-| [Node gateway sidecar](#node-gateway-sidecar) | Available (sidecar) | Run `@apiglimpse/gateway-proxy` in front of your app |
-| Kong / Nginx / Envoy | Coming soon | — |
 
 All connectors send the same samples to `https://collect.apiglimpse.com` (one hosted collector).
 
-> **Publish note:** Public `npm` / `pip` / `go get` installs work after maintainers [publish packages](https://github.com/jantznick/api-security/blob/main/docs/CONNECTOR_PUBLISH.md). Until then, use the demos under `demo/` with local `file:` / editable / `replace` paths (see the repo integrating guide).
+> **Publish note:** Public registry installs work after maintainers publish packages. Until then, use the demos under `demo/` with local paths (see the repo integrating guide).
 
 ## Express
 
@@ -230,6 +235,77 @@ r.Use(apiglimpse.Middleware(apiglimpse.Config{
 
 ---
 
+## NestJS
+
+```bash
+npm install @apiglimpse/nestjs
+```
+
+```ts
+@Module({
+  imports: [
+    ApiGlimpseModule.forRoot({
+      agentUrl: process.env.API_SENSOR_AGENT_URL,
+      apiKey: process.env.API_SENSOR_KEY,
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+---
+
+## Next.js
+
+```bash
+npm install @apiglimpse/next
+```
+
+```js
+import { withApiSensor } from '@apiglimpse/next';
+export const GET = withApiSensor(async () => Response.json({ ok: true }));
+```
+
+---
+
+## Django
+
+```bash
+pip install "apiglimpse[django]"
+```
+
+Add `"apiglimpse.django.ApiGlimpseDjangoMiddleware"` to `MIDDLEWARE`.
+
+---
+
+## Flask
+
+```bash
+pip install "apiglimpse[flask]"
+```
+
+```python
+from apiglimpse.flask import ApiGlimpse
+ApiGlimpse(app)
+```
+
+---
+
+## Spring Boot
+
+Add Maven dependency `com.apiglimpse:apiglimpse-spring-boot-starter` and set `apiglimpse.agent-url` / `apiglimpse.api-key` (see repo `connectors/java`).
+
+---
+
+## ASP.NET Core
+
+```csharp
+builder.Services.AddApiGlimpse(builder.Configuration);
+app.UseApiGlimpse();
+```
+
+---
+
 ## Node gateway sidecar
 
 Discover traffic **without** installing app middleware. Run the `@apiglimpse/gateway-proxy` reverse-proxy sidecar in front of your service; it forwards HTTP and samples the same envelope v1 as Express/Fastify.
@@ -243,12 +319,13 @@ API_SENSOR_KEY=ask_YOUR_PROJECT_KEY \
 npm start
 ```
 
-Point clients at the proxy (default port `9080`). Kong / Nginx / Envoy native filters are follow-ups — not available yet.
+Point clients at the proxy (default port `9080`).
 
-Full package README: [`packages/gateway-proxy`](https://github.com/jantznick/api-security/tree/main/packages/gateway-proxy). Decision record: [DECISIONS.md](https://github.com/jantznick/api-security/blob/main/docs/DECISIONS.md).
+Native **Nginx (OpenResty)** and **Kong** Lua plugins are also available — see the GitHub docs `GATEWAY_NGINX.md` / `GATEWAY_KONG.md`.
 
 ---
 
 ## Not supported yet
 
 - Runtime request blocking
+- Envoy / eBPF

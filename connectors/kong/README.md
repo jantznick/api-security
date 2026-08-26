@@ -1,41 +1,90 @@
-# Kong gateway plugin (SF5)
+# Kong gateway plugin — API Glimpse
 
-Kong Plugin that samples requests into API Glimpse envelope v1.
+Kong **Lua** plugin that samples proxied traffic into envelope **v1** and POSTs
+batches to `collect.apiglimpse.com` (same contract as the
+[Nginx / OpenResty sampler](../nginx/README.md)).
 
-## Status
+Fail-open: collector errors never fail the client request. Protect mode is
+**not** enforced here (use app middleware protect or Kong ACL/OIDC).
 
-**Outline only** — the production sampler lives in
-[`connectors/nginx/`](../nginx/README.md) (OpenResty). Prefer that path if you
-run OpenResty today. This Kong plugin will wrap the **same** contract once
-packaged (C2-KONG):
+## Layout
 
-| Kong config | Env / Nginx equivalent |
-| --- | --- |
-| `config.agent_url` | `API_SENSOR_AGENT_URL` |
-| `config.api_key` | `API_SENSOR_KEY` |
-| `config.service_name` | `API_SENSOR_SERVICE_NAME` (topology caller label) |
-| `config.sample_rate` | `API_SENSOR_SAMPLE_RATE` |
+```
+connectors/kong/
+  kong/plugins/apiglimpse/
+    handler.lua      # log-phase sampler + async flush
+    schema.lua       # plugin config
+    redaction.lua    # envelope v1 redaction (shared with Nginx)
+  README.md
+```
 
-**Source of truth:** [`../nginx/apiglimpse.lua`](../nginx/apiglimpse.lua) +
-[`../nginx/redaction.lua`](../nginx/redaction.lua) (envelope v1 redaction parity,
-circuit breaker, body size caps). Do not fork sampling logic in Kong until that
-module is stable.
+## Config
 
-## Enable (outline)
+| Field | Env equivalent | Purpose |
+| --- | --- | --- |
+| `agent_url` | `API_SENSOR_AGENT_URL` | Collector base URL |
+| `api_key` | `API_SENSOR_KEY` | Service API key (`ask_…`) |
+| `service_name` | `API_SENSOR_SERVICE_NAME` | Caller / topology label |
+| `sample_rate` | `API_SENSOR_SAMPLE_RATE` | 0–1 |
+| `max_body_bytes` | `API_SENSOR_MAX_BODY_BYTES` | JSON shape cap (default 64 KiB) |
+
+## Enable (Admin API)
+
+After the plugin is on Kong’s `plugins` lua path (see demo):
 
 ```bash
-# After packaging as a Kong plugin (luarocks / JS plugin later)
-curl -X POST http://localhost:8001/plugins \
+curl -s -X POST http://localhost:8001/plugins \
   --data "name=apiglimpse" \
   --data "config.agent_url=https://collect.apiglimpse.com" \
   --data "config.api_key=ask_…" \
   --data "config.service_name=kong-gateway"
 ```
 
-## Behavior (planned)
+Or declarative (`kong.yml`):
 
-1. `log` phase: build sample (method, path, status, latency, authObserved, caller).
-2. Buffer + async POST `/v1/samples` (fail-open + circuit breaker).
-3. No protect enforcement in Kong MVP — use app middleware protect or Kong ACL/OIDC.
+```yaml
+plugins:
+  - name: apiglimpse
+    config:
+      agent_url: https://collect.apiglimpse.com
+      api_key: ask_…
+      service_name: kong-gateway
+      sample_rate: 1
+```
 
-Customer gateway docs: [docs/GATEWAY_NGINX.md](../../docs/GATEWAY_NGINX.md).
+## Behavior
+
+1. **`log` phase** — build sample (method, path, status, latency, authObserved, caller, redacted headers; JSON body shapes best-effort).
+2. Buffer + periodic / max-batch `POST /v1/samples` with `X-API-Key`.
+3. Circuit breaker on 5xx / network failures; 401 drops without permanent open.
+
+Bodies are often unavailable in Kong’s log phase — **metadata always ships**.
+
+## Local demo
+
+```bash
+cd demo/kong
+docker compose up --build -d
+./test.sh
+```
+
+## Tests
+
+```bash
+./connectors/kong/test/run_tests.sh
+```
+
+## Limits (v1)
+
+| Topic | Behavior |
+| --- | --- |
+| Fail-open | Yes |
+| Bodies | Best-effort JSON shape; size-capped |
+| Protect | Not enforced in Kong |
+| Envoy / WASM | Out of scope |
+
+## Related
+
+- OpenResty: [../nginx/README.md](../nginx/README.md) · [docs/GATEWAY_NGINX.md](../../docs/GATEWAY_NGINX.md)
+- Kong customer doc: [docs/GATEWAY_KONG.md](../../docs/GATEWAY_KONG.md)
+- Node sidecar: `@apiglimpse/gateway-proxy`
