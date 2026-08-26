@@ -2,9 +2,15 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
-import { withAdminFlag } from '../lib/admin.js';
 import { ensurePersonalOrg } from '../lib/orgs.js';
 import { resolveSeatLimit } from '../lib/plans.js';
+import {
+  completeMagicLogin,
+  establishUserSession,
+  normalizeEmail,
+  publicUser,
+  userSelect,
+} from '../lib/sessionAuth.js';
 import { isResendConfigured, sendMagicLinkEmail } from '../services/email/resend.js';
 
 const router = express.Router();
@@ -12,14 +18,6 @@ const router = express.Router();
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DISPLAY_NAME_MAX = 80;
-
-const userSelect = {
-  id: true,
-  email: true,
-  displayName: true,
-  planSlug: true,
-  createdAt: true,
-};
 
 function normalizeDisplayName(value) {
   if (value === null || value === undefined) {
@@ -36,17 +34,6 @@ function normalizeDisplayName(value) {
     };
   }
   return { ok: true, value: trimmed };
-}
-
-function publicUser(user) {
-  return withAdminFlag({
-    ...user,
-    orgs: Array.isArray(user?.orgs) ? user.orgs : [],
-  });
-}
-
-function normalizeEmail(email) {
-  return email.trim().toLowerCase();
 }
 
 function normalizeToken(token) {
@@ -76,55 +63,15 @@ async function cleanupExpiredTokens() {
 
 setInterval(cleanupExpiredTokens, 5 * 60 * 1000);
 
-function saveSession(req, res, user) {
-  req.session.userId = user.id;
-  req.session.email = user.email;
-
-  req.session.save((err) => {
-    if (err) {
-      console.error('Session save error:', err);
-      res.status(500).json({ error: 'Failed to save session' });
-      return;
-    }
-
-    res.json({ user: publicUser(user) });
-  });
-}
-
-async function regenerateSession(req) {
-  await new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
-
-async function findOrCreateUser(email) {
-  const normalizedEmail = normalizeEmail(email);
-
-  let user = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: { email: normalizedEmail },
-    });
+async function saveSession(req, res, user) {
+  try {
+    await establishUserSession(req, user);
+  } catch (err) {
+    console.error('Session save error:', err);
+    res.status(500).json({ error: 'Failed to save session' });
+    return;
   }
-
-  await ensurePersonalOrg(user);
-  return user;
-}
-
-async function completeMagicLogin(req, res, email) {
-  const created = await findOrCreateUser(email);
-  const user = await prisma.user.findUnique({
-    where: { id: created.id },
-    select: userSelect,
-  });
-  await regenerateSession(req);
-  saveSession(req, res, user);
+  res.json({ user: publicUser(user) });
 }
 
 async function issueMagicTokens(email) {
@@ -185,8 +132,7 @@ router.post('/register', async (req, res) => {
 
     await ensurePersonalOrg(user);
 
-    await regenerateSession(req);
-    saveSession(req, res, user);
+    await saveSession(req, res, user);
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
@@ -218,8 +164,7 @@ router.post('/login', async (req, res) => {
 
     await ensurePersonalOrg(user);
 
-    await regenerateSession(req);
-    saveSession(req, res, {
+    await saveSession(req, res, {
       id: user.id,
       email: user.email,
       displayName: user.displayName ?? null,
