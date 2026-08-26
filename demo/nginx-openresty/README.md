@@ -5,10 +5,19 @@ mock collector (`POST /v1/samples`).
 
 ## Prerequisites
 
-- Docker + Docker Compose
+- Docker + Docker Compose with a working storage driver (overlay)
 - OpenResty image pull access (`openresty/openresty`)
 
 Stock Nginx without Lua is **unsupported** — this demo intentionally uses OpenResty.
+
+If `docker compose build` fails in nested/CI VMs (overlay mount errors), run the
+Lua unit tests and mock-collector smoke on the host, and run the full compose
+stack on a normal Docker Desktop / Linux host:
+
+```bash
+./connectors/nginx/test/run_tests.sh
+./demo/nginx-openresty/test-mock-collector.sh
+```
 
 ## Run
 
