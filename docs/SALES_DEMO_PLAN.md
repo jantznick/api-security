@@ -187,6 +187,8 @@ Bake two intentional mismatches into the traffic script so the compare view *doe
 | **B** (SF9 MVP) | Upload JSON + project diff API + simple graph UI | Live compare on calls |
 | **C** | Drift alerts on topology (`topology.edge.missing` / `.shadow`) | Ties SF2 + SF9 for renewal |
 
+**Format of record:** [TOPOLOGY_BASELINE.md](./TOPOLOGY_BASELINE.md) — baseline JSON, compare result, and drift event payloads.
+
 **Recommendation:** Start phase A in `demo/acme/` immediately; prioritize SF9-B right after the five-service stack is running — it is the demo’s headline feature.
 
 ## Payloads that actually exercise classification
