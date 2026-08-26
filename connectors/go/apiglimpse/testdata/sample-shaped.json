@@ -1,0 +1,78 @@
+{
+  "method": "POST",
+  "path": "/api/users",
+  "statusCode": 201,
+  "latencyMs": 42,
+  "authObserved": "bearer",
+  "timestamp": "2026-01-15T12:00:00.000Z",
+  "request": {
+    "contentType": "application/json",
+    "headerNames": [
+      "content-type",
+      "authorization",
+      "x-request-id"
+    ],
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "[REDACTED]",
+      "x-request-id": "req-abc-123"
+    },
+    "bodyShape": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "sample": "user@example.com"
+        },
+        "password": {
+          "type": "string",
+          "sample": "[REDACTED]"
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "sample": "Ada"
+            },
+            "age": {
+              "type": "integer",
+              "sample": 36
+            }
+          },
+          "truncatedKeys": false
+        }
+      },
+      "truncatedKeys": false
+    }
+  },
+  "response": {
+    "contentType": "application/json",
+    "headerNames": [
+      "content-type",
+      "set-cookie"
+    ],
+    "headers": {
+      "content-type": "application/json",
+      "set-cookie": "[REDACTED]"
+    },
+    "bodyShape": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "sample": "usr_01"
+        },
+        "email": {
+          "type": "string",
+          "sample": "user@example.com"
+        },
+        "token": {
+          "type": "string",
+          "sample": "[REDACTED]"
+        }
+      },
+      "truncatedKeys": false
+    }
+  }
+}
