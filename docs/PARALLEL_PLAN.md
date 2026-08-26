@@ -203,13 +203,13 @@ After N1–N2 (+ Phase A deploy): register/login → project → key → middlew
 
 ### W7 — Orgs / invites (multi-seat)
 
-**Goal:** Share a project with teammates.  
-**Depends on:** Prefer after W3 (billing owner clear).  
-**Touches:** New models `Organization`, `Membership`, invite tokens; authz on projects; UI members page.  
+**Superseded by full epic:** [SAAS_PLAN.md](./SAAS_PLAN.md) (streams **S0–S6**: account hub, usage/license, Org→Project→Service hierarchy, RBAC, invites, org billing).
 
-**Tasks:** Sketch schema + owner-only billing; invites via Resend (needs N1).  
+**Goal:** Share services with teammates under an organization.  
+**Depends on:** Prefer after W3 (billing owner clear); Resend (N1) for invites.  
+**Do not** implement from this stub — use **SAAS_PLAN.md** as the plan of record.  
 
-**Heavy** — run as its own epic; don’t parallel with W3 on same auth files without coordination.
+**Heavy** — own epic; don’t parallel schema work with W3 on the same Prisma files without coordination.
 
 ---
 

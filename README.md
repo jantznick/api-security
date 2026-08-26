@@ -68,6 +68,7 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 - [Railway](docs/RAILWAY.md) — Postgres / ingest / collector / core detail
 - [Render](docs/RENDER.md) — static dashboard, marketing, and docs sites
 - [Productization](docs/PRODUCTIZATION.md) — product shape, phases, launch checklist
+- [SaaS plan](docs/SAAS_PLAN.md) — account/usage UX, Org→Project→Service, teams + RBAC
 - [Marketing](docs/MARKETING.md) — site IA, CTAs; brand **API Glimpse**
 - [Architecture](docs/ARCHITECTURE.md) — components and data flow
 - [Decisions](docs/DECISIONS.md) — why these defaults

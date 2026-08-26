@@ -59,3 +59,7 @@ Blocking is designed for (local policy cache, fail-open default) but **not imple
 - Fancy ML classifiers
 - Multi-region SaaS control plane
 - OpenAPI export (stretch; not required for demo)
+
+## Multi-seat SaaS hierarchy (planned)
+
+Soft launch stays **User → Project**. Next tenancy model (not shipped yet): **Organization → Project → Service**, with org-scoped RBAC and billing moving to the org. Plan of record: [SAAS_PLAN.md](./SAAS_PLAN.md). Do not invent a second hierarchy in ad-hoc PRs.
