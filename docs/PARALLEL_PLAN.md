@@ -221,6 +221,12 @@ After N1–N2 (+ Phase A deploy): register/login → project → key → middlew
 
 ---
 
+## Next wave (sales / posture)
+
+After soft-launch streams above, use **[SALES_FEATURES_PLAN.md](./SALES_FEATURES_PLAN.md)** (`SF0`–`SF8`) for risk posture, drift alerts, topology, evidence packs, gateway connectors, and sales packaging. Do not extend this file with those streams — keep one plan of record.
+
+---
+
 ## Explicit non-goals (all streams)
 
 - Password reset (unless Nick reopens)  

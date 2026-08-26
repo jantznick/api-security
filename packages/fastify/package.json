@@ -34,12 +34,16 @@
     "directory": "packages/fastify"
   },
   "scripts": {
-    "publish:npm": "node ./scripts/publish.mjs"
+    "publish:npm": "node ./scripts/publish.mjs",
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "@apiglimpse/shared": "file:../shared"
   },
   "peerDependencies": {
     "fastify": ">=4"
+  },
+  "devDependencies": {
+    "fastify": "^4.28.0"
   }
 }

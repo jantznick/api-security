@@ -39,6 +39,7 @@ Expect **202** `{ "accepted": <n> }` on success.
 | --- | --- |
 | `method`, `path`, `statusCode`, `latencyMs`, `authObserved`, `timestamp` | Path as seen by the app (agent templates it) |
 | `request` / `response` | `contentType`, `headerNames`, `headers` (redacted), `bodyShape` |
+| `responseBodyCaptured` | Optional boolean — whether a JSON response body was shaped (streaming/binary/oversized → false/omitted) |
 
 See `packages/shared/fixtures/sample-shaped.json` for a full shaped example and `envelope-v1-minimal.json` for the empty-batch envelope.
 

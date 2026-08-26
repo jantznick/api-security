@@ -29,6 +29,8 @@ DEFAULTS = {
     "circuit_open_ms": 15000,
 }
 
+MAX_RESPONSE_CAPTURE_BYTES = 64 * 1024
+
 
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
@@ -68,6 +70,40 @@ def _parse_json_bytes(raw: bytes | None) -> Any:
         return None
 
 
+
+def _resolve_caller(headers: dict[str, str], service_name: str | None) -> dict[str, Any]:
+    """Mirror packages/shared resolveCallerHints (explicit service name preferred)."""
+    lower = {str(k).lower(): v for k, v in (headers or {}).items()}
+    explicit = (
+        str(lower.get("x-service-name") or lower.get("x-client-name") or service_name or "").strip()
+        or None
+    )
+    ua = str(lower.get("user-agent") or "").lower()
+    if "curl/" in ua or ua == "curl":
+        family = "curl"
+    elif any(x in ua for x in ("mozilla/", "chrome/", "safari/", "firefox/", "edg/")):
+        family = "browser"
+    elif any(
+        x in ua
+        for x in ("axios", "node-fetch", "go-http", "python-requests", "okhttp", "java/", "apiglimpse")
+    ):
+        family = "sdk"
+    else:
+        family = "unknown"
+    if explicit:
+        return {
+            "key": f"svc:{explicit.lower()}",
+            "label": explicit,
+            "serviceName": explicit,
+            "userAgentFamily": family,
+        }
+    return {
+        "key": f"ua:{family}",
+        "label": f"ua:{family}",
+        "serviceName": None,
+        "userAgentFamily": family,
+    }
+
 class ApiGlimpseMiddleware(BaseHTTPMiddleware):
     """
     Capture request/response metadata, redact secrets, buffer samples, and
@@ -83,6 +119,7 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
         agent_url: str | None = None,
         api_key: str | None = None,
         sample_rate: float | None = None,
+        service_name: str | None = None,
         flush_interval_ms: int | None = None,
         max_batch_size: int | None = None,
         max_buffer_size: int | None = None,
@@ -95,10 +132,12 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
         env_agent = os.environ.get("API_SENSOR_AGENT_URL") or DEFAULTS["agent_url"]
         env_key = os.environ.get("API_SENSOR_KEY") or DEFAULTS["api_key"]
         env_rate = _env_float("API_SENSOR_SAMPLE_RATE", DEFAULTS["sample_rate"])
+        env_svc = os.environ.get("API_SENSOR_SERVICE_NAME") or ""
 
         self.agent_url = (agent_url if agent_url is not None else env_agent).rstrip("/")
         self.api_key = api_key if api_key is not None else env_key
         self.sample_rate = sample_rate if sample_rate is not None else env_rate
+        self.service_name = service_name if service_name is not None else env_svc
         self.flush_interval_ms = (
             flush_interval_ms if flush_interval_ms is not None else DEFAULTS["flush_interval_ms"]
         )
@@ -252,20 +291,38 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
             raise
 
         try:
-            # Capture JSON response body without breaking streaming consumers
+            # Capture JSON response body without breaking streaming consumers.
+            # Skip binary / non-JSON / oversized bodies (shapes only, never raw store).
             resp_ct = (response.headers.get("content-type") or "").lower()
+            response_body_captured = False
             if "application/json" in resp_ct and hasattr(response, "body_iterator"):
                 chunks: list[bytes] = []
+                total = 0
+                oversized = False
                 async for chunk in response.body_iterator:
                     if isinstance(chunk, str):
-                        chunks.append(chunk.encode("utf-8"))
+                        chunk = chunk.encode("utf-8")
+                    total += len(chunk)
+                    if total > MAX_RESPONSE_CAPTURE_BYTES:
+                        oversized = True
+                    if not oversized:
+                        chunks.append(chunk)
                     else:
+                        # Still drain the iterator so the client gets the full body
                         chunks.append(chunk)
                 body_bytes = b"".join(chunks)
-                response_body = _parse_json_bytes(body_bytes)
-
-                async def body_iter():
-                    yield body_bytes
+                if not oversized:
+                    parsed = _parse_json_bytes(body_bytes)
+                    if parsed is not None:
+                        response_body = parsed
+                        response_body_captured = True
+                    elif body_bytes:
+                        # Empty-parseable or invalid JSON — not captured
+                        response_body = None
+                    else:
+                        response_body = None
+                else:
+                    response_body = None
 
                 response = Response(
                     content=body_bytes,
@@ -274,19 +331,25 @@ class ApiGlimpseMiddleware(BaseHTTPMiddleware):
                     media_type=response.media_type,
                     background=response.background,
                 )
+            elif "application/json" not in resp_ct:
+                # Binary / text / streaming content-types are not shaped
+                response_body = None
 
             latency_ms = (time.time() - start) * 1000.0
             path = request.url.path or "/"
+            req_headers = _headers_dict(request.headers)
             sample = create_sample(
                 method=request.method,
                 path=path,
                 status_code=response.status_code,
                 latency_ms=latency_ms,
-                request_headers=_headers_dict(request.headers),
+                request_headers=req_headers,
                 response_headers=_headers_dict(response.headers),
-                request_body=request_body,
-                response_body=response_body,
-                auth_observed=_observe_auth(_headers_dict(request.headers)),
+                request_body=request_body if request_body is not None else ...,
+                response_body=response_body if response_body_captured else ...,
+                response_body_captured=response_body_captured,
+                caller=_resolve_caller(req_headers, self.service_name or None),
+                auth_observed=_observe_auth(req_headers),
             )
             self._enqueue(sample)
         except Exception:

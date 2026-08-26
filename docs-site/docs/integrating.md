@@ -20,7 +20,8 @@ Your app
 | NestJS | Coming soon | — |
 | Next.js (Route Handlers / API routes) | Coming soon | — |
 | Hono | Coming soon | — |
-| Proxy / gateway | Coming soon | — |
+| [Node gateway sidecar](#node-gateway-sidecar) | Available (sidecar) | Run `@apiglimpse/gateway-proxy` in front of your app |
+| Kong / Nginx / Envoy | Coming soon | — |
 
 All connectors send the same samples to `https://collect.apiglimpse.com` (one hosted collector).
 
@@ -56,6 +57,8 @@ npm install @apiglimpse/middleware
 API_SENSOR_AGENT_URL=https://collect.apiglimpse.com
 API_SENSOR_KEY=ask_YOUR_PROJECT_KEY_HERE
 API_SENSOR_SAMPLE_RATE=1
+# Optional but recommended — labels this app in caller topology:
+API_SENSOR_SERVICE_NAME=my-service
 ```
 
 ### Wire the middleware
@@ -224,6 +227,25 @@ r.Use(apiglimpse.Middleware(apiglimpse.Config{
   APIKey:   os.Getenv("API_SENSOR_KEY"),
 }))
 ```
+
+---
+
+## Node gateway sidecar
+
+Discover traffic **without** installing app middleware. Run the `@apiglimpse/gateway-proxy` reverse-proxy sidecar in front of your service; it forwards HTTP and samples the same envelope v1 as Express/Fastify.
+
+```bash
+cd packages/gateway-proxy && npm install
+
+API_SENSOR_UPSTREAM=http://app:3000 \
+API_SENSOR_AGENT_URL=https://collect.apiglimpse.com \
+API_SENSOR_KEY=ask_YOUR_PROJECT_KEY \
+npm start
+```
+
+Point clients at the proxy (default port `9080`). Kong / Nginx / Envoy native filters are follow-ups — not available yet.
+
+Full package README: [`packages/gateway-proxy`](https://github.com/jantznick/api-security/tree/main/packages/gateway-proxy). Decision record: [DECISIONS.md](https://github.com/jantznick/api-security/blob/main/docs/DECISIONS.md).
 
 ---
 

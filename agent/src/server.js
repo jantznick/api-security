@@ -51,8 +51,8 @@ function scheduleFlush() {
   if (typeof flushTimer.unref === 'function') flushTimer.unref();
 }
 
-function requeueDeltas(aggregator, deltas) {
-  for (const d of deltas) {
+function requeueDeltas(aggregator, { endpoints = [], edges = [] }) {
+  for (const d of endpoints) {
     const key = `${d.method} ${d.pathTemplate}`;
     const prev = aggregator.endpoints.get(key);
     if (prev) {
@@ -80,16 +80,29 @@ function requeueDeltas(aggregator, deltas) {
       });
     }
   }
+
+  for (const e of edges) {
+    const edgeKey = `${e.callerKey}|${e.method}|${e.pathTemplate}`;
+    const prev = aggregator.edges.get(edgeKey);
+    if (prev) {
+      prev.hitCount += e.hitCount || 0;
+      prev.lastSeenAt = e.lastSeenAt || prev.lastSeenAt;
+      if (e.callerName) prev.callerName = e.callerName;
+      if (e.callerSource) prev.callerSource = e.callerSource;
+    } else {
+      aggregator.edges.set(edgeKey, { ...e });
+    }
+  }
 }
 
 async function flushBucket(serviceId, bucket) {
-  const deltas = bucket.aggregator.drain();
-  if (!deltas.length) return;
+  const { endpoints, edges } = bucket.aggregator.drain();
+  if (!endpoints.length && !edges.length) return;
 
   const apiKey = bucket.apiKey;
   if (!apiKey) {
     console.warn(
-      `[agent] Skipping ingest flush for ${serviceId} (${deltas.length} endpoints) — missing apiKey`,
+      `[agent] Skipping ingest flush for ${serviceId} (${endpoints.length} endpoints, ${edges.length} edges) — missing apiKey`,
     );
     return;
   }
@@ -98,15 +111,16 @@ async function flushBucket(serviceId, bucket) {
     const result = await upsertInventory({
       ingestUrl: INGEST_URL,
       apiKey,
-      endpoints: deltas,
+      endpoints,
+      edges,
     });
     console.log(
-      `[agent] Upserted ${deltas.length} endpoint delta(s) for ${serviceId}`,
+      `[agent] Upserted ${endpoints.length} endpoint delta(s), ${edges.length} edge(s) for ${serviceId}`,
       result?.upserted ?? '',
     );
   } catch (err) {
     console.error(`[agent] Ingest flush error (${serviceId}):`, err.message);
-    requeueDeltas(bucket.aggregator, deltas);
+    requeueDeltas(bucket.aggregator, { endpoints, edges });
     scheduleFlush();
   }
 }
@@ -120,6 +134,32 @@ async function flushToIngest() {
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'agent', time: new Date().toISOString() });
+});
+
+/**
+ * Proxy protect policy from ingest (API-key auth). Connectors poll ~every 15m.
+ */
+app.get('/v1/policy', async (req, res) => {
+  const headerKey = req.headers['x-api-key'];
+  const apiKey = typeof headerKey === 'string' ? headerKey : '';
+  if (!apiKey) {
+    res.status(401).json({ error: 'Missing API key' });
+    return;
+  }
+  try {
+    const url = `${INGEST_URL.replace(/\/$/, '')}/v1/auth/policy`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    const text = await upstream.text();
+    res.status(upstream.status);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(text || '{}');
+  } catch (err) {
+    console.error('[agent] Policy proxy error:', err.message);
+    res.status(503).json({ error: 'Policy service unavailable' });
+  }
 });
 
 /**

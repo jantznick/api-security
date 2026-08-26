@@ -22,7 +22,8 @@ Your app
 | NestJS | Coming soon |
 | Next.js (Route Handlers / API routes) | Coming soon |
 | Hono | Coming soon |
-| Proxy / gateway | Coming soon |
+| Node gateway sidecar | Available (`packages/gateway-proxy`) |
+| Kong / Nginx / Envoy | Coming soon |
 
 See [Connect your app](/integrating) for install snippets.
 
@@ -36,5 +37,6 @@ For Express: `npm install @apiglimpse/middleware`. Other stacks: [Connect your a
 
 - [Quick start](/quick-start) — account → project → API key → connector
 - [Connect your app](/integrating) — Express, Fastify, FastAPI, Go
+- [Use cases](/use-cases) — shadow APIs, sensitive fields, OpenAPI export
 - [Architecture](/architecture) — how data moves
 - [Concepts](/concepts) — API keys, schemas, endpoint limits

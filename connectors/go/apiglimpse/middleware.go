@@ -18,6 +18,8 @@ import (
 type Config struct {
 	AgentURL  string
 	APIKey    string
+	// ServiceName labels this app as a topology caller (API_SENSOR_SERVICE_NAME).
+	ServiceName string
 	// SampleRate is 0–1. nil means default 1.0 (sample everything).
 	SampleRate *float64
 	FlushInterval           time.Duration
@@ -38,6 +40,9 @@ func ConfigFromEnv() Config {
 	}
 	if v := os.Getenv("API_SENSOR_KEY"); v != "" {
 		cfg.APIKey = v
+	}
+	if v := os.Getenv("API_SENSOR_SERVICE_NAME"); v != "" {
+		cfg.ServiceName = v
 	}
 	if v := os.Getenv("API_SENSOR_SAMPLE_RATE"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -131,6 +136,9 @@ func mergeConfig(base, over Config) Config {
 	if over.APIKey != "" {
 		base.APIKey = over.APIKey
 	}
+	if over.ServiceName != "" {
+		base.ServiceName = over.ServiceName
+	}
 	if over.SampleRate != nil {
 		base.SampleRate = over.SampleRate
 	}
@@ -198,29 +206,43 @@ func (s *sensor) enqueue(r *http.Request, rw *captureWriter, reqBody []byte, sta
 	}
 	var resParsed any
 	hasRes := false
-	if len(rw.body) > 0 {
-		if err := json.Unmarshal(rw.body, &resParsed); err == nil {
-			hasRes = true
+	resCT := strings.ToLower(resHeaders["content-type"])
+	// Prefer JSON Content-Type; still accept bodies that parse as JSON when CT unset.
+	// Skip obvious binary / streaming content types.
+	skipRes := strings.Contains(resCT, "octet-stream") ||
+		strings.Contains(resCT, "event-stream") ||
+		strings.HasPrefix(resCT, "image/") ||
+		strings.HasPrefix(resCT, "audio/") ||
+		strings.HasPrefix(resCT, "video/") ||
+		strings.Contains(resCT, "multipart/")
+	if !skipRes && len(rw.body) > 0 {
+		if resCT == "" || strings.Contains(resCT, "application/json") || strings.Contains(resCT, "+json") {
+			if err := json.Unmarshal(rw.body, &resParsed); err == nil {
+				hasRes = true
+			}
 		}
 	}
 	path := r.URL.Path
 	if path == "" {
 		path = "/"
 	}
+	captured := hasRes
 	sample := CreateSample(SampleInput{
-		Method:              r.Method,
-		Path:                path,
-		StatusCode:          rw.status,
-		LatencyMs:           time.Since(start).Milliseconds(),
-		RequestHeaders:      reqHeaders,
-		ResponseHeaders:     resHeaders,
-		RequestHeaderNames:  headerNamesFromHTTP(r.Header),
-		ResponseHeaderNames: headerNamesFromHTTP(rw.Header()),
-		RequestBody:         reqParsed,
-		ResponseBody:        resParsed,
-		HasRequestBody:      hasReq,
-		HasResponseBody:     hasRes,
-		AuthObserved:        ObserveAuth(reqHeaders),
+		Method:               r.Method,
+		Path:                 path,
+		StatusCode:           rw.status,
+		LatencyMs:            time.Since(start).Milliseconds(),
+		RequestHeaders:       reqHeaders,
+		ResponseHeaders:      resHeaders,
+		RequestHeaderNames:   headerNamesFromHTTP(r.Header),
+		ResponseHeaderNames:  headerNamesFromHTTP(rw.Header()),
+		RequestBody:          reqParsed,
+		ResponseBody:         resParsed,
+		HasRequestBody:       hasReq,
+		HasResponseBody:      hasRes,
+		ResponseBodyCaptured: &captured,
+		Caller:               ResolveCaller(reqHeaders, s.cfg.ServiceName),
+		AuthObserved:         ObserveAuth(reqHeaders),
 	})
 	s.buffer = append(s.buffer, sample)
 	if len(s.buffer) >= s.cfg.MaxBatchSize {

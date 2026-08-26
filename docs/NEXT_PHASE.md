@@ -49,6 +49,12 @@ No Stripe account required. Unlocks paid later without a schema rewrite.
 - Usage metering events for Stripe metered items (if we move from seat/cap to pure metered)  
 - Protect mode — still deferred ([PROTECT_MODE.md](./PROTECT_MODE.md))  
 
+## Phase D — Sales features / “Understand” pillar
+
+**Plan of record:** [SALES_FEATURES_PLAN.md](./SALES_FEATURES_PLAN.md) (streams **SF0–SF8**: response capture harden, risk posture, drift alerts, topology, evidence export, gateway connector, tickets, protect phases, sales packaging).
+
+Do **not** start SF streams that collide with unfinished Prisma work in SAAS/billing without coordinating file ownership.
+
 ---
 
 ## Explicit non-goals (this phase)

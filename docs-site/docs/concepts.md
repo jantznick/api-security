@@ -14,7 +14,9 @@ Every batch sent to API Glimpse needs a valid service API key (`ask_…`).
 API Glimpse stores **schemas, counters, and tags** — not long-lived raw request or response bodies.
 
 - Connectors remove secrets (authorization, cookies, and similar) before data leaves your app
-- Body field names and types may be inferred from samples
+- We sample response *shapes* (field names and types), not full payloads
+- Streaming responses, binary bodies, and oversized JSON are **not** captured
+- Samples may include optional `responseBodyCaptured` so you can tell when a response schema came from a real body
 - Samples exist briefly for aggregation, then are discarded
 
 ## Endpoint limits

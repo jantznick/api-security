@@ -46,6 +46,30 @@ const whatYouGet = [
   },
 ];
 
+
+const useCases = [
+  {
+    t: 'Docs vs reality',
+    d: 'Compare what your specs promise to the routes traffic actually hit — hit counts and OpenAPI export included.',
+  },
+  {
+    t: 'PII and secrets',
+    d: 'Filter inventory for endpoints with sensitive-field signals before auditors ask.',
+  },
+  {
+    t: 'OpenAPI from traffic',
+    d: 'Bootstrap a usable OpenAPI document from discovered methods, paths, and schemas.',
+  },
+  {
+    t: 'Multi-service surface',
+    d: 'Walk org → project → service to map APIs without opening every codebase.',
+  },
+  {
+    t: 'Auth gaps',
+    d: 'Find endpoints where only “none” (or no auth) was observed in real traffic.',
+  },
+];
+
 export default function HowItWorks() {
   const { openAuth } = useAuthModal();
 
@@ -109,6 +133,30 @@ export default function HowItWorks() {
         </h2>
         <ul className="mt-10 space-y-8">
           {whatYouGet.map((item) => (
+            <li key={item.t} className="border-l-2 border-signal/35 pl-5">
+              <h3 className="font-display text-lg font-bold tracking-tight text-ink">
+                {item.t}
+              </h3>
+              <p className="mt-1.5 text-[0.975rem] leading-relaxed text-muted">
+                {item.d}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+
+      <section className="mt-20 border-t border-line pt-14">
+        <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+          Use cases
+        </h2>
+        <p className="mt-3 max-w-xl leading-relaxed text-muted">
+          Packaging of what the inventory already shows — shadow APIs, sensitive
+          fields, and OpenAPI export. Nothing here requires protect mode or
+          gateway connectors.
+        </p>
+        <ul className="mt-10 space-y-8">
+          {useCases.map((item) => (
             <li key={item.t} className="border-l-2 border-signal/35 pl-5">
               <h3 className="font-display text-lg font-bold tracking-tight text-ink">
                 {item.t}

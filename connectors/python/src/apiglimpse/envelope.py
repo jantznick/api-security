@@ -35,14 +35,20 @@ def create_sample(
     response_headers: dict[str, Any] | None = None,
     request_body: Any = ...,
     response_body: Any = ...,
+    response_body_captured: bool | None = None,
+    caller: dict[str, Any] | None = None,
     auth_observed: str = "none",
     timestamp: str | None = None,
 ) -> dict[str, Any]:
-    """Build one traffic sample for the agent (bodies are shape-only)."""
+    """Build one traffic sample for the agent (bodies are shape-only).
+
+    ``response_body_captured`` is optional wire metadata (omitted when None)
+    so inventory can tell whether a response schema came from a captured body.
+    """
     req_headers = request_headers or {}
     res_headers = response_headers or {}
 
-    return {
+    sample = {
         "method": str(method or "GET").upper(),
         "path": str(path or "/"),
         "statusCode": int(status_code) if status_code else 0,
@@ -62,6 +68,11 @@ def create_sample(
             "bodyShape": None if response_body is ... else shape_body(response_body),
         },
     }
+    if response_body_captured is not None:
+        sample["responseBodyCaptured"] = bool(response_body_captured)
+    if caller:
+        sample["caller"] = caller
+    return sample
 
 
 def create_envelope(*, api_key: str, samples: list[dict[str, Any]] | None) -> dict[str, Any]:

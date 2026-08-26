@@ -39,11 +39,34 @@ function serializeService(service) {
     projectName: service.project?.name,
     organizationId: service.project?.organizationId ?? service.project?.organization?.id,
     endpointLimit: service.endpointLimit,
+    webhookUrl: service.webhookUrl ?? null,
+    protectEnabled: Boolean(service.protectEnabled),
+    protectMode: service.protectMode || 'observe',
+    protectRule: service.protectRule ?? null,
+    protectVersion: Number(service.protectVersion) || 1,
     createdAt: service.createdAt,
     updatedAt: service.updatedAt,
     apiKeys: service.apiKeys,
     _count: service._count,
   };
+}
+
+/** Allow http(s) URLs only; empty clears. */
+function normalizeWebhookUrl(raw) {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { error: 'webhookUrl must be a valid URL' };
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return { error: 'webhookUrl must use http or https' };
+  }
+  return { value: trimmed };
 }
 
 async function loadUserForOrg(userId) {
@@ -301,6 +324,77 @@ router.get('/:projectId/services/:serviceId', async (req, res) => {
   } catch (error) {
     console.error('Get service error:', error);
     res.status(500).json({ error: 'Failed to get service' });
+  }
+});
+
+/**
+ * PATCH /api/projects/:projectId/services/:serviceId
+ * Body: { webhookUrl?, protectEnabled?, protectMode?, protectRule? }
+ */
+router.patch('/:projectId/services/:serviceId', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service || service.projectId !== req.params.projectId) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const data = {};
+    let bumpProtectVersion = false;
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
+      const normalized = normalizeWebhookUrl(req.body.webhookUrl);
+      if (normalized?.error) {
+        return res.status(400).json({ error: normalized.error });
+      }
+      data.webhookUrl = normalized === undefined ? undefined : normalized.value ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectEnabled')) {
+      data.protectEnabled = Boolean(req.body.protectEnabled);
+      bumpProtectVersion = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectMode')) {
+      const mode = String(req.body.protectMode || '').toLowerCase();
+      if (mode !== 'observe' && mode !== 'block') {
+        return res.status(400).json({ error: 'protectMode must be observe or block' });
+      }
+      data.protectMode = mode;
+      bumpProtectVersion = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectRule')) {
+      const rule = req.body.protectRule;
+      if (rule !== null && rule !== undefined && rule !== '' && rule !== 'deny_unauth_sensitive') {
+        return res.status(400).json({
+          error: 'protectRule must be null or deny_unauth_sensitive',
+        });
+      }
+      data.protectRule = rule ? 'deny_unauth_sensitive' : null;
+      bumpProtectVersion = true;
+    }
+    if (bumpProtectVersion) {
+      data.protectVersion = { increment: 1 };
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.json({ service: serializeService(service) });
+    }
+
+    const updated = await prisma.service.update({
+      where: { id: service.id },
+      data,
+      include: {
+        apiKeys: {
+          orderBy: { createdAt: 'desc' },
+          select: apiKeySelect,
+        },
+        project: { select: { id: true, name: true, organizationId: true } },
+        _count: { select: { endpoints: true } },
+      },
+    });
+
+    res.json({ service: serializeService(updated) });
+  } catch (error) {
+    console.error('Update service error:', error);
+    res.status(500).json({ error: 'Failed to update service' });
   }
 });
 

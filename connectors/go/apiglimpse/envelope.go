@@ -7,14 +7,16 @@ import (
 
 // Sample is one traffic observation in envelope v1.
 type Sample struct {
-	Method       string `json:"method"`
-	Path         string `json:"path"`
-	StatusCode   int    `json:"statusCode"`
-	LatencyMs    int64  `json:"latencyMs"`
-	AuthObserved string `json:"authObserved"`
-	Timestamp    string `json:"timestamp"`
-	Request      IOSide `json:"request"`
-	Response     IOSide `json:"response"`
+	Method                string `json:"method"`
+	Path                  string `json:"path"`
+	StatusCode            int    `json:"statusCode"`
+	LatencyMs             int64  `json:"latencyMs"`
+	AuthObserved          string `json:"authObserved"`
+	Timestamp             string `json:"timestamp"`
+	ResponseBodyCaptured  *bool  `json:"responseBodyCaptured,omitempty"`
+	Caller                any    `json:"caller,omitempty"`
+	Request               IOSide `json:"request"`
+	Response              IOSide `json:"response"`
 }
 
 // IOSide is the request or response half of a sample.
@@ -46,10 +48,12 @@ type SampleInput struct {
 	ResponseHeaderNames []string
 	RequestBody         any
 	ResponseBody        any
-	HasRequestBody      bool
-	HasResponseBody     bool
-	AuthObserved        string
-	Timestamp           string
+	HasRequestBody         bool
+	HasResponseBody        bool
+	ResponseBodyCaptured   *bool
+	Caller                 any
+	AuthObserved           string
+	Timestamp              string
 }
 
 // CreateSample builds one traffic sample with redacted headers and shaped bodies.
@@ -103,12 +107,14 @@ func CreateSample(in SampleInput) Sample {
 	}
 
 	return Sample{
-		Method:       method,
-		Path:         path,
-		StatusCode:   in.StatusCode,
-		LatencyMs:    in.LatencyMs,
-		AuthObserved: auth,
-		Timestamp:    ts,
+		Method:               method,
+		Path:                 path,
+		StatusCode:           in.StatusCode,
+		LatencyMs:            in.LatencyMs,
+		AuthObserved:         auth,
+		Timestamp:            ts,
+		ResponseBodyCaptured: in.ResponseBodyCaptured,
+		Caller:               in.Caller,
 		Request: IOSide{
 			ContentType: contentType(reqHeaders),
 			HeaderNames: reqNames,
@@ -196,4 +202,46 @@ func ObserveAuth(headers map[string]string) string {
 		}
 	}
 	return "none"
+}
+
+// ResolveCaller builds SF3 caller hints. Explicit service name / X-Service-Name preferred.
+func ResolveCaller(headers map[string]string, serviceName string) map[string]any {
+	lower := map[string]string{}
+	for k, v := range headers {
+		lower[strings.ToLower(k)] = v
+	}
+	explicit := strings.TrimSpace(firstNonEmpty(lower["x-service-name"], lower["x-client-name"], serviceName))
+	ua := strings.ToLower(lower["user-agent"])
+	family := "unknown"
+	switch {
+	case strings.Contains(ua, "curl/") || ua == "curl":
+		family = "curl"
+	case strings.Contains(ua, "mozilla/") || strings.Contains(ua, "chrome/") || strings.Contains(ua, "safari/") || strings.Contains(ua, "firefox/") || strings.Contains(ua, "edg/"):
+		family = "browser"
+	case strings.Contains(ua, "axios") || strings.Contains(ua, "node-fetch") || strings.Contains(ua, "go-http") || strings.Contains(ua, "python-requests") || strings.Contains(ua, "okhttp") || strings.Contains(ua, "java/") || strings.Contains(ua, "apiglimpse"):
+		family = "sdk"
+	}
+	if explicit != "" {
+		return map[string]any{
+			"key":             "svc:" + strings.ToLower(explicit),
+			"label":           explicit,
+			"serviceName":     explicit,
+			"userAgentFamily": family,
+		}
+	}
+	return map[string]any{
+		"key":             "ua:" + family,
+		"label":           "ua:" + family,
+		"serviceName":     nil,
+		"userAgentFamily": family,
+	}
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
