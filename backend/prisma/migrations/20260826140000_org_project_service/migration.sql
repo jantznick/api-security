@@ -13,8 +13,13 @@ UPDATE "Plan" SET "seatLimit" = NULL WHERE "slug" = 'pro';
 
 -- ---------------------------------------------------------------------------
 -- 2. Optional User.displayName (S0-compatible; nullable)
+-- Idempotent if S0 already added the column.
 -- ---------------------------------------------------------------------------
-ALTER TABLE "User" ADD COLUMN "displayName" TEXT;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "displayName" TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 3. Organization / Membership / OrgInvite / new Project tables
