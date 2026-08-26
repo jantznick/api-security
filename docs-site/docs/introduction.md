@@ -22,7 +22,8 @@ Your app
 | NestJS | Coming soon |
 | Next.js (Route Handlers / API routes) | Coming soon |
 | Hono | Coming soon |
-| Proxy / gateway | Coming soon |
+| Node gateway sidecar | Available (`packages/gateway-proxy`) |
+| Kong / Nginx / Envoy | Coming soon |
 
 See [Connect your app](/integrating) for install snippets.
 

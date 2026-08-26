@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Connectors
-    details: Express, Fastify, FastAPI, and Go (chi) are available. NestJS, Next.js, Hono, and proxy/gateway connectors are coming soon.
+    details: Express, Fastify, FastAPI, Go (chi), and a Node gateway sidecar are available. NestJS, Next.js, Hono, and Kong/Nginx/Envoy filters are coming soon.
   - title: Endpoints in the dashboard
     details: Methods and paths show up in your project as requests come in, with schemas and tags.
   - title: Field names and types

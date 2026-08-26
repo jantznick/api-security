@@ -49,6 +49,7 @@ Both marketing and the dashboard open a tabbed AuthModal (Sign in | Create accou
 | `docs-site/` | Developer docs (VitePress) → **Render** → `docs.apiglimpse.com` |
 | `packages/middleware` | Public SDK — Express middleware (npm: `@apiglimpse/middleware`) |
 | `packages/shared` | Internal helpers for middleware (npm: `@apiglimpse/shared`) |
+| `packages/gateway-proxy` | Node reverse-proxy sidecar — discover traffic without app middleware |
 | `agent/` | Dockerized collector/processor |
 | `demo/express-app/` | Sample app with one-line middleware |
 | `docker-compose.yml` | Postgres + collector only |

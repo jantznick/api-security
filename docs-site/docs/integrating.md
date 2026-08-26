@@ -227,6 +227,25 @@ r.Use(apiglimpse.Middleware(apiglimpse.Config{
 
 ---
 
+## Node gateway sidecar
+
+Discover traffic **without** installing app middleware. Run the `@apiglimpse/gateway-proxy` reverse-proxy sidecar in front of your service; it forwards HTTP and samples the same envelope v1 as Express/Fastify.
+
+```bash
+cd packages/gateway-proxy && npm install
+
+API_SENSOR_UPSTREAM=http://app:3000 \
+API_SENSOR_AGENT_URL=https://collect.apiglimpse.com \
+API_SENSOR_KEY=ask_YOUR_PROJECT_KEY \
+npm start
+```
+
+Point clients at the proxy (default port `9080`). Kong / Nginx / Envoy native filters are follow-ups — not available yet.
+
+Full package README: [`packages/gateway-proxy`](https://github.com/jantznick/api-security/tree/main/packages/gateway-proxy). Decision record: [DECISIONS.md](https://github.com/jantznick/api-security/blob/main/docs/DECISIONS.md).
+
+---
+
 ## Not supported yet
 
 - Runtime request blocking
