@@ -194,17 +194,38 @@ model OrgInvite {
 
 /// Named grouping of related services (e.g. "Payments"). Not today's inventory unit.
 model Project {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String
+  id                        String                  @id @default(uuid())
+  organizationId            String
+  organization              Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                      String
   /// Optional outbound webhook for inventory drift events (SF2).
-  webhookUrl     String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  services       Service[]
+  webhookUrl                String?
+  /// SF9 — uploaded architecture baseline (topology-baseline.v1).
+  topologyBaseline          Json?
+  topologyBaselineUpdatedAt DateTime?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  services                  Service[]
+  topologyEvents            ProjectTopologyEvent[]
 
   @@index([organizationId])
+}
+
+/// Project-scoped topology drift alerts (SF9).
+model ProjectTopologyEvent {
+  id        String    @id @default(uuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// topology.edge.missing | topology.edge.shadow | topology.caller.shadow | …
+  type      String
+  /// Stable dedupe key, e.g. edge:missing:from:to
+  driftKey  String
+  payload   Json      @default("{}")
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@unique([projectId, driftKey])
+  @@index([projectId, createdAt])
 }
 
 /// One middleware-connected API (today's Project). Keys + endpoints live here.

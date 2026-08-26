@@ -15,3 +15,14 @@ export {
 } from './caller.js';
 
 export { createSample, createEnvelope, validateEnvelope } from './envelope.js';
+
+export {
+  TOPOLOGY_BASELINE_VERSION,
+  TOPOLOGY_DRIFT_VERSION,
+  validateTopologyBaseline,
+  normalizeTopologyBaseline,
+  buildObservedGraph,
+  compareTopology,
+  driftSeverity,
+  driftEventsFromCompare,
+} from './topology.js';

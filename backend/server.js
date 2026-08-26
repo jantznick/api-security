@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
+import topologyRoutes from './routes/topology.js';
 import serviceRoutes from './routes/services.js';
 import inventoryRoutes from './routes/inventory.js';
 import adminRoutes from './routes/admin.js';
@@ -105,6 +106,7 @@ app.use(
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/projects', topologyRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "metadata": {
+    "name": "Acme Retail",
+    "description": "Sales demo five-service chain",
+    "updatedAt": "2026-08-26T00:00:00.000Z"
+  },
+  "nodes": [
+    { "id": "web-storefront", "label": "Web Storefront", "tier": "public", "instrumented": true },
+    { "id": "storefront-api", "label": "Storefront API", "tier": "public", "instrumented": true },
+    { "id": "commerce-api", "label": "Commerce API", "tier": "private", "instrumented": true },
+    { "id": "fulfillment-api", "label": "Fulfillment API", "tier": "private", "instrumented": true },
+    { "id": "ledger-api", "label": "Ledger API", "tier": "internal", "instrumented": true }
+  ],
+  "edges": [
+    { "id": "web-to-storefront", "from": "web-storefront", "to": "storefront-api", "label": "SSR fetch" },
+    { "id": "storefront-to-commerce", "from": "storefront-api", "to": "commerce-api", "label": "checkout" },
+    { "id": "commerce-to-fulfillment", "from": "commerce-api", "to": "fulfillment-api", "label": "order create" },
+    { "id": "fulfillment-to-ledger", "from": "fulfillment-api", "to": "ledger-api", "label": "ledger post" }
+  ],
+  "externalCallers": [
+    { "id": "mobile-app", "label": "Mobile App", "targets": ["storefront-api"] },
+    { "id": "partner-billing", "label": "Partner Billing", "targets": ["storefront-api"] }
+  ]
+}
