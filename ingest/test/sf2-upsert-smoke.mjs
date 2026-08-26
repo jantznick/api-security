@@ -45,7 +45,7 @@ async function main() {
 
   const ingestUrl = process.env.INGEST_URL || 'http://127.0.0.1:3002';
   const pathTemplate = `/sf2/new-route-${Date.now()}`;
-  const res = await fetch(`${ingestUrl}/inventory/upsert`, {
+  const res = await fetch(`${ingestUrl}/v1/inventory/upsert`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
