@@ -2,6 +2,7 @@
 
 **GTM / ads / multi-agent plan of record:** [MARKETING_PLAN.md](./MARKETING_PLAN.md) (positioning, ICP, LinkedIn + Google, site roadmap, workstreams **M0–M8**; security-platform north star with honest discovery-first public language).  
 **Product readiness (dev) before marketing:** [MARKETING_READY.md](./MARKETING_READY.md) (streams **R1–R6**).  
+**Your ops checklist (Resend, Stripe, ads accounts):** [NEXT_STEPS.md](./NEXT_STEPS.md).  
 **Future protect / blocking:** [PROTECT_MODE.md](./PROTECT_MODE.md) (**PM0–PM4**).
 
 Product truth: [PRODUCTIZATION.md](./PRODUCTIZATION.md). Install detail: [INTEGRATING.md](./INTEGRATING.md). Public sites live in-repo:

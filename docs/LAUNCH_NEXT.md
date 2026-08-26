@@ -1,5 +1,7 @@
 # Launch next steps (outside Render)
 
+**Single ordered checklist for Nick (Resend, publish, Stripe, ads accounts):** **[NEXT_STEPS.md](./NEXT_STEPS.md)** — use that as the run order. This file keeps the short soft-launch ops detail for Resend / publish / smoke.
+
 Render env rebuilds are done. Custom hosts were healthy as of 2026-08-26:
 
 - `https://api.apiglimpse.com/api/health` → ok  
