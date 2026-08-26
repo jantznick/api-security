@@ -13,6 +13,7 @@ import EndpointDetail from './pages/EndpointDetail';
 import ProjectSettings from './pages/ProjectSettings';
 import Account from './pages/Account';
 import Billing from './pages/Billing';
+import Usage from './pages/Usage';
 import Admin from './pages/Admin';
 
 export default function App() {
@@ -78,6 +79,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Billing />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/usage"
+          element={
+            <ProtectedRoute>
+              <Usage />
             </ProtectedRoute>
           }
         />
