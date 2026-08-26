@@ -1,8 +1,11 @@
 FROM node:20-alpine
 
-WORKDIR /app
+# Shared package for file: dependency (SF9 topology compare)
+COPY packages/shared /app/packages/shared
 
-COPY backend/package.json backend/package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* /app/backend/
+
+WORKDIR /app/backend
 # Install before NODE_ENV=production so prisma (devDependency) is available
 # for generate + migrate-on-boot (`npm start` → safe-migrate.js).
 # Railway auto-deploys on merge to main; migrations apply at container start.
