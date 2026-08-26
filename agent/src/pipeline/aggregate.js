@@ -3,13 +3,15 @@ import { inferSchemaFromShape, mergeSchemas } from './schema.js';
 import { detectSensitiveFields, detectAuthSignals } from './heuristics.js';
 
 /**
- * In-memory aggregation of samples into inventory deltas.
+ * In-memory aggregation of samples into inventory deltas + topology edges.
  * Raw samples are never persisted — only derived inventory.
  */
 export class InventoryAggregator {
   constructor() {
     /** @type {Map<string, object>} */
     this.endpoints = new Map();
+    /** @type {Map<string, object>} */
+    this.edges = new Map();
   }
 
   /**
@@ -69,15 +71,42 @@ export class InventoryAggregator {
 
     ep.signals.push(...detectAuthSignals(sample));
     ep.signals = dedupe(ep.signals);
+
+    // SF3 — only record edges when caller has an explicit service identity
+    const caller = sample.caller;
+    const explicitName =
+      (caller?.serviceName && String(caller.serviceName).trim()) ||
+      (caller?.key && String(caller.key).startsWith('svc:')
+        ? String(caller.key).slice(4)
+        : null);
+    if (explicitName) {
+      const callerKey = `svc:${explicitName.toLowerCase()}`;
+      const edgeKey = `${callerKey}|${method}|${pathTemplate}`;
+      let edge = this.edges.get(edgeKey);
+      if (!edge) {
+        edge = {
+          callerKey,
+          callerLabel: explicitName,
+          method,
+          pathTemplate,
+          hitCount: 0,
+          lastSeenAt: sample.timestamp || new Date().toISOString(),
+        };
+        this.edges.set(edgeKey, edge);
+      }
+      edge.hitCount += 1;
+      edge.lastSeenAt = sample.timestamp || new Date().toISOString();
+    }
   }
 
   /**
-   * Drain aggregated deltas for upsert. Clears the map.
+   * Drain aggregated deltas for upsert. Clears the maps.
+   * @returns {{ endpoints: object[], edges: object[] }}
    */
   drain() {
-    const deltas = [];
+    const endpoints = [];
     for (const ep of this.endpoints.values()) {
-      deltas.push({
+      endpoints.push({
         method: ep.method,
         pathTemplate: ep.pathTemplate,
         hitCount: ep.hitCount,
@@ -91,8 +120,10 @@ export class InventoryAggregator {
         lastSeenAt: ep.lastSeenAt,
       });
     }
+    const edges = [...this.edges.values()];
     this.endpoints.clear();
-    return deltas;
+    this.edges.clear();
+    return { endpoints, edges };
   }
 }
 

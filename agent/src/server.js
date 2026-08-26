@@ -137,6 +137,32 @@ app.get('/health', (_req, res) => {
 });
 
 /**
+ * Proxy protect policy from ingest (API-key auth). Connectors poll ~every 15m.
+ */
+app.get('/v1/policy', async (req, res) => {
+  const headerKey = req.headers['x-api-key'];
+  const apiKey = typeof headerKey === 'string' ? headerKey : '';
+  if (!apiKey) {
+    res.status(401).json({ error: 'Missing API key' });
+    return;
+  }
+  try {
+    const url = `${INGEST_URL.replace(/\/$/, '')}/v1/auth/policy`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    const text = await upstream.text();
+    res.status(upstream.status);
+    res.setHeader('Content-Type', 'application/json');
+    res.send(text || '{}');
+  } catch (err) {
+    console.error('[agent] Policy proxy error:', err.message);
+    res.status(503).json({ error: 'Policy service unavailable' });
+  }
+});
+
+/**
  * Accept a batch of samples.
  * Auth + rate limit before 202; process async into per-service aggregators.
  */

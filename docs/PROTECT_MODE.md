@@ -133,7 +133,8 @@ Discovery path must remain unchanged: samples still aggregate → ingest → inv
 | --- | --- |
 | Observe / inventory / signals | Shipped |
 | OpenAPI export (edge feed input) | Shipped |
-| Policy schema / shadow / block | **Not implemented** — roadmap above |
-| Marketing claims for protect | **Forbidden** until Nick unlocks after PM1/PM2 |
+| **MVP protect (SF7)** | Dashboard toggle + rule `deny_unauth_sensitive`; Express connector polls `GET /v1/policy` ~15m; observe or block (fail-open) |
+| Full policy editor / multi-rule | **Not implemented** — roadmap above |
+| Marketing claims for protect | Soft — describe as optional MVP, not “prevents breaches” |
 
-Related: [DECISIONS.md](./DECISIONS.md) · [PRODUCTIZATION.md](./PRODUCTIZATION.md) · [MARKETING_PLAN.md](./MARKETING_PLAN.md) · [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md)
+Related: [DECISIONS.md](./DECISIONS.md) · [PRODUCTIZATION.md](./PRODUCTIZATION.md) · [MARKETING_PLAN.md](./MARKETING_PLAN.md) · [WIRE_PROTOCOL.md](./WIRE_PROTOCOL.md) · [SALES_FEATURES_PLAN.md](./SALES_FEATURES_PLAN.md)

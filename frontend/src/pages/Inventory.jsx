@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { billingAPI, inventoryAPI, projectsAPI } from '../api/api';
@@ -15,11 +15,18 @@ function severityClass(severity) {
   return 'bg-ink-100 text-ink-700';
 }
 
-/** Near/at endpoint cap from GET /billing/me — null if billing API missing. */
+function hasNoAuthObserved(ep) {
+  const modes = Array.isArray(ep.authModes) ? ep.authModes : [];
+  if (modes.length === 0) return true;
+  return modes.every((m) => m === 'none');
+}
+
+function signalCount(ep) {
+  return ep._count?.signals ?? 0;
+}
+
 function usageCapBanner(me, serviceId) {
   if (!me || typeof me !== 'object') return null;
-
-  // Prefer per-service usage from billing/me.services (projects alias kept)
   const rows = Array.isArray(me.services) ? me.services : me.projects;
   if (serviceId && Array.isArray(rows)) {
     const row = rows.find((p) => p.id === serviceId);
@@ -32,19 +39,10 @@ function usageCapBanner(me, serviceId) {
       return null;
     }
   }
-
   const used =
-    me.endpointUsageTotal ??
-    me.endpointsUsed ??
-    me.endpointCount ??
-    me.usage?.endpoints ??
-    null;
+    me.endpointUsageTotal ?? me.endpointsUsed ?? me.endpointCount ?? me.usage?.endpoints ?? null;
   const limit =
-    me.endpointLimitPerProject ??
-    me.endpointLimit ??
-    me.limit ??
-    me.usage?.endpointLimit ??
-    null;
+    me.endpointLimitPerProject ?? me.endpointLimit ?? me.limit ?? me.usage?.endpointLimit ?? null;
   if (typeof used !== 'number' || limit == null || limit === 0) return null;
   const cap = Number(limit);
   if (!Number.isFinite(cap) || cap <= 0) return null;
@@ -52,24 +50,52 @@ function usageCapBanner(me, serviceId) {
   return { atCap: used >= cap, used, limit: cap };
 }
 
+const filterControlClass =
+  'rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm text-ink-800 focus:border-signal-600 focus:outline-none focus:ring-2 focus:ring-signal-600/20';
+
+function downloadJson(filename, doc) {
+  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Inventory() {
   const { projectId, serviceId } = useParams();
   const [service, setService] = useState(null);
   const [endpoints, setEndpoints] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [topology, setTopology] = useState(null);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [hasSensitiveSignals, setHasSensitiveSignals] = useState(false);
+  const [noAuthObserved, setNoAuthObserved] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportingEvidence, setExportingEvidence] = useState(false);
 
   const basePath = `/projects/${projectId}/services/${serviceId}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e] = await Promise.all([
+      const [p, e, ev, topo] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
+        inventoryAPI.listEvents(serviceId, { limit: 10 }).catch(() => ({ events: [], unreadCount: 0 })),
+        inventoryAPI.getTopology(serviceId).catch(() => null),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
+      setEvents(ev.events || []);
+      setUnreadCount(ev.unreadCount || 0);
+      setTopology(topo);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -100,33 +126,77 @@ export default function Inventory() {
 
   const activeKeys = (service?.apiKeys || []).filter((k) => !k.revokedAt);
   const keyPrefix = activeKeys[0]?.keyPrefix;
-  const [exporting, setExporting] = useState(false);
+
+  const methods = useMemo(() => {
+    const set = new Set();
+    for (const ep of endpoints) {
+      if (ep.method) set.add(ep.method);
+    }
+    return [...set].sort();
+  }, [endpoints]);
+
+  const filtersActive =
+    methodFilter !== 'all' || hasSensitiveSignals || noAuthObserved;
+
+  const filteredEndpoints = useMemo(() => {
+    return endpoints.filter((ep) => {
+      if (methodFilter !== 'all' && ep.method !== methodFilter) return false;
+      if (hasSensitiveSignals && signalCount(ep) < 1) return false;
+      if (noAuthObserved && !hasNoAuthObserved(ep)) return false;
+      return true;
+    });
+  }, [endpoints, methodFilter, hasSensitiveSignals, noAuthObserved]);
+
+  const clearFilters = () => {
+    setMethodFilter('all');
+    setHasSensitiveSignals(false);
+    setNoAuthObserved(false);
+  };
 
   const exportOpenApi = async () => {
     setExporting(true);
     try {
       const doc = await inventoryAPI.exportOpenApi(serviceId);
-      const blob = new Blob([JSON.stringify(doc, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
       const safeName =
         String(service?.name || 'api')
           .replace(/[^a-zA-Z0-9._-]+/g, '-')
           .replace(/^-+|-+$/g, '')
           .slice(0, 64) || 'api';
-      a.href = url;
-      a.download = `${safeName}-openapi.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadJson(`${safeName}-openapi.json`, doc);
       toast.success('OpenAPI export downloaded');
     } catch (err) {
       toast.error(err.message);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportEvidence = async () => {
+    setExportingEvidence(true);
+    try {
+      const pack = await inventoryAPI.exportEvidence(serviceId);
+      const safeName =
+        String(service?.name || 'api')
+          .replace(/[^a-zA-Z0-9._-]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 64) || 'api';
+      const day = String(pack.generatedAt || '').slice(0, 10) || 'export';
+      downloadJson(`${safeName}-evidence-${day}.json`, pack);
+      toast.success('Evidence pack downloaded');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setExportingEvidence(false);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await inventoryAPI.markEventsRead(serviceId);
+      toast.success('Events marked read');
+      load();
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
@@ -139,12 +209,19 @@ export default function Inventory() {
           </Link>
         }
         title={service?.name || 'Inventory'}
-        description="Discovered endpoints (auto-refresh every 5s). Schemas and signals only — no raw bodies."
+        description="Live endpoints from traffic. Schemas and signals only — no raw bodies."
         actions={
           <>
             <Link to={`${basePath}/settings`}>
               <Button variant="secondary">Settings</Button>
             </Link>
+            <Button
+              variant="secondary"
+              onClick={exportEvidence}
+              disabled={exportingEvidence || loading}
+            >
+              {exportingEvidence ? 'Exporting…' : 'Evidence pack'}
+            </Button>
             <Button
               variant="secondary"
               onClick={exportOpenApi}
@@ -173,10 +250,7 @@ export default function Inventory() {
               ? `Endpoint limit reached (${capBanner.used} / ${capBanner.limit}). New endpoints may not be recorded.`
               : `Approaching endpoint limit (${capBanner.used} / ${capBanner.limit}).`}
           </p>
-          <Link
-            to="/billing"
-            className="font-medium text-signal-600 hover:text-signal-800"
-          >
+          <Link to="/billing" className="font-medium text-signal-600 hover:text-signal-800">
             View billing →
           </Link>
         </div>
@@ -185,8 +259,7 @@ export default function Inventory() {
       {keyPrefix ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <p className="text-ink-600">
-            API key prefix{' '}
-            <code className="font-mono text-ink-900">{keyPrefix}…</code>
+            API key prefix <code className="font-mono text-ink-900">{keyPrefix}…</code>
             {' — '}
             use the full key as <code className="font-mono">API_SENSOR_KEY</code>
           </p>
@@ -199,25 +272,126 @@ export default function Inventory() {
         </div>
       ) : null}
 
+      {events.length > 0 ? (
+        <Card className="mt-6 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">
+              Recent changes
+              {unreadCount > 0 ? (
+                <span className="ml-2 rounded bg-warn-50 px-1.5 py-0.5 text-xs text-warn-700">
+                  {unreadCount} unread
+                </span>
+              ) : null}
+            </h2>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                onClick={markAllRead}
+                className="text-xs font-medium text-signal-600 hover:text-signal-800"
+              >
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+          <ul className="mt-3 space-y-2 text-sm text-ink-700">
+            {events.slice(0, 5).map((ev) => (
+              <li key={ev.id} className={ev.readAt ? 'opacity-60' : ''}>
+                <span className="font-mono text-xs text-ink-500">{ev.type}</span>
+                {' · '}
+                {ev.payload?.method} {ev.payload?.pathTemplate || ev.payload?.fieldPath || ''}
+                <span className="ml-2 text-xs text-ink-400">
+                  {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {topology?.callers?.length > 0 ? (
+        <Card className="mt-6 p-4">
+          <h2 className="text-sm font-semibold text-ink-900">Callers (topology)</h2>
+          <p className="mt-1 text-xs text-ink-500">
+            Edges from callers that set <code className="font-mono">API_SENSOR_SERVICE_NAME</code> or{' '}
+            <code className="font-mono">X-Service-Name</code>.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {topology.callers.slice(0, 8).map((c) => (
+              <li key={c.key} className="flex justify-between gap-3 text-ink-700">
+                <span className="font-medium text-ink-900">{c.label}</span>
+                <span className="text-ink-500">
+                  {c.hitCount} hits · {c.endpoints.length} routes
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {endpoints.length > 0 ? (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
+          <label className="flex items-center gap-2 text-ink-700">
+            <span className="text-ink-500">Method</span>
+            <select
+              className={filterControlClass}
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              aria-label="Filter by HTTP method"
+            >
+              <option value="all">All</option>
+              {methods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-700">
+            <input
+              type="checkbox"
+              className="rounded border-ink-300 text-signal-600 focus:ring-signal-600/30"
+              checked={hasSensitiveSignals}
+              onChange={(e) => setHasSensitiveSignals(e.target.checked)}
+            />
+            Has sensitive signals
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-700">
+            <input
+              type="checkbox"
+              className="rounded border-ink-300 text-signal-600 focus:ring-signal-600/30"
+              checked={noAuthObserved}
+              onChange={(e) => setNoAuthObserved(e.target.checked)}
+            />
+            No auth observed
+          </label>
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-signal-600 hover:text-signal-800"
+            >
+              Clear filters
+            </button>
+          ) : null}
+          <p className="ml-auto text-xs text-ink-500">
+            Showing {filteredEndpoints.length} of {endpoints.length}
+          </p>
+        </div>
+      ) : null}
+
       <Card className="mt-8 overflow-hidden">
         {loading && endpoints.length === 0 ? (
           <p className="p-6 text-sm text-ink-600">Loading…</p>
         ) : endpoints.length === 0 ? (
           <EmptyState
             title="Connect middleware"
-            description="Install the connector with your service API key so traffic appears here within seconds. Copy the install snippet from service settings."
+            description="Install a connector with your service API key. As traffic arrives you’ll see live endpoints, sensitive-field signals, auth modes, and an OpenAPI export."
             action={
               <div className="flex flex-col items-center gap-4">
                 <div className="rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-left text-sm text-ink-600">
                   <p>
                     Collect URL:{' '}
                     <code className="font-mono text-ink-900">{COLLECT_URL}</code>
-                  </p>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Set as <code className="font-mono">API_SENSOR_AGENT_URL</code>
-                    {activeKeys.length === 0
-                      ? ' · create an API key in settings first'
-                      : null}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -236,6 +410,16 @@ export default function Inventory() {
               </div>
             }
           />
+        ) : filteredEndpoints.length === 0 ? (
+          <EmptyState
+            title="No endpoints match these filters"
+            description="Try clearing filters. Sensitive fields and auth gaps show up as traffic accumulates."
+            action={
+              <Button type="button" variant="secondary" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-ink-200 bg-ink-50 text-ink-700">
@@ -249,8 +433,11 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {endpoints.map((ep) => (
-                <tr key={ep.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50/80">
+              {filteredEndpoints.map((ep) => (
+                <tr
+                  key={ep.id}
+                  className="border-b border-ink-100 last:border-0 hover:bg-ink-50/80"
+                >
                   <td className="px-4 py-3">
                     <Link
                       to={`${basePath}/endpoints/${ep.id}`}
@@ -270,17 +457,23 @@ export default function Inventory() {
                   <td className="px-4 py-3 text-ink-700">{ep.hitCount}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(ep.authModes) ? ep.authModes : []).map((m) => (
-                        <span
-                          key={m}
-                          className={`rounded px-1.5 py-0.5 text-xs ${severityClass(m === 'none' ? 'low' : 'medium')}`}
-                        >
-                          {m}
+                      {(Array.isArray(ep.authModes) ? ep.authModes : []).length === 0 ? (
+                        <span className={`rounded px-1.5 py-0.5 text-xs ${severityClass('low')}`}>
+                          none
                         </span>
-                      ))}
+                      ) : (
+                        (Array.isArray(ep.authModes) ? ep.authModes : []).map((m) => (
+                          <span
+                            key={m}
+                            className={`rounded px-1.5 py-0.5 text-xs ${severityClass(m === 'none' ? 'low' : 'medium')}`}
+                          >
+                            {m}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-ink-700">{ep._count?.signals ?? 0}</td>
+                  <td className="px-4 py-3 text-ink-700">{signalCount(ep)}</td>
                   <td className="px-4 py-3 text-ink-600">
                     {ep.lastSeenAt ? new Date(ep.lastSeenAt).toLocaleString() : '—'}
                   </td>

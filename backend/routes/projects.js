@@ -40,6 +40,10 @@ function serializeService(service) {
     organizationId: service.project?.organizationId ?? service.project?.organization?.id,
     endpointLimit: service.endpointLimit,
     webhookUrl: service.webhookUrl ?? null,
+    protectEnabled: Boolean(service.protectEnabled),
+    protectMode: service.protectMode || 'observe',
+    protectRule: service.protectRule ?? null,
+    protectVersion: Number(service.protectVersion) || 1,
     createdAt: service.createdAt,
     updatedAt: service.updatedAt,
     apiKeys: service.apiKeys,
@@ -325,7 +329,7 @@ router.get('/:projectId/services/:serviceId', async (req, res) => {
 
 /**
  * PATCH /api/projects/:projectId/services/:serviceId
- * Body: { webhookUrl?: string | null }
+ * Body: { webhookUrl?, protectEnabled?, protectMode?, protectRule? }
  */
 router.patch('/:projectId/services/:serviceId', async (req, res) => {
   try {
@@ -335,12 +339,39 @@ router.patch('/:projectId/services/:serviceId', async (req, res) => {
     }
 
     const data = {};
+    let bumpProtectVersion = false;
+
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
       const normalized = normalizeWebhookUrl(req.body.webhookUrl);
       if (normalized?.error) {
         return res.status(400).json({ error: normalized.error });
       }
       data.webhookUrl = normalized === undefined ? undefined : normalized.value ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectEnabled')) {
+      data.protectEnabled = Boolean(req.body.protectEnabled);
+      bumpProtectVersion = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectMode')) {
+      const mode = String(req.body.protectMode || '').toLowerCase();
+      if (mode !== 'observe' && mode !== 'block') {
+        return res.status(400).json({ error: 'protectMode must be observe or block' });
+      }
+      data.protectMode = mode;
+      bumpProtectVersion = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'protectRule')) {
+      const rule = req.body.protectRule;
+      if (rule !== null && rule !== undefined && rule !== '' && rule !== 'deny_unauth_sensitive') {
+        return res.status(400).json({
+          error: 'protectRule must be null or deny_unauth_sensitive',
+        });
+      }
+      data.protectRule = rule ? 'deny_unauth_sensitive' : null;
+      bumpProtectVersion = true;
+    }
+    if (bumpProtectVersion) {
+      data.protectVersion = { increment: 1 };
     }
 
     if (Object.keys(data).length === 0) {

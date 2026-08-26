@@ -23,28 +23,95 @@ function resolveEndpointLimit(service) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
+function hadStrongAuth(modes) {
+  const list = Array.isArray(modes) ? modes : [];
+  return list.some((m) => m === 'bearer' || m === 'cookie');
+}
+
+function onlyNoneAuth(modes) {
+  const list = Array.isArray(modes) ? modes : [];
+  if (list.length === 0) return true;
+  return list.every((m) => m === 'none');
+}
+
+/** Fire-and-forget generic webhook (SF2). Never throws. */
+async function fireWebhook(url, payload) {
+  if (!url) return;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+  } catch {
+    /* fail-open */
+  }
+}
+
+async function recordEvent(service, endpointId, type, payload) {
+  const event = await prisma.inventoryEvent.create({
+    data: {
+      serviceId: service.id,
+      endpointId: endpointId || null,
+      type,
+      payload: payload || {},
+    },
+  });
+
+  const webhookUrl = service.webhookUrl || service.project?.webhookUrl || null;
+  if (webhookUrl) {
+    void fireWebhook(webhookUrl, {
+      type: event.type,
+      id: event.id,
+      serviceId: service.id,
+      endpointId: event.endpointId,
+      payload: event.payload,
+      createdAt: event.createdAt.toISOString(),
+    });
+  }
+  return event;
+}
+
 /**
- * Idempotent upsert of endpoint inventory + signals.
- * Body: { endpoints: [ { method, pathTemplate, hitCount, authModes, statusCodes,
- *   contentTypes, requestSchema, responseSchema, signals, firstSeenAt, lastSeenAt } ] }
- *
- * Never accepts or stores raw request/response bodies.
- * New endpoints may be skipped when the service/env endpoint limit is exceeded (existing still update).
+ * Idempotent upsert of endpoint inventory + signals + optional topology edges.
+ * Body: {
+ *   endpoints: [...],
+ *   edges?: [{ callerKey, callerLabel, method, pathTemplate, hitCount, lastSeenAt }]
+ * }
  */
 router.post('/upsert', async (req, res) => {
   try {
     const service = req.service || req.project;
     const serviceId = service.id;
     const endpoints = Array.isArray(req.body?.endpoints) ? req.body.endpoints : [];
+    const edges = Array.isArray(req.body?.edges) ? req.body.edges : [];
     const limit = resolveEndpointLimit(service);
 
-    if (endpoints.length === 0) {
-      res.json({ upserted: 0, skippedNew: 0 });
+    // Load project webhook for SF2 if relation available
+    let serviceWithProject = service;
+    if (!service.project) {
+      try {
+        serviceWithProject = await prisma.service.findUnique({
+          where: { id: serviceId },
+          include: { project: { select: { webhookUrl: true } } },
+        });
+      } catch {
+        serviceWithProject = service;
+      }
+    }
+
+    if (endpoints.length === 0 && edges.length === 0) {
+      res.json({ upserted: 0, skippedNew: 0, edgesUpserted: 0 });
       return;
     }
 
     let upserted = 0;
     let skippedNew = 0;
+    let edgesUpserted = 0;
     let currentCount = null;
 
     async function loadCount() {
@@ -63,6 +130,7 @@ router.post('/upsert', async (req, res) => {
         where: {
           serviceId_method_pathTemplate: { serviceId, method, pathTemplate },
         },
+        include: { signals: { select: { type: true, fieldPath: true, category: true } } },
       });
 
       if (!existing && limit > 0) {
@@ -87,7 +155,8 @@ router.post('/upsert', async (req, res) => {
       }
 
       const prevAuth = Array.isArray(existing?.authModes) ? existing.authModes : [];
-      const authModes = [...new Set([...prevAuth, ...(delta.authModes || [])])];
+      const deltaAuth = Array.isArray(delta.authModes) ? delta.authModes : [];
+      const authModes = [...new Set([...prevAuth, ...deltaAuth])];
 
       const prevCt = Array.isArray(existing?.contentTypes) ? existing.contentTypes : [];
       const contentTypes = [...new Set([...prevCt, ...(delta.contentTypes || [])])];
@@ -131,13 +200,37 @@ router.post('/upsert', async (req, res) => {
 
       if (!existing) {
         currentCount = (await loadCount()) + 1;
+        await recordEvent(serviceWithProject, endpoint.id, 'endpoint.discovered', {
+          method,
+          pathTemplate,
+        });
+      } else if (
+        existing.hitCount > 0 &&
+        hadStrongAuth(prevAuth) &&
+        onlyNoneAuth(deltaAuth) &&
+        !onlyNoneAuth(prevAuth)
+      ) {
+        // Auth regression: previously had bearer/cookie; this batch only reports none
+        await recordEvent(serviceWithProject, endpoint.id, 'auth.regressed', {
+          method,
+          pathTemplate,
+          previousAuthModes: prevAuth,
+          observedAuthModes: deltaAuth,
+        });
       }
+
+      const existingSignalKeys = new Set(
+        (existing?.signals || []).map((s) => `${s.type}|${s.fieldPath}|${s.category}`),
+      );
 
       for (const signal of delta.signals || []) {
         const type = String(signal.type || 'sensitive_field');
         const fieldPath = String(signal.fieldPath || '');
         const category = String(signal.category || 'unknown');
         if (!fieldPath) continue;
+
+        const sigKey = `${type}|${fieldPath}|${category}`;
+        const isNew = !existingSignalKeys.has(sigKey);
 
         await prisma.signal.upsert({
           where: {
@@ -163,15 +256,64 @@ router.post('/upsert', async (req, res) => {
             metadata: signal.metadata ?? undefined,
           },
         });
+
+        if (isNew && type === 'sensitive_field') {
+          existingSignalKeys.add(sigKey);
+          await recordEvent(serviceWithProject, endpoint.id, 'signal.appeared', {
+            method,
+            pathTemplate,
+            type,
+            fieldPath,
+            category,
+            severity: String(signal.severity || 'info'),
+          });
+        }
       }
 
       upserted += 1;
     }
 
-    const status = skippedNew > 0 && upserted === 0 ? 402 : 200;
+    for (const edge of edges) {
+      const method = String(edge.method || '').toUpperCase();
+      const pathTemplate = String(edge.pathTemplate || '');
+      const callerKey = String(edge.callerKey || '').trim();
+      const callerLabel = String(edge.callerLabel || edge.callerName || callerKey).trim();
+      if (!method || !pathTemplate || !callerKey) continue;
+      const hitInc = Number(edge.hitCount) || 1;
+      const lastSeenAt = edge.lastSeenAt ? new Date(edge.lastSeenAt) : new Date();
+
+      await prisma.trafficEdge.upsert({
+        where: {
+          serviceId_callerKey_method_pathTemplate: {
+            serviceId,
+            callerKey,
+            method,
+            pathTemplate,
+          },
+        },
+        create: {
+          serviceId,
+          callerKey,
+          callerLabel,
+          method,
+          pathTemplate,
+          hitCount: hitInc,
+          lastSeenAt,
+        },
+        update: {
+          callerLabel,
+          hitCount: { increment: hitInc },
+          lastSeenAt,
+        },
+      });
+      edgesUpserted += 1;
+    }
+
+    const status = skippedNew > 0 && upserted === 0 && edgesUpserted === 0 ? 402 : 200;
     res.status(status).json({
       upserted,
       skippedNew,
+      edgesUpserted,
       endpointLimit: limit || null,
     });
   } catch (error) {

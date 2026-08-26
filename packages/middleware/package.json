@@ -33,12 +33,16 @@
     "directory": "packages/middleware"
   },
   "scripts": {
-    "publish:npm": "node ./scripts/publish.mjs"
+    "publish:npm": "node ./scripts/publish.mjs",
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "@apiglimpse/shared": "file:../shared"
   },
   "peerDependencies": {
     "express": ">=4"
+  },
+  "devDependencies": {
+    "express": "^4.19.2"
   }
 }

@@ -198,6 +198,8 @@ model Project {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
+  /// Optional outbound webhook for inventory drift events (SF2).
+  webhookUrl     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   services       Service[]
@@ -207,16 +209,28 @@ model Project {
 
 /// One middleware-connected API (today's Project). Keys + endpoints live here.
 model Service {
-  id            String     @id @default(uuid())
+  id            String           @id @default(uuid())
   projectId     String
-  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name          String
   /// Cap on *new* endpoints for this service. null or 0 = unlimited (or fall back to env ENDPOINT_LIMIT at ingest).
   endpointLimit Int?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  /// Optional outbound webhook for inventory drift events (SF2). Overrides Project.webhookUrl when set.
+  webhookUrl    String?
+  /// Protect MVP (SF7): dashboard toggle; connectors poll policy via agent.
+  protectEnabled Boolean  @default(false)
+  /// observe | block (fail-open). Only meaningful when protectEnabled.
+  protectMode   String    @default("observe")
+  /// Single MVP rule id, e.g. "deny_unauth_sensitive"
+  protectRule   String?
+  /// Bumped when protect settings change so connectors can detect refresh.
+  protectVersion Int      @default(1)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   apiKeys       ApiKey[]
   endpoints     Endpoint[]
+  events        InventoryEvent[]
+  trafficEdges  TrafficEdge[]
 
   @@index([projectId])
 }
@@ -260,6 +274,7 @@ model Endpoint {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   signals        Signal[]
+  events         InventoryEvent[]
 
   @@unique([serviceId, method, pathTemplate])
   @@index([serviceId])
@@ -282,4 +297,43 @@ model Signal {
 
   @@unique([endpointId, type, fieldPath, category])
   @@index([endpointId])
+}
+
+
+/// Drift / change alerts from inventory upserts (SF2).
+model InventoryEvent {
+  id         String    @id @default(uuid())
+  serviceId  String
+  service    Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  endpointId String?
+  endpoint   Endpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+  /// endpoint.discovered | signal.appeared | auth.regressed
+  type       String
+  payload    Json      @default("{}")
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+
+  @@index([serviceId, createdAt])
+  @@index([serviceId, readAt])
+  @@index([endpointId])
+  @@index([type])
+}
+
+/// Caller → endpoint edges for topology (SF3).
+model TrafficEdge {
+  id           String   @id @default(uuid())
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  callerKey    String
+  callerLabel  String
+  method       String
+  pathTemplate String
+  hitCount     Int      @default(0)
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([serviceId, callerKey, method, pathTemplate])
+  @@index([serviceId])
+  @@index([lastSeenAt])
 }

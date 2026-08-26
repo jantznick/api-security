@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { projectsAPI } from '../api/api';
+import { projectsAPI, servicesAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -32,6 +32,11 @@ export default function ProjectSettings() {
   const [rawKey, setRawKey] = useState(null);
   const [pendingRevokeAfterRotate, setPendingRevokeAfterRotate] = useState(null);
   const [installStack, setInstallStack] = useState('express');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [savingIntegrations, setSavingIntegrations] = useState(false);
+  const [protectEnabled, setProtectEnabled] = useState(false);
+  const [protectMode, setProtectMode] = useState('observe');
+  const [protectRule, setProtectRule] = useState('deny_unauth_sensitive');
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +44,13 @@ export default function ProjectSettings() {
       setLoading(true);
       try {
         const data = await projectsAPI.getService(projectId, serviceId);
-        if (!cancelled) setService(data.service);
+        if (!cancelled) {
+          setService(data.service);
+          setWebhookUrl(data.service?.webhookUrl || '');
+          setProtectEnabled(Boolean(data.service?.protectEnabled));
+          setProtectMode(data.service?.protectMode || 'observe');
+          setProtectRule(data.service?.protectRule || 'deny_unauth_sensitive');
+        }
       } catch (err) {
         toast.error(err.message);
       } finally {
@@ -55,8 +66,31 @@ export default function ProjectSettings() {
     try {
       const data = await projectsAPI.getService(projectId, serviceId);
       setService(data.service);
+      setWebhookUrl(data.service?.webhookUrl || '');
+      setProtectEnabled(Boolean(data.service?.protectEnabled));
+      setProtectMode(data.service?.protectMode || 'observe');
+      setProtectRule(data.service?.protectRule || 'deny_unauth_sensitive');
     } catch (err) {
       toast.error(err.message);
+    }
+  };
+
+  const saveIntegrations = async (event) => {
+    event.preventDefault();
+    setSavingIntegrations(true);
+    try {
+      const data = await servicesAPI.update(serviceId, {
+        webhookUrl: webhookUrl.trim() || null,
+        protectEnabled,
+        protectMode,
+        protectRule: protectEnabled ? protectRule || 'deny_unauth_sensitive' : null,
+      });
+      setService(data.service);
+      toast.success('Settings saved — connectors refresh policy within ~15 minutes');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingIntegrations(false);
     }
   };
 
@@ -305,6 +339,68 @@ export default function ProjectSettings() {
             Integrating docs →
           </a>
         </div>
+      </Card>
+
+      <Card className="mt-8 p-6">
+        <h2 className="font-display text-lg font-semibold text-ink-900">
+          Webhooks &amp; protect
+        </h2>
+        <p className="mt-1 text-sm text-ink-500">
+          Drift events POST to your webhook URL. Protect is a single MVP rule —
+          connectors poll policy from the collector about every 15 minutes.
+        </p>
+        <form onSubmit={saveIntegrations} className="mt-4 space-y-4">
+          <FormField id="webhook-url" label="Event webhook URL (optional)">
+            <input
+              id="webhook-url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className={inputClassName}
+              placeholder="https://hooks.example.com/apiglimpse"
+            />
+          </FormField>
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              checked={protectEnabled}
+              onChange={(e) => setProtectEnabled(e.target.checked)}
+              className="rounded border-ink-300 text-signal-600"
+            />
+            Enable protect (
+            <code className="font-mono text-xs">deny_unauth_sensitive</code>)
+          </label>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 text-ink-700">
+              <input
+                type="radio"
+                name="protectMode"
+                checked={protectMode === 'observe'}
+                onChange={() => setProtectMode('observe')}
+                disabled={!protectEnabled}
+              />
+              Observe (count would-blocks, still allow)
+            </label>
+            <label className="flex items-center gap-2 text-ink-700">
+              <input
+                type="radio"
+                name="protectMode"
+                checked={protectMode === 'block'}
+                onChange={() => setProtectMode('block')}
+                disabled={!protectEnabled}
+              />
+              Block (fail-open on errors)
+            </label>
+          </div>
+          <input type="hidden" value={protectRule} readOnly />
+          <p className="text-xs text-ink-500">
+            Rule: deny requests with no auth on sensitive paths (
+            <code className="font-mono">/admin</code>, <code className="font-mono">/auth</code>,{' '}
+            <code className="font-mono">/users</code>, billing, …). Policy version bumps on save.
+          </p>
+          <Button type="submit" disabled={savingIntegrations || loading}>
+            {savingIntegrations ? 'Saving…' : 'Save webhook & protect'}
+          </Button>
+        </form>
       </Card>
 
       <Card className="mt-8 p-6">

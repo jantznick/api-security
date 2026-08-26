@@ -93,6 +93,11 @@ export const projectsAPI = {
 /** Flat service routes (legacy service UUID = old project UUID). */
 export const servicesAPI = {
   get: (serviceId) => request(`/services/${serviceId}`),
+  update: (serviceId, body) =>
+    request(`/services/${serviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   createApiKey: (serviceId, name) =>
     request(`/services/${serviceId}/api-keys`, {
       method: 'POST',
@@ -108,8 +113,25 @@ export const inventoryAPI = {
   listEndpoints: (serviceId) => request(`/inventory/${serviceId}/endpoints`),
   getEndpoint: (serviceId, endpointId) =>
     request(`/inventory/${serviceId}/endpoints/${endpointId}`),
+  getPosture: (serviceId) => request(`/inventory/${serviceId}/posture`),
+  listEvents: (serviceId, params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.unread) qs.set('unread', '1');
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request(`/inventory/${serviceId}/events${suffix}`);
+  },
+  markEventsRead: (serviceId, ids) =>
+    request(`/inventory/${serviceId}/events/read`, {
+      method: 'POST',
+      body: JSON.stringify(ids ? { ids } : {}),
+    }),
+  getTopology: (serviceId) => request(`/inventory/${serviceId}/topology`),
+  getPolicySuggestions: (serviceId) =>
+    request(`/inventory/${serviceId}/policy-suggestions`),
   /** OpenAPI 3.0 JSON document for the service inventory */
   exportOpenApi: (serviceId) => request(`/inventory/${serviceId}/openapi`),
+  exportEvidence: (serviceId) => request(`/inventory/${serviceId}/evidence`),
 };
 
 /**

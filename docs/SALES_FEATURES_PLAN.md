@@ -374,14 +374,16 @@ SF0 is cheap insurance (responses already work — harden + message). SF8 should
 
 ## Review checklist for Nick
 
-Before launching agents, confirm:
+Decisions locked 2026-08-26:
 
-1. [ ] First wave: **SF0 + SF1 + SF8** (recommended) or custom set  
-2. [ ] SF1: persist `Finding` table vs derived-only scores  
-3. [ ] SF3: require customers to set `x-service-name` vs infer User-Agent only  
-4. [ ] SF5: which gateway is first (Kong / Nginx / Cloudflare / sidecar)  
-5. [ ] SF2: webhook-only vs Slack-native in v1  
-6. [ ] Whether SF7 protect stays deferred until after gateway  
+1. [x] Do as many streams as possible  
+2. [x] SF1: **discuss later** — light derived scorer only for now  
+3. [x] SF3: **`API_SENSOR_SERVICE_NAME` / `X-Service-Name`** for quality topology  
+4. [x] SF5: **Nginx / Kong** first (Node sidecar kept for local/dev)  
+5. [x] **Webhook-only** (no Slack-native yet)  
+6. [x] Protect MVP: dashboard toggle + single rule; connectors poll `/v1/policy` ~15m (version bump on save)
+
+Integration branch: `cursor/sf-implement-925e`.
 
 ---
 

@@ -68,10 +68,12 @@ Blocking is designed for (local policy cache, fail-open default) but **not imple
 
 Soft launch stays **User → Project**. Next tenancy model (not shipped yet): **Organization → Project → Service**, with org-scoped RBAC and billing moving to the org. Plan of record: [SAAS_PLAN.md](./SAAS_PLAN.md). Do not invent a second hierarchy in ad-hoc PRs.
 
-## Gateway discovery: Node reverse-proxy sidecar first (SF5)
+## Gateway discovery: Nginx / Kong first (SF5)
 
-**Decision:** Ship `@apiglimpse/gateway-proxy` — a thin Node reverse-proxy sidecar that forwards HTTP and samples envelope v1 (same as app connectors). Kong / Nginx / Envoy filters are follow-ups.
+**Decision (Nick, 2026-08-26):** Prefer **Nginx (OpenResty Lua)** or **Kong** at the edge for discovery without per-app SDKs. A Node reverse-proxy sidecar (`@apiglimpse/gateway-proxy`) remains available for local/dev and non-Lua shops.
 
-**Why:** Reuses `@apiglimpse/shared` shaping/redaction and fail-open flush patterns without requiring customers to instrument every service. Access-log-only shippers are weaker (no schemas).
+**Why:** Matches how enterprise traffic already flows; easier install story for platform teams; same envelope v1 as app connectors.
 
-**Non-goals for v1 sidecar:** TLS termination productization, multi-upstream routing UI, Kong plugin marketplace publish.
+**Topology:** Callers should set `API_SENSOR_SERVICE_NAME` or `X-Service-Name` for quality edges (UA-only is fallback noise).
+
+**Non-goals for v1:** Full body capture at the gateway, protect enforcement inside Kong/Nginx (use app middleware protect MVP or external WAF).

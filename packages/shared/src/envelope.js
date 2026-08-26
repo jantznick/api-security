@@ -13,6 +13,8 @@ export function createSample({
   responseHeaders = {},
   requestBody,
   responseBody,
+  responseBodyCaptured,
+  caller,
   authObserved = 'none',
   timestamp = new Date().toISOString(),
 }) {
@@ -25,7 +27,7 @@ export function createSample({
     responseHeaders['Content-Type'] ||
     null;
 
-  return {
+  const sample = {
     method: String(method || 'GET').toUpperCase(),
     path: String(path || '/'),
     statusCode: Number(statusCode) || 0,
@@ -45,6 +47,15 @@ export function createSample({
       bodyShape: responseBody !== undefined ? shapeBody(responseBody) : null,
     },
   };
+
+  if (typeof responseBodyCaptured === 'boolean') {
+    sample.responseBodyCaptured = responseBodyCaptured;
+  }
+  if (caller && typeof caller === 'object') {
+    sample.caller = caller;
+  }
+
+  return sample;
 }
 
 export function createEnvelope({ apiKey, samples }) {
