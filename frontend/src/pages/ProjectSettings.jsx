@@ -254,19 +254,29 @@ app.use(apiSensor({
         <pre className="mt-4 overflow-x-auto rounded-lg bg-ink-950 p-4 text-xs leading-relaxed text-ink-50">
           <code>{installSnippet}</code>
         </pre>
-        <p className="mt-3 text-xs text-ink-500">
-          Collector URL:{' '}
-          <code className="font-mono text-ink-700">{COLLECT_URL}</code>
-          {project?.endpointLimit ? (
-            <>
-              {' '}
-              · Endpoint cap:{' '}
-              <span className="text-ink-700">{project.endpointLimit}</span> (billing)
-            </>
-          ) : (
-            <> · Endpoint cap: unlimited</>
-          )}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
+          <p>
+            Collector URL:{' '}
+            <code className="font-mono text-ink-700">{COLLECT_URL}</code>
+            {project?.endpointLimit ? (
+              <>
+                {' '}
+                · Endpoint cap:{' '}
+                <span className="text-ink-700">{project.endpointLimit}</span> (billing)
+              </>
+            ) : (
+              <> · Endpoint cap: unlimited</>
+            )}
+          </p>
+          <a
+            href={integratingDocsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-signal-600 hover:text-signal-800"
+          >
+            Integrating docs →
+          </a>
+        </div>
       </Card>
 
       <Card className="mt-8 p-6">

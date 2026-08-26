@@ -8,13 +8,13 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import FormField, { inputClassName } from '../components/FormField';
 import PageHeader from '../components/PageHeader';
-import { integratingDocsUrl } from '../lib/urls';
+import { COLLECT_URL, integratingDocsUrl } from '../lib/urls';
 
 function KeyBanner({ apiKey, projectId, onDismiss }) {
-  const copy = async () => {
+  const copyText = async (text, label) => {
     try {
-      await navigator.clipboard.writeText(apiKey);
-      toast.success('API key copied');
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
     } catch {
       toast.error('Could not copy');
     }
@@ -23,7 +23,12 @@ function KeyBanner({ apiKey, projectId, onDismiss }) {
   return (
     <div className="mt-6 rounded-lg border border-signal-600/30 bg-signal-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-medium text-signal-800">API key (shown once)</p>
+        <div>
+          <p className="text-sm font-medium text-signal-800">Project created — save these now</p>
+          <p className="mt-1 text-xs text-signal-800/80">
+            The API key is shown once. Use it with the collect URL in middleware.
+          </p>
+        </div>
         {onDismiss ? (
           <button
             type="button"
@@ -34,36 +39,69 @@ function KeyBanner({ apiKey, projectId, onDismiss }) {
           </button>
         ) : null}
       </div>
-      <code className="mt-2 block break-all rounded bg-white px-3 py-2 font-mono text-sm text-ink-900">
-        {apiKey}
-      </code>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          className="min-h-9 px-3 py-1.5 text-sm"
-          onClick={copy}
-        >
-          Copy key
-        </Button>
-        {projectId ? (
-          <Link
-            to={`/projects/${projectId}/settings`}
-            className="text-sm font-medium text-signal-800 hover:underline"
-          >
-            Project settings →
-          </Link>
-        ) : null}
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-signal-800/70">
+            API key
+          </p>
+          <code className="mt-1 block break-all rounded bg-white px-3 py-2 font-mono text-sm text-ink-900">
+            {apiKey}
+          </code>
+          <div className="mt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-9 px-3 py-1.5 text-sm"
+              onClick={() => copyText(apiKey, 'API key')}
+            >
+              Copy key
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-signal-800/70">
+            Collect URL
+          </p>
+          <code className="mt-1 block break-all rounded bg-white px-3 py-2 font-mono text-sm text-ink-900">
+            {COLLECT_URL}
+          </code>
+          <div className="mt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-9 px-3 py-1.5 text-sm"
+              onClick={() => copyText(COLLECT_URL, 'Collect URL')}
+            >
+              Copy collect URL
+            </Button>
+          </div>
+        </div>
       </div>
-      <p className="mt-3 text-xs text-signal-800">
-        Set this as <code className="font-mono">API_SENSOR_KEY</code> in your app. See the{' '}
+
+      <p className="mt-4 text-xs text-signal-800">
+        Set <code className="font-mono">API_SENSOR_KEY</code> and{' '}
+        <code className="font-mono">API_SENSOR_AGENT_URL</code> in your app.{' '}
+        {projectId ? (
+          <>
+            Full install snippet in{' '}
+            <Link
+              to={`/projects/${projectId}/settings`}
+              className="font-medium underline underline-offset-2"
+            >
+              project settings
+            </Link>
+            {' · '}
+          </>
+        ) : null}
         <a
           href={integratingDocsUrl}
           target="_blank"
           rel="noreferrer"
           className="font-medium underline underline-offset-2"
         >
-          connect guide
+          Integrating docs
         </a>
         .
       </p>
