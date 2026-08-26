@@ -12,11 +12,37 @@ Helpers: `backend/lib/plans.js` (`applyPlanToUser`, fallback constants if DB emp
 
 ## 1. Railway env vars (core service)
 
-In [Railway](https://railway.app) → project **api-glimpse** → service **core** → **Variables**:
+**You set these in Railway** — this Cloud Agent cannot write your Railway variables from here (no Railway CLI/auth in this environment).
+
+### `ADMIN_EMAIL` (required for `/admin`)
+
+This is **not** optional if you want the Admin link. It must match the email you use to sign in to API Glimpse **exactly** (case-insensitive).
+
+**Set it to:** `thenickjantz@gmail.com` (your account).
+
+**Exact steps:**
+
+1. Open [railway.app](https://railway.app) → project **api-glimpse**
+2. Click service **core**
+3. Tab **Variables**
+4. **Add variable**
+   - Name: `ADMIN_EMAIL`
+   - Value: `thenickjantz@gmail.com`
+5. Save (Railway usually redeploys core automatically; if not, **Redeploy**)
+6. Sign out/in at `https://app.apiglimpse.com` (or hard refresh)
+7. You should see **Admin** in the nav → `https://app.apiglimpse.com/admin`
+
+If `ADMIN_EMAIL` is missing or doesn’t match your login email, `/admin` stays hidden and returns 403.
+
+---
+
+### Other core variables
+
+In Railway → **api-glimpse** → **core** → **Variables**:
 
 | Variable | Required | Example / notes |
 | --- | --- | --- |
-| `ADMIN_EMAIL` | For admin UI | Your login email (exact match → `user.isAdmin`) |
+| `ADMIN_EMAIL` | For admin UI | `thenickjantz@gmail.com` |
 | `STRIPE_SECRET_KEY` | For Checkout/Portal/webhooks | `sk_test_…` (test) or `sk_live_…` |
 | `STRIPE_WEBHOOK_SECRET` | For webhooks | `whsec_…` from Stripe webhook endpoint |
 | `STRIPE_PRICE_PRO` | Optional shortcut | Fallback if Pro `Plan.stripePriceId` is empty; can also paste Price IDs into Admin → Plans |
