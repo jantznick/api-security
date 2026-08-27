@@ -7,6 +7,10 @@
 **/coverage
 **/*.log
 frontend/dist
-demo
+# Exclude local connector demos from product image builds, but keep Acme
+# sales-demo paths available (Dockerfiles COPY demo/acme/... from repo root).
+demo/**
+!demo/acme/
+!demo/acme/**
 docs
 **/.DS_Store
