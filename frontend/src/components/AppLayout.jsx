@@ -17,7 +17,7 @@ const navLinkClass = ({ isActive }) =>
 
 export default function AppLayout({ children }) {
   const { user, logout } = useAuthStore();
-  const { orgs, activeOrg, activeOrgId, setActiveOrgId } = useActiveOrg();
+  const { orgs, activeOrgId, setActiveOrgId } = useActiveOrg();
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const membersPath = activeOrgId ? `/orgs/${activeOrgId}/members` : '/account';
   const teamPath = membersPath;
@@ -170,18 +170,6 @@ export default function AppLayout({ children }) {
               onCreated={() => setShowCreateOrg(false)}
             />
           </div>
-        </div>
-      ) : null}
-      {activeOrg && orgs.length > 1 && !showCreateOrg ? (
-        <div className="border-b border-ink-100 bg-white/80">
-          <p className="mx-auto max-w-6xl px-4 py-1.5 text-xs text-ink-500">
-            Viewing <span className="font-medium text-ink-700">{activeOrg.name}</span>
-            {activeOrg.isPersonal ? ' · Personal' : ' · Team'}
-            {' · '}
-            <span className="text-ink-400">
-              New projects and services are created in this organization.
-            </span>
-          </p>
         </div>
       ) : null}
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>

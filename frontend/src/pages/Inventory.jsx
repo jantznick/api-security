@@ -228,9 +228,20 @@ export default function Inventory() {
     <AppLayout>
       <PageHeader
         breadcrumb={
-          <Link to="/projects" className="text-sm text-ink-500 hover:text-ink-900">
-            ← Projects
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <Link to="/projects" className="hover:text-ink-900">
+              Projects
+            </Link>
+            <span aria-hidden>/</span>
+            <Link
+              to={`/projects?project=${projectId}`}
+              className="hover:text-ink-900"
+            >
+              {service?.projectName || 'Project'}
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="text-ink-700">{service?.name || 'Service'}</span>
+          </div>
         }
         title={service?.name || 'Inventory'}
         description="Live endpoints from traffic. Schemas and signals only — no raw bodies."
@@ -240,7 +251,7 @@ export default function Inventory() {
               <Button variant="secondary">Topology</Button>
             </Link>
             <Link to={`${basePath}/settings`}>
-              <Button variant="secondary">Settings</Button>
+              <Button variant="secondary">Service settings</Button>
             </Link>
             <Button
               variant="secondary"

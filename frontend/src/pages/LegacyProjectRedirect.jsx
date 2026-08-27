@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { projectsAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
+import Button from '../components/Button';
 import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 
 /**
  * Old bookmarks used /projects/:id where :id was today's Service UUID.
@@ -37,12 +39,13 @@ export default function LegacyProjectRedirect() {
           return;
         }
 
-        const p = data.project;
-        if (p?.services?.length === 1 && !wantsSettings && !wantsEndpoint) {
-          navigate(`/projects/${p.id}/services/${p.services[0].id}`, { replace: true });
+        // Prefer the projects-page selection UX for non-legacy project homes.
+        if (!wantsSettings && !wantsEndpoint) {
+          navigate(`/projects?project=${projectId}`, { replace: true });
           return;
         }
-        setProject(p);
+
+        setProject(data.project);
       } catch (err) {
         if (!cancelled) setError(err.message || 'Not found');
       }
@@ -55,7 +58,7 @@ export default function LegacyProjectRedirect() {
   if (error) {
     return (
       <AppLayout>
-        <Card className="mt-8">
+        <Card className="mt-8 p-6">
           <p className="text-sm text-ink-700">{error}</p>
           <Link to="/projects" className="mt-4 inline-block text-sm font-medium text-signal-600">
             ← Projects
@@ -75,8 +78,20 @@ export default function LegacyProjectRedirect() {
 
   return (
     <AppLayout>
-      <h1 className="text-2xl font-semibold text-ink-900">{project.name}</h1>
-      <p className="mt-1 text-sm text-ink-600">Services in this project</p>
+      <PageHeader
+        breadcrumb={
+          <Link to="/projects" className="text-sm text-ink-500 hover:text-ink-900">
+            ← Projects
+          </Link>
+        }
+        title={project.name}
+        description="Services in this project"
+        actions={
+          <Link to={`/projects/${project.id}/settings`}>
+            <Button variant="secondary">Project settings</Button>
+          </Link>
+        }
+      />
       <Card className="mt-6 overflow-hidden">
         {(project.services || []).length === 0 ? (
           <p className="p-6 text-sm text-ink-600">No services yet.</p>
@@ -96,9 +111,6 @@ export default function LegacyProjectRedirect() {
           </ul>
         )}
       </Card>
-      <Link to="/projects" className="mt-4 inline-block text-sm text-ink-500 hover:text-ink-900">
-        ← All projects
-      </Link>
     </AppLayout>
   );
 }
