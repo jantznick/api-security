@@ -384,6 +384,12 @@ export default function Projects() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-3">
                       <Link
+                        to={`/projects/${s.projectId}/settings`}
+                        className="font-medium text-ink-500 hover:text-ink-900"
+                      >
+                        Project
+                      </Link>
+                      <Link
                         to={`/projects/${s.projectId}/topology`}
                         className="font-medium text-ink-500 hover:text-ink-900"
                       >

@@ -8,6 +8,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { generateApiKey } from '../lib/apiKeys.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requirePermission } from '../lib/authz.js';
 import { accessibleService } from '../lib/orgs.js';
 
 const router = express.Router();
@@ -77,6 +78,7 @@ router.get('/:serviceId', async (req, res) => {
 /**
  * PATCH /api/services/:serviceId
  * Body: {
+ *   name?: string,
  *   webhookUrl?: string | null,
  *   protectEnabled?: boolean,
  *   protectMode?: 'observe' | 'block',
@@ -90,8 +92,20 @@ router.patch('/:serviceId', async (req, res) => {
       return res.status(404).json({ error: 'Service not found' });
     }
 
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
     const data = {};
     let bumpProtectVersion = false;
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name')) {
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 80) {
+        return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+      }
+      data.name = name;
+    }
 
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
       const normalized = normalizeWebhookUrl(req.body.webhookUrl);
@@ -156,6 +170,28 @@ router.patch('/:serviceId', async (req, res) => {
   } catch (error) {
     console.error('Update service error:', error);
     res.status(500).json({ error: 'Failed to update service' });
+  }
+});
+
+/**
+ * DELETE /api/services/:serviceId
+ */
+router.delete('/:serviceId', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
+    await prisma.service.delete({ where: { id: service.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete service error:', error);
+    res.status(500).json({ error: 'Failed to delete service' });
   }
 });
 

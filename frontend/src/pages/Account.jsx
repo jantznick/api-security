@@ -253,6 +253,13 @@ function OrganizationsSection({ user }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
+                    to={`/orgs/${org.id}/settings`}
+                    onClick={() => setActiveOrgId(org.id)}
+                    className="inline-flex min-h-9 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"
+                  >
+                    Settings
+                  </Link>
+                  <Link
                     to={`/orgs/${org.id}/members`}
                     onClick={() => setActiveOrgId(org.id)}
                     className="inline-flex min-h-9 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-ink-50"

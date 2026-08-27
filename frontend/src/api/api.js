@@ -80,6 +80,12 @@ export const projectsAPI = {
       }),
     }),
   get: (projectId) => request(`/projects/${projectId}`),
+  update: (projectId, body) =>
+    request(`/projects/${projectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  delete: (projectId) => request(`/projects/${projectId}`, { method: 'DELETE' }),
   listServices: (projectId) => request(`/projects/${projectId}/services`),
   createService: (projectId, name) =>
     request(`/projects/${projectId}/services`, {
@@ -88,6 +94,13 @@ export const projectsAPI = {
     }),
   getService: (projectId, serviceId) =>
     request(`/projects/${projectId}/services/${serviceId}`),
+  updateService: (projectId, serviceId, body) =>
+    request(`/projects/${projectId}/services/${serviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteService: (projectId, serviceId) =>
+    request(`/projects/${projectId}/services/${serviceId}`, { method: 'DELETE' }),
   createApiKey: (projectId, serviceId, name) =>
     request(`/projects/${projectId}/services/${serviceId}/api-keys`, {
       method: 'POST',
@@ -103,6 +116,7 @@ export const projectsAPI = {
       method: 'PUT',
       body: JSON.stringify({ baseline }),
     }),
+  getTopologyObserved: (projectId) => request(`/projects/${projectId}/topology/observed`),
   getTopologyCompare: (projectId, { recordDrift = false } = {}) => {
     const qs = recordDrift ? '?recordDrift=1' : '';
     return request(`/projects/${projectId}/topology/compare${qs}`);
@@ -129,6 +143,7 @@ export const servicesAPI = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  delete: (serviceId) => request(`/services/${serviceId}`, { method: 'DELETE' }),
   createApiKey: (serviceId, name) =>
     request(`/services/${serviceId}/api-keys`, {
       method: 'POST',
@@ -200,12 +215,23 @@ export const usageAPI = {
  * GET/PATCH/DELETE /orgs/:orgId/members[/:userId]
  * GET/POST/DELETE /orgs/:orgId/invites[/:inviteId]
  * GET/POST/PATCH/DELETE /orgs/:orgId/roles[/:roleId]
- * GET /invites/:token · POST /invites/:token/redeem · POST /invites/:token/accept
+ * GET /invites/:token · POST /invites/:token/redeem
  */
 export const orgsAPI = {
   create: (body) =>
     request('/orgs', {
       method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  get: (orgId) => request(`/orgs/${orgId}`),
+  update: (orgId, body) =>
+    request(`/orgs/${orgId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  delete: (orgId, body = {}) =>
+    request(`/orgs/${orgId}`, {
+      method: 'DELETE',
       body: JSON.stringify(body),
     }),
   listMembers: (orgId) => request(`/orgs/${orgId}/members`),
@@ -241,9 +267,8 @@ export const orgsAPI = {
 
 export const invitesAPI = {
   get: (token) => request(`/invites/${token}`),
-  /** Magic-link style: create/login invitee + join org in one request. */
+  /** Sole invite acceptance path (magic-link style create/login + join). */
   redeem: (token) => request(`/invites/${token}/redeem`, { method: 'POST' }),
-  accept: (token) => request(`/invites/${token}/accept`, { method: 'POST' }),
 };
 
 export const adminAPI = {

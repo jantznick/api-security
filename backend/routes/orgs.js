@@ -2,6 +2,9 @@
  * Organizations, members, invites & custom roles.
  *
  * POST   /api/orgs — create a team organization (+ Default project)
+ * GET    /api/orgs/:orgId
+ * PATCH  /api/orgs/:orgId — rename / settings (manage_settings)
+ * DELETE /api/orgs/:orgId — delete team org (owner only; not personal)
  * GET    /api/orgs/:orgId/members
  * PATCH  /api/orgs/:orgId/members/:userId
  * DELETE /api/orgs/:orgId/members/:userId
@@ -277,6 +280,152 @@ function serializeCustomRole(row, memberCount = 0) {
     updatedAt: row.updatedAt,
   };
 }
+
+/**
+ * GET /api/orgs/:orgId — org profile + caller membership summary.
+ */
+router.get('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const membership = await requireOrgMembership(req, res, orgId, 'viewer');
+    if (!membership) return;
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPersonal: true,
+        planSlug: true,
+        endpointLimit: true,
+        seatLimit: true,
+        planAssignedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { memberships: true, projects: true } },
+      },
+    });
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    const seatLimit = await resolveOrgSeatLimit(org);
+    const meRole = serializeMembershipRole(membership);
+
+    res.json({
+      organization: {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        isPersonal: org.isPersonal,
+        planSlug: org.planSlug,
+        endpointLimit: org.endpointLimit ?? null,
+        seatLimit,
+        planAssignedAt: org.planAssignedAt,
+        createdAt: org.createdAt,
+        updatedAt: org.updatedAt,
+        projectCount: org._count.projects,
+        memberCount: org._count.memberships,
+      },
+      me: {
+        userId: req.session.userId,
+        ...meRole,
+        canManageSettings: membershipHasPermission(membership, 'org.manage_settings'),
+        canManageMembers: canManageMembers(membership),
+        canDelete: isSystemOwner(membership) && !org.isPersonal,
+      },
+    });
+  } catch (error) {
+    console.error('Get organization error:', error);
+    res.status(500).json({ error: 'Failed to load organization' });
+  }
+});
+
+/**
+ * PATCH /api/orgs/:orgId — rename org (manage_settings). Personal orgs allowed.
+ * Body: { name }
+ */
+router.patch('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const actor = await requirePermission(req, res, orgId, 'org.manage_settings');
+    if (!actor) return;
+
+    const name = String(req.body?.name || '').trim();
+    if (!name || name.length > 80) {
+      return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+    }
+
+    const updated = await prisma.organization.update({
+      where: { id: orgId },
+      data: { name },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPersonal: true,
+        planSlug: true,
+        endpointLimit: true,
+        seatLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({ organization: updated });
+  } catch (error) {
+    console.error('Patch organization error:', error);
+    res.status(500).json({ error: 'Failed to update organization' });
+  }
+});
+
+/**
+ * DELETE /api/orgs/:orgId — delete a team organization (system owner only).
+ * Personal orgs cannot be deleted. Cascades projects/services via Prisma.
+ */
+router.delete('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const actor = await requireOrgMembership(req, res, orgId, 'viewer');
+    if (!actor) return;
+
+    if (!isSystemOwner(actor)) {
+      return res.status(403).json({ error: 'Only an owner can delete this organization' });
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, isPersonal: true, name: true },
+    });
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+    if (org.isPersonal) {
+      return res.status(400).json({
+        error: 'Personal workspaces cannot be deleted',
+      });
+    }
+
+    // Confirm name if provided (UI sends it as an extra guard).
+    const confirmNameRaw =
+      req.body?.confirmName != null
+        ? req.body.confirmName
+        : req.query?.confirmName != null
+          ? req.query.confirmName
+          : null;
+    const confirmName = confirmNameRaw != null ? String(confirmNameRaw).trim() : null;
+    if (confirmName != null && confirmName !== org.name) {
+      return res.status(400).json({ error: 'Confirmation name does not match' });
+    }
+
+    await prisma.organization.delete({ where: { id: orgId } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete organization error:', error);
+    res.status(500).json({ error: 'Failed to delete organization' });
+  }
+});
 
 /**
  * GET /api/orgs/:orgId/members

@@ -19,8 +19,10 @@ import Billing from './pages/Billing';
 import Usage from './pages/Usage';
 import Admin from './pages/Admin';
 import OrgMembers from './pages/OrgMembers';
+import OrgSettings from './pages/OrgSettings';
 import AcceptInvite from './pages/AcceptInvite';
 import NotFound from './pages/NotFound';
+import ProjectManage from './pages/ProjectManage';
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -93,7 +95,7 @@ export default function App() {
           path="/projects/:projectId/settings"
           element={
             <ProtectedRoute>
-              <LegacyProjectRedirect />
+              <ProjectManage />
             </ProtectedRoute>
           }
         />
@@ -125,7 +127,7 @@ export default function App() {
           path="/orgs/:orgId/settings"
           element={
             <ProtectedRoute>
-              <OrgMembers />
+              <OrgSettings />
             </ProtectedRoute>
           }
         />

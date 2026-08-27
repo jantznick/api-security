@@ -286,6 +286,81 @@ router.get('/:projectId', async (req, res) => {
 });
 
 /**
+ * PATCH /api/projects/:projectId — rename / webhook (project.manage).
+ * Body: { name?, webhookUrl? }
+ */
+router.patch('/:projectId', async (req, res) => {
+  try {
+    const project = await accessibleProject(req.params.projectId, req.session.userId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const actor = await requirePermission(req, res, project.organizationId, 'project.manage');
+    if (!actor) return;
+
+    const data = {};
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name')) {
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 80) {
+        return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+      }
+      data.name = name;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
+      const normalized = normalizeWebhookUrl(req.body.webhookUrl);
+      if (normalized?.error) {
+        return res.status(400).json({ error: normalized.error });
+      }
+      data.webhookUrl = normalized === undefined ? undefined : normalized.value ?? null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No changes provided' });
+    }
+
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data,
+      include: {
+        organization: { select: { id: true, name: true, slug: true, isPersonal: true } },
+        services: {
+          orderBy: { createdAt: 'desc' },
+          include: serviceListInclude,
+        },
+        _count: { select: { services: true } },
+      },
+    });
+
+    res.json({ project: updated });
+  } catch (error) {
+    console.error('Patch project error:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+/**
+ * DELETE /api/projects/:projectId — delete project and nested services (project.manage).
+ */
+router.delete('/:projectId', async (req, res) => {
+  try {
+    const project = await accessibleProject(req.params.projectId, req.session.userId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const actor = await requirePermission(req, res, project.organizationId, 'project.manage');
+    if (!actor) return;
+
+    await prisma.project.delete({ where: { id: project.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
+/**
  * POST /api/projects/:projectId/services — create a Service (+ default API key).
  */
 router.post('/:projectId/services', async (req, res) => {
@@ -370,7 +445,7 @@ router.get('/:projectId/services/:serviceId', async (req, res) => {
 
 /**
  * PATCH /api/projects/:projectId/services/:serviceId
- * Body: { webhookUrl?, protectEnabled?, protectMode?, protectRule? }
+ * Body: { name?, webhookUrl?, protectEnabled?, protectMode?, protectRule? }
  */
 router.patch('/:projectId/services/:serviceId', async (req, res) => {
   try {
@@ -379,9 +454,20 @@ router.patch('/:projectId/services/:serviceId', async (req, res) => {
       return res.status(404).json({ error: 'Service not found' });
     }
 
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
     const data = {};
     let bumpProtectVersion = false;
 
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name')) {
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 80) {
+        return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+      }
+      data.name = name;
+    }
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
       const normalized = normalizeWebhookUrl(req.body.webhookUrl);
       if (normalized?.error) {
@@ -436,6 +522,28 @@ router.patch('/:projectId/services/:serviceId', async (req, res) => {
   } catch (error) {
     console.error('Update service error:', error);
     res.status(500).json({ error: 'Failed to update service' });
+  }
+});
+
+/**
+ * DELETE /api/projects/:projectId/services/:serviceId
+ */
+router.delete('/:projectId/services/:serviceId', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service || service.projectId !== req.params.projectId) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
+    await prisma.service.delete({ where: { id: service.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete service error:', error);
+    res.status(500).json({ error: 'Failed to delete service' });
   }
 });
 
