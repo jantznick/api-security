@@ -113,11 +113,15 @@ function KeyBanner({ apiKey, projectId, serviceId, onDismiss }) {
 }
 
 export default function Projects() {
-  const { activeOrgId, orgs } = useActiveOrg();
+  const { activeOrgId, activeOrg, orgs } = useActiveOrg();
   const [projects, setProjects] = useState([]);
   const [name, setName] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [targetProjectId, setTargetProjectId] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [lastKey, setLastKey] = useState(null);
   const [lastIds, setLastIds] = useState({ projectId: null, serviceId: null });
 
@@ -145,7 +149,20 @@ export default function Projects() {
     );
   }, [projects, activeOrgId, orgs.length]);
 
-  /** Flatten services for transitional list UX (S6 will nest). */
+  useEffect(() => {
+    if (!visibleProjects.length) {
+      setTargetProjectId('');
+      return;
+    }
+    const stillValid = visibleProjects.some((p) => p.id === targetProjectId);
+    if (!stillValid) {
+      const preferred =
+        visibleProjects.find((p) => p.name === 'Default') || visibleProjects[0];
+      setTargetProjectId(preferred.id);
+    }
+  }, [visibleProjects, targetProjectId]);
+
+  /** Flatten services for list UX. */
   const rows = useMemo(() => {
     const out = [];
     for (const p of visibleProjects) {
@@ -160,18 +177,26 @@ export default function Projects() {
     return out;
   }, [visibleProjects]);
 
-  const handleCreate = async (event) => {
+  const handleCreateService = async (event) => {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error('Enter a service name');
       return;
     }
+    if (!activeOrgId) {
+      toast.error('Select an organization first');
+      return;
+    }
     setCreating(true);
     setLastKey(null);
     setLastIds({ projectId: null, serviceId: null });
     try {
-      const data = await projectsAPI.create(trimmed);
+      const data = await projectsAPI.create(trimmed, {
+        asService: true,
+        organizationId: activeOrgId,
+        ...(targetProjectId ? { projectId: targetProjectId } : {}),
+      });
       setLastKey(data.apiKey);
       setLastIds({
         projectId: data.project?.id || data.service?.projectId || null,
@@ -187,27 +212,118 @@ export default function Projects() {
     }
   };
 
+  const handleCreateProject = async (event) => {
+    event.preventDefault();
+    const trimmed = projectName.trim();
+    if (!trimmed) {
+      toast.error('Enter a project name');
+      return;
+    }
+    if (!activeOrgId) {
+      toast.error('Select an organization first');
+      return;
+    }
+    setCreatingProject(true);
+    try {
+      const data = await projectsAPI.create(trimmed, {
+        asService: false,
+        organizationId: activeOrgId,
+      });
+      setProjectName('');
+      setShowNewProject(false);
+      if (data.project?.id) {
+        setTargetProjectId(data.project.id);
+      }
+      toast.success('Project created');
+      await load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
+  const orgLabel = activeOrg?.name || 'this organization';
+
   return (
     <AppLayout>
       <PageHeader
         title="Projects"
-        description="Each service has an API key for the agent and middleware. Services are grouped under projects."
+        description={`Services are the APIs you connect. They live under projects in ${orgLabel}.`}
         actions={
-          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
-            <FormField id="service-name" label="Service name">
-              <input
-                id="service-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My API"
-                className={`${inputClassName} w-48`}
-                required
-              />
-            </FormField>
-            <Button type="submit" disabled={creating}>
-              {creating ? 'Creating…' : 'New service'}
-            </Button>
-          </form>
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <form onSubmit={handleCreateService} className="flex flex-wrap items-end gap-2">
+              {visibleProjects.length > 1 ? (
+                <FormField id="target-project" label="Project">
+                  <select
+                    id="target-project"
+                    value={targetProjectId}
+                    onChange={(e) => setTargetProjectId(e.target.value)}
+                    className={`${inputClassName} w-40`}
+                  >
+                    {visibleProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              ) : null}
+              <FormField id="service-name" label="Service name">
+                <input
+                  id="service-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="My API"
+                  className={`${inputClassName} w-48`}
+                  required
+                />
+              </FormField>
+              <Button type="submit" disabled={creating || !activeOrgId}>
+                {creating ? 'Creating…' : 'New service'}
+              </Button>
+            </form>
+            {!showNewProject ? (
+              <button
+                type="button"
+                onClick={() => setShowNewProject(true)}
+                className="cursor-pointer self-end text-sm font-medium text-signal-600 hover:text-signal-800"
+              >
+                + New project
+              </button>
+            ) : (
+              <form
+                onSubmit={handleCreateProject}
+                className="flex flex-wrap items-end gap-2 rounded-lg border border-ink-200 bg-white p-3"
+              >
+                <FormField id="project-name" label="Project name">
+                  <input
+                    id="project-name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="Payments"
+                    className={`${inputClassName} w-48`}
+                    required
+                    autoFocus
+                  />
+                </FormField>
+                <Button type="submit" disabled={creatingProject || !activeOrgId}>
+                  {creatingProject ? 'Creating…' : 'Create project'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowNewProject(false);
+                    setProjectName('');
+                  }}
+                  disabled={creatingProject}
+                >
+                  Cancel
+                </Button>
+              </form>
+            )}
+          </div>
         }
       />
 
@@ -228,8 +344,12 @@ export default function Projects() {
           <p className="p-6 text-sm text-ink-600">Loading…</p>
         ) : rows.length === 0 ? (
           <EmptyState
-            title="No services yet"
-            description="Create a service to get an API key, then connect your app so inventory can appear."
+            title={visibleProjects.length === 0 ? 'No projects yet' : 'No services yet'}
+            description={
+              visibleProjects.length === 0
+                ? 'Create a project to group related APIs, then add a service for an API key.'
+                : 'Create a service to get an API key, then connect your app so inventory can appear.'
+            }
             action={
               <a
                 href={integratingDocsUrl}

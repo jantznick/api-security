@@ -7,6 +7,7 @@ import AppLayout from '../components/AppLayout';
 import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import CreateOrgForm from '../components/CreateOrgForm';
 import FormField, { inputClassName } from '../components/FormField';
 import { DOCS_URL, loginUrl } from '../lib/urls';
 import { useActiveOrg } from '../hooks/useActiveOrg';
@@ -187,15 +188,34 @@ function OrganizationsSection({ user }) {
   const orgs = Array.isArray(user?.orgs) ? user.orgs : [];
   const { setActiveOrgId } = useActiveOrg();
   const accountPlan = planLabel(user?.planSlug);
+  const [showCreate, setShowCreate] = useState(false);
 
   return (
     <Card className="p-6">
-      <h2 className="font-display text-lg font-bold text-ink-900">Organizations</h2>
-      <p className="mt-1 text-sm text-ink-500">
-        Your workspaces and team orgs. Invite teammates and manage roles from Team — Free plans
-        include up
-        to 3 seats (you count as one).
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-bold text-ink-900">Organizations</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Your personal workspace and team orgs. Invite teammates and manage roles from Team —
+            Free plans include up to 3 seats (you count as one).
+          </p>
+        </div>
+        {!showCreate ? (
+          <Button type="button" variant="secondary" onClick={() => setShowCreate(true)}>
+            Add organization
+          </Button>
+        ) : null}
+      </div>
+
+      {showCreate ? (
+        <div className="mt-6 rounded-lg border border-ink-200 bg-ink-50/50 p-4">
+          <p className="mb-3 text-sm font-medium text-ink-800">New team organization</p>
+          <CreateOrgForm
+            onCancel={() => setShowCreate(false)}
+            onCreated={() => setShowCreate(false)}
+          />
+        </div>
+      ) : null}
 
       {orgs.length > 0 ? (
         <ul className="mt-6 divide-y divide-ink-100 border-t border-ink-100">

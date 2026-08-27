@@ -64,11 +64,20 @@ export const authAPI = {
 
 export const projectsAPI = {
   list: () => request('/projects'),
-  /** Create a Service under personal Default (asService: true, default) or a grouping Project */
-  create: (name, { asService = true } = {}) =>
+  /**
+   * Create a Service (asService: true, default) or grouping Project.
+   * Pass organizationId to target the active org (else personal org).
+   * Pass projectId when adding a service under a specific project.
+   */
+  create: (name, { asService = true, organizationId, projectId } = {}) =>
     request('/projects', {
       method: 'POST',
-      body: JSON.stringify({ name, asService }),
+      body: JSON.stringify({
+        name,
+        asService,
+        ...(organizationId ? { organizationId } : {}),
+        ...(projectId ? { projectId } : {}),
+      }),
     }),
   get: (projectId) => request(`/projects/${projectId}`),
   listServices: (projectId) => request(`/projects/${projectId}/services`),
@@ -186,13 +195,19 @@ export const usageAPI = {
 };
 
 /**
- * Org members, invites & custom roles.
+ * Organizations — create team orgs; members, invites & custom roles.
+ * POST /orgs
  * GET/PATCH/DELETE /orgs/:orgId/members[/:userId]
  * GET/POST/DELETE /orgs/:orgId/invites[/:inviteId]
  * GET/POST/PATCH/DELETE /orgs/:orgId/roles[/:roleId]
  * GET /invites/:token · POST /invites/:token/redeem · POST /invites/:token/accept
  */
 export const orgsAPI = {
+  create: (body) =>
+    request('/orgs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   listMembers: (orgId) => request(`/orgs/${orgId}/members`),
   updateMember: (orgId, userId, body) =>
     request(`/orgs/${orgId}/members/${userId}`, {

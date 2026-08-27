@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { authAPI } from '../api/api';
 import useAuthStore from '../store/authStore';
@@ -5,6 +6,9 @@ import { useActiveOrg } from '../hooks/useActiveOrg';
 import { APP_NAME } from '../lib/brand';
 import { DOCS_URL, loginUrl } from '../lib/urls';
 import Button from './Button';
+import CreateOrgForm from './CreateOrgForm';
+
+const ADD_ORG_VALUE = '__add_org__';
 
 const navLinkClass = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -14,6 +18,7 @@ const navLinkClass = ({ isActive }) =>
 export default function AppLayout({ children }) {
   const { user, logout } = useAuthStore();
   const { orgs, activeOrg, activeOrgId, setActiveOrgId } = useActiveOrg();
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
   const membersPath = activeOrgId ? `/orgs/${activeOrgId}/members` : '/account';
   const teamPath = membersPath;
 
@@ -25,6 +30,14 @@ export default function AppLayout({ children }) {
     }
     logout();
     window.location.assign(loginUrl());
+  };
+
+  const handleOrgChange = (value) => {
+    if (value === ADD_ORG_VALUE) {
+      setShowCreateOrg(true);
+      return;
+    }
+    setActiveOrgId(value);
   };
 
   return (
@@ -42,9 +55,9 @@ export default function AppLayout({ children }) {
               <label className="hidden min-w-0 items-center gap-2 sm:flex">
                 <span className="sr-only">Organization</span>
                 <select
-                  className="max-w-[12rem] truncate rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm text-ink-800"
+                  className="max-w-[14rem] truncate rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm text-ink-800"
                   value={activeOrgId || ''}
-                  onChange={(e) => setActiveOrgId(e.target.value)}
+                  onChange={(e) => handleOrgChange(e.target.value)}
                   aria-label="Switch organization"
                 >
                   {orgs.map((org) => (
@@ -52,6 +65,7 @@ export default function AppLayout({ children }) {
                       {org.isPersonal ? `${org.name} (Personal)` : org.name}
                     </option>
                   ))}
+                  <option value={ADD_ORG_VALUE}>＋ Add organization…</option>
                 </select>
               </label>
             ) : null}
@@ -105,9 +119,9 @@ export default function AppLayout({ children }) {
         >
           {orgs.length >= 1 ? (
             <select
-              className="max-w-[10rem] truncate rounded-md border border-ink-200 bg-white px-2 py-1 text-sm text-ink-800"
+              className="max-w-[12rem] truncate rounded-md border border-ink-200 bg-white px-2 py-1 text-sm text-ink-800"
               value={activeOrgId || ''}
-              onChange={(e) => setActiveOrgId(e.target.value)}
+              onChange={(e) => handleOrgChange(e.target.value)}
               aria-label="Switch organization"
             >
               {orgs.map((org) => (
@@ -115,6 +129,7 @@ export default function AppLayout({ children }) {
                   {org.name}
                 </option>
               ))}
+              <option value={ADD_ORG_VALUE}>＋ Add organization…</option>
             </select>
           ) : null}
           <NavLink to="/projects" className={navLinkClass}>
@@ -142,15 +157,29 @@ export default function AppLayout({ children }) {
           </a>
         </nav>
       </header>
-      {activeOrg && orgs.length > 1 ? (
+      {showCreateOrg ? (
+        <div className="border-b border-ink-200 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-4">
+            <p className="mb-3 text-sm font-medium text-ink-800">New organization</p>
+            <p className="mb-3 text-xs text-ink-500">
+              Team orgs have their own projects, members, and seats. Your personal workspace stays
+              available in the switcher.
+            </p>
+            <CreateOrgForm
+              onCancel={() => setShowCreateOrg(false)}
+              onCreated={() => setShowCreateOrg(false)}
+            />
+          </div>
+        </div>
+      ) : null}
+      {activeOrg && orgs.length > 1 && !showCreateOrg ? (
         <div className="border-b border-ink-100 bg-white/80">
           <p className="mx-auto max-w-6xl px-4 py-1.5 text-xs text-ink-500">
             Viewing <span className="font-medium text-ink-700">{activeOrg.name}</span>
-            {activeOrg.isPersonal ? ' · Personal' : ''}
+            {activeOrg.isPersonal ? ' · Personal' : ' · Team'}
             {' · '}
             <span className="text-ink-400">
-              Projects list filters to this org when possible; create still uses your personal
-              workspace until org-scoped create ships.
+              New projects and services are created in this organization.
             </span>
           </p>
         </div>

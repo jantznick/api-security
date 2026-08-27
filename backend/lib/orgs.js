@@ -2,10 +2,14 @@
  * Personal organization helpers (S2).
  * Every user always has a personal org + owner membership + Default project.
  * New personal orgs snapshot plan limits from the catalog Plan (not live-linked).
+ * Team orgs are created explicitly via createTeamOrganization.
  */
 
 import prisma from './prisma.js';
 import { getPlanBySlug, DEFAULT_PLAN_SLUG } from './plans.js';
+import { normalizeOrgSlugCandidate } from './orgSlug.js';
+
+export { slugifyOrgName } from './orgSlug.js';
 
 function personalSlug(userId) {
   return `personal-${String(userId).replace(/-/g, '')}`;
@@ -17,6 +21,25 @@ function personalOrgName(email) {
     ?.trim();
   if (local) return `${local}'s workspace`;
   return 'Personal workspace';
+}
+
+/**
+ * Ensure slug starts with a letter and is unique. Appends -2, -3, … if needed.
+ * @param {string} base
+ * @returns {Promise<string>}
+ */
+export async function allocateOrgSlug(base) {
+  const candidate = normalizeOrgSlugCandidate(base);
+
+  for (let n = 0; n < 50; n += 1) {
+    const slug = n === 0 ? candidate : `${candidate.slice(0, 44)}-${n + 1}`.slice(0, 48);
+    const existing = await prisma.organization.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!existing) return slug;
+  }
+  return `org-${Date.now().toString(36)}`;
 }
 
 /**
@@ -106,6 +129,85 @@ export async function ensurePersonalOrg(user) {
 export async function getPersonalDefaultProject(user) {
   const { project } = await ensurePersonalOrg(user);
   return project;
+}
+
+/**
+ * Create a non-personal (team) organization with the user as owner + Default project.
+ * Snapshots free-plan limits from the catalog (billing stays user-level until S5).
+ *
+ * @param {{ id: string, email?: string, planSlug?: string }} user
+ * @param {{ name: string, slug?: string }} opts
+ * @returns {Promise<{ organization: object, project: object }>}
+ */
+export async function createTeamOrganization(user, { name, slug: requestedSlug } = {}) {
+  if (!user?.id) {
+    throw new Error('createTeamOrganization requires user.id');
+  }
+
+  const trimmed = String(name || '').trim();
+  if (!trimmed || trimmed.length > 80) {
+    const err = new Error('Name is required (max 80 characters)');
+    err.status = 400;
+    throw err;
+  }
+
+  const slug = requestedSlug
+    ? await allocateOrgSlug(requestedSlug)
+    : await allocateOrgSlug(trimmed);
+
+  // Team orgs start on free entitlements until org billing (S5).
+  const planSlug = DEFAULT_PLAN_SLUG;
+  const plan = await getPlanBySlug(planSlug);
+  const endpointLimit = plan.endpointLimit ?? null;
+  const seatLimit = plan.seatLimit ?? null;
+  const planAssignedAt = new Date();
+
+  const organization = await prisma.organization.create({
+    data: {
+      name: trimmed,
+      slug,
+      isPersonal: false,
+      planSlug,
+      endpointLimit,
+      seatLimit,
+      planAssignedAt,
+      memberships: {
+        create: {
+          userId: user.id,
+          role: 'owner',
+        },
+      },
+      projects: {
+        create: {
+          name: 'Default',
+        },
+      },
+    },
+    include: {
+      projects: { orderBy: { createdAt: 'asc' }, take: 1 },
+      memberships: true,
+      _count: { select: { memberships: true } },
+    },
+  });
+
+  return {
+    organization,
+    project: organization.projects[0],
+  };
+}
+
+/**
+ * Ensure an org has at least one project named Default (or the oldest project).
+ */
+export async function ensureOrgDefaultProject(organizationId) {
+  const existing = await prisma.project.findFirst({
+    where: { organizationId },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (existing) return existing;
+  return prisma.project.create({
+    data: { organizationId, name: 'Default' },
+  });
 }
 
 /**
