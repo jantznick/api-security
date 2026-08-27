@@ -248,23 +248,35 @@ export default function ProjectSettings() {
               Projects
             </Link>
             <span aria-hidden>/</span>
-            <Link to={basePath} className="hover:text-ink-900">
-              {service?.name || 'Inventory'}
+            <Link
+              to={`/projects?project=${projectId}`}
+              className="hover:text-ink-900"
+            >
+              {service?.projectName || 'Project'}
             </Link>
             <span aria-hidden>/</span>
-            <span className="text-ink-700">Settings</span>
+            <Link to={basePath} className="hover:text-ink-900">
+              {service?.name || 'Service'}
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="text-ink-700">Service settings</span>
           </div>
         }
         title="Service settings"
         description={
           service
-            ? `API keys and install for ${service.name}. New keys are shown once; use Rotate to replace an active key.`
-            : 'API keys for this service.'
+            ? `API keys, install, and protect for ${service.name}. Rename the project separately under Project settings.`
+            : 'API keys and install for this service.'
         }
         actions={
-          <Link to={`/projects/${projectId}/settings`}>
-            <Button variant="secondary">Project settings</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to={basePath}>
+              <Button variant="secondary">Inventory</Button>
+            </Link>
+            <Link to={`/projects/${projectId}/settings`}>
+              <Button variant="secondary">Project settings</Button>
+            </Link>
+          </div>
         }
       />
 

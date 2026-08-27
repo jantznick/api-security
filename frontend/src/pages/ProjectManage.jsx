@@ -99,22 +99,31 @@ export default function ProjectManage() {
     <AppLayout>
       <PageHeader
         breadcrumb={
-          <Link to="/projects" className="text-sm text-ink-500 hover:text-ink-900">
-            ← Projects
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <Link to="/projects" className="hover:text-ink-900">
+              Projects
+            </Link>
+            <span aria-hidden>/</span>
+            <Link
+              to={`/projects?project=${projectId}`}
+              className="hover:text-ink-900"
+            >
+              {project?.name || 'Project'}
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="text-ink-700">Project settings</span>
+          </div>
         }
-        title={project?.name || 'Project settings'}
-        description="Rename this project, set a drift webhook, or delete it."
+        title="Project settings"
+        description="Edit this project’s name and drift webhook. Service API keys live under each service’s settings."
         actions={
           <div className="flex flex-wrap gap-2">
+            <Link to={`/projects?project=${projectId}`}>
+              <Button variant="secondary">Services</Button>
+            </Link>
             <Link to={`/projects/${projectId}/topology`}>
               <Button variant="secondary">Topology</Button>
             </Link>
-            {project?.services?.[0] ? (
-              <Link to={`/projects/${projectId}/services/${project.services[0].id}`}>
-                <Button variant="secondary">Inventory</Button>
-              </Link>
-            ) : null}
           </div>
         }
       />
@@ -128,13 +137,14 @@ export default function ProjectManage() {
       ) : (
         <div className="mt-8 space-y-8">
           <Card className="p-6">
-            <h2 className="font-display text-lg font-bold text-ink-900">Project</h2>
+            <h2 className="font-display text-lg font-bold text-ink-900">Project metadata</h2>
             <p className="mt-1 text-sm text-ink-500">
               {project.organization?.name ? `${project.organization.name} · ` : ''}
-              {project._count?.services ?? project.services?.length ?? 0} services
+              {project._count?.services ?? project.services?.length ?? 0} services · grouping only
+              (not an API connection)
             </p>
             <form onSubmit={handleSave} className="mt-6 space-y-4">
-              <FormField id="project-name" label="Name">
+              <FormField id="project-name" label="Project name">
                 <input
                   id="project-name"
                   value={name}

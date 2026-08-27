@@ -400,14 +400,28 @@ export default function ProjectTopology() {
     <AppLayout>
       <PageHeader
         breadcrumb={
-          <Link to="/projects" className="text-sm text-ink-500 hover:text-ink-900">
-            ← Projects
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+            <Link to="/projects" className="hover:text-ink-900">
+              Projects
+            </Link>
+            <span aria-hidden>/</span>
+            <Link
+              to={`/projects?project=${projectId}`}
+              className="hover:text-ink-900"
+            >
+              {projectName || 'Project'}
+            </Link>
+            <span aria-hidden>/</span>
+            <span className="text-ink-700">Topology</span>
+          </div>
         }
         title={`${projectName} — Topology`}
         description="Compare documented architecture against live traffic across all services in this project."
         actions={
           <>
+            <Link to={`/projects/${projectId}/settings`}>
+              <Button variant="secondary">Project settings</Button>
+            </Link>
             {firstService ? (
               <Link to={`/projects/${projectId}/services/${firstService.id}`}>
                 <Button variant="secondary">Inventory</Button>
