@@ -293,12 +293,20 @@ export default function OrgMembers() {
         title="Team"
         description={`${title} — members, invites, and custom roles.`}
         actions={
-          <Link
-            to="/account"
-            className="text-sm font-medium text-signal-600 hover:text-signal-800"
-          >
-            ← Account
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/orgs/${orgId}/settings`}
+              className="text-sm font-medium text-signal-600 hover:text-signal-800"
+            >
+              Org settings
+            </Link>
+            <Link
+              to="/account"
+              className="text-sm font-medium text-ink-500 hover:text-ink-900"
+            >
+              ← Account
+            </Link>
+          </div>
         }
       />
 

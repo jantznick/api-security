@@ -277,6 +277,7 @@ export default function ProjectTopology() {
   const { projectId } = useParams();
   const [project, setProject] = useState(null);
   const [baseline, setBaseline] = useState(null);
+  const [observed, setObserved] = useState(null);
   const [compare, setCompare] = useState(null);
   const [events, setEvents] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -289,13 +290,15 @@ export default function ProjectTopology() {
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [projectRes, baselineRes] = await Promise.all([
+      const [projectRes, baselineRes, observedRes] = await Promise.all([
         projectsAPI.get(projectId),
         projectsAPI.getTopologyBaseline(projectId).catch(() => ({ baseline: null })),
+        projectsAPI.getTopologyObserved(projectId).catch(() => null),
       ]);
       setProject(projectRes.project || projectRes.service?.project || null);
       const currentBaseline = baselineRes?.baseline ?? baselineRes ?? null;
       setBaseline(currentBaseline);
+      setObserved(observedRes);
 
       if (currentBaseline) {
         const [compareRes, eventsRes] = await Promise.all([
@@ -487,93 +490,162 @@ export default function ProjectTopology() {
 
       {loading ? (
         <p className="mt-8 text-sm text-ink-600">Loading…</p>
-      ) : !baseline ? (
-        <Card className="mt-6">
-          <EmptyState
-            title="No baseline yet"
-            description="Upload a topology baseline JSON to compare documented architecture against observed traffic. For the Acme sales demo, use demo/acme/baseline-topology.json from the repo."
-          />
-        </Card>
       ) : (
         <>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
-              <span className="font-medium text-ink-900">Matched</span>{' '}
-              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('matched')}`}>
-                {summary?.matched ?? 0}
-              </span>
-            </span>
-            <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
-              <span className="font-medium text-ink-900">Missing</span>{' '}
-              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('missing')}`}>
-                {summary?.missing ?? 0}
-              </span>
-            </span>
-            <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
-              <span className="font-medium text-ink-900">Shadow</span>{' '}
-              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('shadow')}`}>
-                {summary?.shadow ?? 0}
-              </span>
-            </span>
-            {(summary?.externalMatched != null || summary?.externalShadow != null) && (
-              <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-600">
-                External: {summary?.externalMatched ?? 0} matched · {summary?.externalShadow ?? 0} shadow
-              </span>
-            )}
-            {compare?.comparedAt ? (
-              <span className="self-center text-xs text-ink-400">
-                Compared {new Date(compare.comparedAt).toLocaleString()}
-              </span>
-            ) : null}
-          </div>
-
           <Card className="mt-6 p-4">
-            <h2 className="text-sm font-semibold text-ink-900">Architecture diagram</h2>
+            <h2 className="text-sm font-semibold text-ink-900">Observed traffic</h2>
             <p className="mt-1 text-xs text-ink-500">
-              Service tiers from baseline; edge colors reflect compare status (green matched, red
-              missing, amber shadow).
+              Live caller → service edges from ingest (no baseline required).
+              {observed?.generatedAt
+                ? ` Generated ${new Date(observed.generatedAt).toLocaleString()}.`
+                : ''}
             </p>
-            <div className="mt-4">
-              <TopologyDiagram baseline={baseline} compare={compare} />
-            </div>
+            {!observed ||
+            (!(observed.nodes || []).length &&
+              !(observed.edges || []).length &&
+              !(observed.externalCallers || []).length) ? (
+              <p className="mt-4 text-sm text-ink-500">
+                No traffic edges yet. Send requests through instrumented services to populate this
+                graph.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-4">
+                {(observed.nodes || []).length > 0 ? (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-ink-400">
+                      Services ({observed.nodes.length})
+                    </p>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {observed.nodes.map((n) => (
+                        <li
+                          key={n.id}
+                          className="rounded-md border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-800"
+                        >
+                          {n.label || n.id}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <EdgeList
+                  title="Observed service edges"
+                  edges={(observed.edges || []).map((e) => ({
+                    ...e,
+                    status: 'matched',
+                    observedHitCount: e.hitCount,
+                  }))}
+                />
+                <ExternalCallerList
+                  callers={(observed.externalCallers || []).map((c) => ({
+                    ...c,
+                    status: 'matched',
+                    observedHitCount: c.hitCount,
+                  }))}
+                />
+              </div>
+            )}
           </Card>
 
-          <EdgeList title="Service edges" edges={compare?.edges || []} />
-          <ExternalCallerList callers={compare?.externalCallers || []} />
-
-          {events.length > 0 ? (
-            <Card className="mt-6 overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
-                <h2 className="text-sm font-semibold text-ink-900">
-                  Drift events
-                  {unreadCount > 0 ? (
-                    <span className="ml-2 rounded-full bg-warn-50 px-2 py-0.5 text-xs font-medium text-warn-700">
-                      {unreadCount} unread
-                    </span>
-                  ) : null}
-                </h2>
-                {unreadCount > 0 ? (
-                  <Button variant="secondary" className="min-h-9 px-3 py-1.5 text-sm" onClick={markAllRead}>
-                    Mark all read
-                  </Button>
+          {!baseline ? (
+            <Card className="mt-6">
+              <EmptyState
+                title="No baseline yet"
+                description="Upload a topology baseline JSON to compare documented architecture against observed traffic. For the Acme sales demo, use demo/acme/baseline-topology.json from the repo."
+              />
+            </Card>
+          ) : (
+            <>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
+                  <span className="font-medium text-ink-900">Matched</span>{' '}
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('matched')}`}
+                  >
+                    {summary?.matched ?? 0}
+                  </span>
+                </span>
+                <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
+                  <span className="font-medium text-ink-900">Missing</span>{' '}
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('missing')}`}
+                  >
+                    {summary?.missing ?? 0}
+                  </span>
+                </span>
+                <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
+                  <span className="font-medium text-ink-900">Shadow</span>{' '}
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass('shadow')}`}
+                  >
+                    {summary?.shadow ?? 0}
+                  </span>
+                </span>
+                {(summary?.externalMatched != null || summary?.externalShadow != null) && (
+                  <span className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-600">
+                    External: {summary?.externalMatched ?? 0} matched ·{' '}
+                    {summary?.externalShadow ?? 0} shadow
+                  </span>
+                )}
+                {compare?.comparedAt ? (
+                  <span className="self-center text-xs text-ink-400">
+                    Compared {new Date(compare.comparedAt).toLocaleString()}
+                  </span>
                 ) : null}
               </div>
-              <ul className="divide-y divide-ink-100 text-sm">
-                {events.map((ev) => (
-                  <li key={ev.id} className="px-4 py-3 text-ink-700">
-                    <span className="font-medium text-ink-900">{ev.type}</span>
-                    {ev.payload?.message ? ` — ${ev.payload.message}` : null}
-                    {!ev.payload?.message && ev.payload?.from && ev.payload?.to
-                      ? ` — ${ev.payload.from} → ${ev.payload.to}`
-                      : null}
-                    <span className="ml-2 text-xs text-ink-400">
-                      {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
+
+              <Card className="mt-6 p-4">
+                <h2 className="text-sm font-semibold text-ink-900">Architecture diagram</h2>
+                <p className="mt-1 text-xs text-ink-500">
+                  Service tiers from baseline; edge colors reflect compare status (green matched, red
+                  missing, amber shadow).
+                </p>
+                <div className="mt-4">
+                  <TopologyDiagram baseline={baseline} compare={compare} />
+                </div>
+              </Card>
+
+              <EdgeList title="Service edges (compare)" edges={compare?.edges || []} />
+              <ExternalCallerList callers={compare?.externalCallers || []} />
+
+              {events.length > 0 ? (
+                <Card className="mt-6 overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
+                    <h2 className="text-sm font-semibold text-ink-900">
+                      Drift events
+                      {unreadCount > 0 ? (
+                        <span className="ml-2 rounded-full bg-warn-50 px-2 py-0.5 text-xs font-medium text-warn-700">
+                          {unreadCount} unread
+                        </span>
+                      ) : null}
+                    </h2>
+                    {unreadCount > 0 ? (
+                      <Button
+                        variant="secondary"
+                        className="min-h-9 px-3 py-1.5 text-sm"
+                        onClick={markAllRead}
+                      >
+                        Mark all read
+                      </Button>
+                    ) : null}
+                  </div>
+                  <ul className="divide-y divide-ink-100 text-sm">
+                    {events.map((ev) => (
+                      <li key={ev.id} className="px-4 py-3 text-ink-700">
+                        <span className="font-medium text-ink-900">{ev.type}</span>
+                        {ev.payload?.message ? ` — ${ev.payload.message}` : null}
+                        {!ev.payload?.message && ev.payload?.from && ev.payload?.to
+                          ? ` — ${ev.payload.from} → ${ev.payload.to}`
+                          : null}
+                        <span className="ml-2 text-xs text-ink-400">
+                          {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ) : null}
+            </>
+          )}
         </>
       )}
     </AppLayout>

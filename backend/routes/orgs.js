@@ -1,6 +1,10 @@
 /**
- * Organization members, invites & custom roles.
+ * Organizations, members, invites & custom roles.
  *
+ * POST   /api/orgs — create a team organization (+ Default project)
+ * GET    /api/orgs/:orgId
+ * PATCH  /api/orgs/:orgId — rename / settings (manage_settings)
+ * DELETE /api/orgs/:orgId — delete team org (owner only; not personal)
  * GET    /api/orgs/:orgId/members
  * PATCH  /api/orgs/:orgId/members/:userId
  * DELETE /api/orgs/:orgId/members/:userId
@@ -36,6 +40,8 @@ import {
   SYSTEM_ROLE_META,
   SYSTEM_ROLE_PERMISSIONS,
 } from '../lib/permissions.js';
+import { createTeamOrganization } from '../lib/orgs.js';
+import { resolveOrgSeatLimit } from '../lib/plans.js';
 import { getOrgSeatStatus, wouldExceedSeatLimit } from '../lib/seats.js';
 import { hashApiKey } from '../lib/apiKeys.js';
 import { isResendConfigured, sendOrgInviteEmail } from '../services/email/resend.js';
@@ -47,6 +53,78 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_RE = /^[a-z][a-z0-9_-]{1,47}$/;
 
 router.use(requireAuth);
+
+/**
+ * POST /api/orgs — create a team organization.
+ * Body: { name, slug? }
+ * Caller becomes owner; a Default project is created.
+ */
+router.post('/', async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name || name.length > 80) {
+      return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+    }
+
+    let requestedSlug = null;
+    if (req.body?.slug != null && String(req.body.slug).trim()) {
+      requestedSlug = String(req.body.slug).trim().toLowerCase();
+      if (!SLUG_RE.test(requestedSlug)) {
+        return res.status(400).json({
+          error:
+            'Slug must be 2–48 chars: start with a letter, then lowercase letters, digits, _ or -',
+        });
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      select: { id: true, email: true, planSlug: true },
+    });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { organization, project } = await createTeamOrganization(user, {
+      name,
+      slug: requestedSlug || undefined,
+    });
+
+    const seatLimit = await resolveOrgSeatLimit(organization);
+
+    res.status(201).json({
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        isPersonal: organization.isPersonal,
+        planSlug: organization.planSlug,
+        endpointLimit: organization.endpointLimit ?? null,
+        seatLimit,
+        role: 'owner',
+        customRoleId: null,
+        roleName: 'owner',
+        roleRef: 'owner',
+        seats: {
+          used: organization._count?.memberships ?? 1,
+          limit: seatLimit,
+        },
+      },
+      project: project
+        ? { id: project.id, name: project.name, organizationId: organization.id }
+        : null,
+    });
+  } catch (error) {
+    console.error('Create organization error:', error);
+    if (error?.status === 400) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ error: 'An organization with that slug already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create organization' });
+  }
+});
 
 function normalizeEmail(email) {
   return String(email || '')
@@ -202,6 +280,152 @@ function serializeCustomRole(row, memberCount = 0) {
     updatedAt: row.updatedAt,
   };
 }
+
+/**
+ * GET /api/orgs/:orgId — org profile + caller membership summary.
+ */
+router.get('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const membership = await requireOrgMembership(req, res, orgId, 'viewer');
+    if (!membership) return;
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPersonal: true,
+        planSlug: true,
+        endpointLimit: true,
+        seatLimit: true,
+        planAssignedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { memberships: true, projects: true } },
+      },
+    });
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    const seatLimit = await resolveOrgSeatLimit(org);
+    const meRole = serializeMembershipRole(membership);
+
+    res.json({
+      organization: {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        isPersonal: org.isPersonal,
+        planSlug: org.planSlug,
+        endpointLimit: org.endpointLimit ?? null,
+        seatLimit,
+        planAssignedAt: org.planAssignedAt,
+        createdAt: org.createdAt,
+        updatedAt: org.updatedAt,
+        projectCount: org._count.projects,
+        memberCount: org._count.memberships,
+      },
+      me: {
+        userId: req.session.userId,
+        ...meRole,
+        canManageSettings: membershipHasPermission(membership, 'org.manage_settings'),
+        canManageMembers: canManageMembers(membership),
+        canDelete: isSystemOwner(membership) && !org.isPersonal,
+      },
+    });
+  } catch (error) {
+    console.error('Get organization error:', error);
+    res.status(500).json({ error: 'Failed to load organization' });
+  }
+});
+
+/**
+ * PATCH /api/orgs/:orgId — rename org (manage_settings). Personal orgs allowed.
+ * Body: { name }
+ */
+router.patch('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const actor = await requirePermission(req, res, orgId, 'org.manage_settings');
+    if (!actor) return;
+
+    const name = String(req.body?.name || '').trim();
+    if (!name || name.length > 80) {
+      return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+    }
+
+    const updated = await prisma.organization.update({
+      where: { id: orgId },
+      data: { name },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPersonal: true,
+        planSlug: true,
+        endpointLimit: true,
+        seatLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({ organization: updated });
+  } catch (error) {
+    console.error('Patch organization error:', error);
+    res.status(500).json({ error: 'Failed to update organization' });
+  }
+});
+
+/**
+ * DELETE /api/orgs/:orgId — delete a team organization (system owner only).
+ * Personal orgs cannot be deleted. Cascades projects/services via Prisma.
+ */
+router.delete('/:orgId', async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const actor = await requireOrgMembership(req, res, orgId, 'viewer');
+    if (!actor) return;
+
+    if (!isSystemOwner(actor)) {
+      return res.status(403).json({ error: 'Only an owner can delete this organization' });
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, isPersonal: true, name: true },
+    });
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+    if (org.isPersonal) {
+      return res.status(400).json({
+        error: 'Personal workspaces cannot be deleted',
+      });
+    }
+
+    // Confirm name if provided (UI sends it as an extra guard).
+    const confirmNameRaw =
+      req.body?.confirmName != null
+        ? req.body.confirmName
+        : req.query?.confirmName != null
+          ? req.query.confirmName
+          : null;
+    const confirmName = confirmNameRaw != null ? String(confirmNameRaw).trim() : null;
+    if (confirmName != null && confirmName !== org.name) {
+      return res.status(400).json({ error: 'Confirmation name does not match' });
+    }
+
+    await prisma.organization.delete({ where: { id: orgId } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete organization error:', error);
+    res.status(500).json({ error: 'Failed to delete organization' });
+  }
+});
 
 /**
  * GET /api/orgs/:orgId/members

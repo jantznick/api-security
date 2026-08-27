@@ -299,7 +299,8 @@ router.post('/:token/redeem', async (req, res) => {
 
 /**
  * POST /api/invites/:token/accept
- * Legacy path for already-authenticated invitees (same email). Prefer /redeem.
+ * Legacy path for already-authenticated invitees (same email).
+ * Dashboard uses /redeem exclusively; this remains for older clients.
  */
 router.post('/:token/accept', requireAuth, async (req, res) => {
   try {

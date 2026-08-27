@@ -2,11 +2,14 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { generateApiKey } from '../lib/apiKeys.js';
 import { requireAuth } from '../middleware/auth.js';
+import { membershipHasPermission, requirePermission } from '../lib/authz.js';
 import { resolveOrgEndpointLimit } from '../lib/plans.js';
 import {
   accessibleProject,
   accessibleService,
+  ensureOrgDefaultProject,
   ensurePersonalOrg,
+  getMembership,
   memberOrgIds,
 } from '../lib/orgs.js';
 
@@ -81,10 +84,7 @@ async function loadUserForOrg(userId) {
   });
 }
 
-async function createServiceInDefaultProject(userId, name) {
-  const user = await loadUserForOrg(userId);
-  if (!user) throw new Error('Unauthorized');
-  const { organization, project } = await ensurePersonalOrg(user);
+async function createServiceUnderProject(project, organization, name) {
   const key = generateApiKey();
   const endpointLimit = await resolveOrgEndpointLimit(organization);
 
@@ -114,6 +114,41 @@ async function createServiceInDefaultProject(userId, name) {
   return { service: serializeService(service), apiKey: key.raw, project };
 }
 
+/** Resolve target org for create: explicit organizationId, else personal. */
+async function resolveCreateOrganization(userId, organizationId) {
+  const user = await loadUserForOrg(userId);
+  if (!user) {
+    return { error: { status: 401, message: 'Unauthorized' } };
+  }
+
+  if (organizationId) {
+    const membership = await getMembership(organizationId, userId);
+    if (!membership) {
+      return { error: { status: 404, message: 'Organization not found' } };
+    }
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPersonal: true,
+        planSlug: true,
+        endpointLimit: true,
+        planAssignedAt: true,
+      },
+    });
+    if (!organization) {
+      return { error: { status: 404, message: 'Organization not found' } };
+    }
+    return { user, organization, membership };
+  }
+
+  const { organization } = await ensurePersonalOrg(user);
+  const membership = await getMembership(organization.id, userId);
+  return { user, organization, membership };
+}
+
 /**
  * GET /api/projects — list Projects across membership orgs (with nested services).
  */
@@ -140,20 +175,43 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * POST /api/projects — create a Project in the user's personal org.
- * Body: { name }
- * Transitional: { asService: true } creates a Service under Default project (+ API key),
- * matching old "create project = inventoring unit" UX.
+ * POST /api/projects — create a Project or Service.
+ * Body: { name, organizationId?, projectId?, asService? }
+ * - asService true (default): mint a Service (+ API key) under projectId, or the
+ *   org's Default project when projectId omitted.
+ * - asService false: create a grouping Project only in the org.
+ * organizationId defaults to the caller's personal org when omitted.
  */
 router.post('/', async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim() || 'New project';
     const asService = Boolean(req.body?.asService ?? true);
+    const organizationId =
+      req.body?.organizationId != null ? String(req.body.organizationId).trim() : null;
+    const projectId = req.body?.projectId != null ? String(req.body.projectId).trim() : null;
 
-    // Default: creating from the dashboard still mints a service (API unit) under Default.
-    // Pass asService: false to create a grouping Project only.
+    const resolved = await resolveCreateOrganization(req.session.userId, organizationId);
+    if (resolved.error) {
+      return res.status(resolved.error.status).json({ error: resolved.error.message });
+    }
+    const { organization, membership } = resolved;
+
     if (asService) {
-      const result = await createServiceInDefaultProject(req.session.userId, name);
+      if (!membershipHasPermission(membership, 'service.create')) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+
+      let project;
+      if (projectId) {
+        project = await accessibleProject(projectId, req.session.userId);
+        if (!project || project.organizationId !== organization.id) {
+          return res.status(404).json({ error: 'Project not found' });
+        }
+      } else {
+        project = await ensureOrgDefaultProject(organization.id);
+      }
+
+      const result = await createServiceUnderProject(project, organization, name);
       return res.status(201).json({
         service: result.service,
         project: result.project,
@@ -164,11 +222,10 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const user = await loadUserForOrg(req.session.userId);
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!membershipHasPermission(membership, 'project.create')) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
-    const { organization } = await ensurePersonalOrg(user);
+
     const project = await prisma.project.create({
       data: {
         name,
@@ -229,6 +286,81 @@ router.get('/:projectId', async (req, res) => {
 });
 
 /**
+ * PATCH /api/projects/:projectId — rename / webhook (project.manage).
+ * Body: { name?, webhookUrl? }
+ */
+router.patch('/:projectId', async (req, res) => {
+  try {
+    const project = await accessibleProject(req.params.projectId, req.session.userId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const actor = await requirePermission(req, res, project.organizationId, 'project.manage');
+    if (!actor) return;
+
+    const data = {};
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name')) {
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 80) {
+        return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+      }
+      data.name = name;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
+      const normalized = normalizeWebhookUrl(req.body.webhookUrl);
+      if (normalized?.error) {
+        return res.status(400).json({ error: normalized.error });
+      }
+      data.webhookUrl = normalized === undefined ? undefined : normalized.value ?? null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No changes provided' });
+    }
+
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data,
+      include: {
+        organization: { select: { id: true, name: true, slug: true, isPersonal: true } },
+        services: {
+          orderBy: { createdAt: 'desc' },
+          include: serviceListInclude,
+        },
+        _count: { select: { services: true } },
+      },
+    });
+
+    res.json({ project: updated });
+  } catch (error) {
+    console.error('Patch project error:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+/**
+ * DELETE /api/projects/:projectId — delete project and nested services (project.manage).
+ */
+router.delete('/:projectId', async (req, res) => {
+  try {
+    const project = await accessibleProject(req.params.projectId, req.session.userId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const actor = await requirePermission(req, res, project.organizationId, 'project.manage');
+    if (!actor) return;
+
+    await prisma.project.delete({ where: { id: project.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
+/**
  * POST /api/projects/:projectId/services — create a Service (+ default API key).
  */
 router.post('/:projectId/services', async (req, res) => {
@@ -238,8 +370,15 @@ router.post('/:projectId/services', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    const actor = await requirePermission(
+      req,
+      res,
+      project.organizationId,
+      'service.create',
+    );
+    if (!actor) return;
+
     const name = String(req.body?.name || '').trim() || 'Default service';
-    const key = generateApiKey();
 
     const org = await prisma.organization.findUnique({
       where: { id: project.organizationId },
@@ -250,34 +389,11 @@ router.post('/:projectId/services', async (req, res) => {
         planAssignedAt: true,
       },
     });
-    const endpointLimit = await resolveOrgEndpointLimit(org);
-
-    const service = await prisma.service.create({
-      data: {
-        name,
-        projectId: project.id,
-        endpointLimit,
-        apiKeys: {
-          create: {
-            name: 'default',
-            keyHash: key.hash,
-            keyPrefix: key.prefix,
-          },
-        },
-      },
-      include: {
-        apiKeys: {
-          where: { revokedAt: null },
-          select: apiKeySelect,
-        },
-        project: { select: { id: true, name: true, organizationId: true } },
-        _count: { select: { endpoints: true } },
-      },
-    });
+    const result = await createServiceUnderProject(project, org, name);
 
     res.status(201).json({
-      service: serializeService(service),
-      apiKey: key.raw,
+      service: result.service,
+      apiKey: result.apiKey,
     });
   } catch (error) {
     console.error('Create service error:', error);
@@ -329,7 +445,7 @@ router.get('/:projectId/services/:serviceId', async (req, res) => {
 
 /**
  * PATCH /api/projects/:projectId/services/:serviceId
- * Body: { webhookUrl?, protectEnabled?, protectMode?, protectRule? }
+ * Body: { name?, webhookUrl?, protectEnabled?, protectMode?, protectRule? }
  */
 router.patch('/:projectId/services/:serviceId', async (req, res) => {
   try {
@@ -338,9 +454,20 @@ router.patch('/:projectId/services/:serviceId', async (req, res) => {
       return res.status(404).json({ error: 'Service not found' });
     }
 
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
     const data = {};
     let bumpProtectVersion = false;
 
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'name')) {
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 80) {
+        return res.status(400).json({ error: 'Name is required (max 80 characters)' });
+      }
+      data.name = name;
+    }
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'webhookUrl')) {
       const normalized = normalizeWebhookUrl(req.body.webhookUrl);
       if (normalized?.error) {
@@ -395,6 +522,28 @@ router.patch('/:projectId/services/:serviceId', async (req, res) => {
   } catch (error) {
     console.error('Update service error:', error);
     res.status(500).json({ error: 'Failed to update service' });
+  }
+});
+
+/**
+ * DELETE /api/projects/:projectId/services/:serviceId
+ */
+router.delete('/:projectId/services/:serviceId', async (req, res) => {
+  try {
+    const service = await accessibleService(req.params.serviceId, req.session.userId);
+    if (!service || service.projectId !== req.params.projectId) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    const orgId = service.project?.organizationId ?? service.project?.organization?.id;
+    const actor = await requirePermission(req, res, orgId, 'service.manage');
+    if (!actor) return;
+
+    await prisma.service.delete({ where: { id: service.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete service error:', error);
+    res.status(500).json({ error: 'Failed to delete service' });
   }
 });
 

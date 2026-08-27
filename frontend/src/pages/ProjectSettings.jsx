@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { projectsAPI, servicesAPI } from '../api/api';
 import AppLayout from '../components/AppLayout';
@@ -21,6 +21,7 @@ function rotatedKeyName(name) {
 
 export default function ProjectSettings() {
   const { projectId, serviceId } = useParams();
+  const navigate = useNavigate();
   const confirm = useConfirm();
   const basePath = `/projects/${projectId}/services/${serviceId}`;
   const [service, setService] = useState(null);
@@ -37,6 +38,9 @@ export default function ProjectSettings() {
   const [protectEnabled, setProtectEnabled] = useState(false);
   const [protectMode, setProtectMode] = useState('observe');
   const [protectRule, setProtectRule] = useState('deny_unauth_sensitive');
+  const [serviceName, setServiceName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +50,7 @@ export default function ProjectSettings() {
         const data = await projectsAPI.getService(projectId, serviceId);
         if (!cancelled) {
           setService(data.service);
+          setServiceName(data.service?.name || '');
           setWebhookUrl(data.service?.webhookUrl || '');
           setProtectEnabled(Boolean(data.service?.protectEnabled));
           setProtectMode(data.service?.protectMode || 'observe');
@@ -66,12 +71,54 @@ export default function ProjectSettings() {
     try {
       const data = await projectsAPI.getService(projectId, serviceId);
       setService(data.service);
+      setServiceName(data.service?.name || '');
       setWebhookUrl(data.service?.webhookUrl || '');
       setProtectEnabled(Boolean(data.service?.protectEnabled));
       setProtectMode(data.service?.protectMode || 'observe');
       setProtectRule(data.service?.protectRule || 'deny_unauth_sensitive');
     } catch (err) {
       toast.error(err.message);
+    }
+  };
+
+  const saveServiceName = async (event) => {
+    event.preventDefault();
+    const trimmed = serviceName.trim();
+    if (!trimmed) {
+      toast.error('Enter a service name');
+      return;
+    }
+    setSavingName(true);
+    try {
+      const data = await servicesAPI.update(serviceId, { name: trimmed });
+      setService(data.service);
+      setServiceName(data.service?.name || trimmed);
+      toast.success('Service renamed');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleDeleteService = async () => {
+    const ok = await confirm({
+      title: 'Delete service?',
+      message:
+        'This permanently deletes the service, its API keys, endpoints, and inventory. This cannot be undone.',
+      confirmLabel: 'Delete service',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await projectsAPI.deleteService(projectId, serviceId);
+      toast.success('Service deleted');
+      navigate('/projects', { replace: true });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -214,7 +261,38 @@ export default function ProjectSettings() {
             ? `API keys and install for ${service.name}. New keys are shown once; use Rotate to replace an active key.`
             : 'API keys for this service.'
         }
+        actions={
+          <Link to={`/projects/${projectId}/settings`}>
+            <Button variant="secondary">Project settings</Button>
+          </Link>
+        }
       />
+
+      <Card className="mt-8 p-6">
+        <h2 className="font-display text-lg font-semibold text-ink-900">Service name</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          Display name in the dashboard. Topology matching uses{' '}
+          <code className="font-mono">API_SENSOR_SERVICE_NAME</code> in your app.
+        </p>
+        <form onSubmit={saveServiceName} className="mt-4 flex flex-wrap items-end gap-3">
+          <FormField id="service-display-name" label="Name" className="min-w-[12rem] flex-1">
+            <input
+              id="service-display-name"
+              value={serviceName}
+              onChange={(e) => setServiceName(e.target.value)}
+              className={inputClassName}
+              maxLength={80}
+              required
+            />
+          </FormField>
+          <Button
+            type="submit"
+            disabled={savingName || loading || serviceName.trim() === (service?.name || '')}
+          >
+            {savingName ? 'Saving…' : 'Rename'}
+          </Button>
+        </form>
+      </Card>
 
       {rawKey ? (
         <div className="mt-6 rounded-lg border border-signal-600/30 bg-signal-50 p-4">
@@ -513,6 +591,18 @@ export default function ProjectSettings() {
           </table>
         </Card>
       ) : null}
+
+      <Card className="mt-8 border-danger-700/20 p-6">
+        <h2 className="font-display text-lg font-semibold text-danger-700">Danger zone</h2>
+        <p className="mt-1 text-sm text-ink-600">
+          Delete this service and all of its API keys, endpoints, and inventory.
+        </p>
+        <div className="mt-4">
+          <Button type="button" variant="danger" disabled={deleting || loading} onClick={handleDeleteService}>
+            {deleting ? 'Deleting…' : 'Delete service'}
+          </Button>
+        </div>
+      </Card>
     </AppLayout>
   );
 }

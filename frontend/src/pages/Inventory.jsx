@@ -73,6 +73,7 @@ export default function Inventory() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [topology, setTopology] = useState(null);
   const [posture, setPosture] = useState(null);
+  const [policySuggestions, setPolicySuggestions] = useState([]);
   const [highRiskOnly, setHighRiskOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [capBanner, setCapBanner] = useState(null);
@@ -95,12 +96,13 @@ export default function Inventory() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, e, ev, topo, postureRes] = await Promise.all([
+      const [p, e, ev, topo, postureRes, policyRes] = await Promise.all([
         projectsAPI.getService(projectId, serviceId),
         inventoryAPI.listEndpoints(serviceId),
         inventoryAPI.listEvents(serviceId, { limit: 10 }).catch(() => ({ events: [], unreadCount: 0 })),
         inventoryAPI.getTopology(serviceId).catch(() => null),
         inventoryAPI.getPosture(serviceId).catch(() => null),
+        inventoryAPI.getPolicySuggestions(serviceId).catch(() => ({ suggestions: [] })),
       ]);
       setService(p.service);
       setEndpoints(e.endpoints || []);
@@ -108,6 +110,7 @@ export default function Inventory() {
       setUnreadCount(ev.unreadCount || 0);
       setTopology(topo);
       setPosture(postureRes);
+      setPolicySuggestions(policyRes?.suggestions || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -323,6 +326,53 @@ export default function Inventory() {
             High risk only
           </label>
         </div>
+      ) : null}
+
+      {policySuggestions.length > 0 ? (
+        <Card className="mt-6 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900">Protect suggestions</h2>
+              <p className="mt-1 text-xs text-ink-500">
+                Detect-only recommendations from inventory. Enable protect in settings to apply the
+                MVP rule across sensitive unauthenticated routes.
+              </p>
+            </div>
+            <Link to={`${basePath}/settings`}>
+              <Button variant="secondary" className="min-h-9 px-3 py-1.5 text-sm">
+                Open protect settings
+              </Button>
+            </Link>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {policySuggestions.slice(0, 8).map((s) => (
+              <li
+                key={s.id}
+                className="rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2.5 text-sm"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink-900">{s.title}</span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium uppercase ${severityClass(s.severity)}`}
+                  >
+                    {s.severity}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-ink-600">{s.reason}</p>
+                {s.rule?.match ? (
+                  <p className="mt-1 font-mono text-xs text-ink-500">
+                    {s.rule.action} · {s.rule.match.method} {s.rule.match.pathTemplate}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {policySuggestions.length > 8 ? (
+            <p className="mt-3 text-xs text-ink-500">
+              +{policySuggestions.length - 8} more suggestions
+            </p>
+          ) : null}
+        </Card>
       ) : null}
 
       {events.length > 0 ? (
