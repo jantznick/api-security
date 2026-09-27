@@ -95,15 +95,30 @@ function requeueDeltas(aggregator, { endpoints = [], edges = [] }) {
   }
 }
 
+function aggregatorIsEmpty(aggregator) {
+  return aggregator.endpoints.size === 0 && aggregator.edges.size === 0;
+}
+
+/** Drop buckets with nothing pending so the Map cannot retain idle tenants forever. */
+function dropBucketIfIdle(serviceId, bucket) {
+  if (aggregatorIsEmpty(bucket.aggregator) && buckets.get(serviceId) === bucket) {
+    buckets.delete(serviceId);
+  }
+}
+
 async function flushBucket(serviceId, bucket) {
   const { endpoints, edges } = bucket.aggregator.drain();
-  if (!endpoints.length && !edges.length) return;
+  if (!endpoints.length && !edges.length) {
+    dropBucketIfIdle(serviceId, bucket);
+    return;
+  }
 
   const apiKey = bucket.apiKey;
   if (!apiKey) {
     console.warn(
       `[agent] Skipping ingest flush for ${serviceId} (${endpoints.length} endpoints, ${edges.length} edges) — missing apiKey`,
     );
+    requeueDeltas(bucket.aggregator, { endpoints, edges });
     return;
   }
 
@@ -118,6 +133,7 @@ async function flushBucket(serviceId, bucket) {
       `[agent] Upserted ${endpoints.length} endpoint delta(s), ${edges.length} edge(s) for ${serviceId}`,
       result?.upserted ?? '',
     );
+    dropBucketIfIdle(serviceId, bucket);
   } catch (err) {
     console.error(`[agent] Ingest flush error (${serviceId}):`, err.message);
     requeueDeltas(bucket.aggregator, { endpoints, edges });

@@ -61,7 +61,8 @@ async function cleanupExpiredTokens() {
   }
 }
 
-setInterval(cleanupExpiredTokens, 5 * 60 * 1000);
+const magicTokenCleanup = setInterval(cleanupExpiredTokens, 5 * 60 * 1000);
+if (typeof magicTokenCleanup.unref === 'function') magicTokenCleanup.unref();
 
 async function saveSession(req, res, user) {
   try {
