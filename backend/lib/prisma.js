@@ -7,7 +7,8 @@ function databaseUrl() {
   try {
     const url = new URL(raw);
     if (!url.searchParams.has('connection_limit')) {
-      const limit = process.env.PRISMA_CONNECTION_LIMIT || '5';
+      // Default 2 is enough for idle / light dashboard traffic; raise via env under load.
+      const limit = process.env.PRISMA_CONNECTION_LIMIT || '2';
       url.searchParams.set('connection_limit', limit);
     }
     if (!url.searchParams.has('pool_timeout')) {

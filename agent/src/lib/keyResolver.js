@@ -29,6 +29,17 @@ export function createKeyResolver({ ingestUrl, ttlMs = DEFAULT_TTL_MS, fetchImpl
     return res.json();
   }
 
+  /** Drop expired entries — unique invalid keys must not grow the map forever. */
+  function sweep() {
+    const now = Date.now();
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now) cache.delete(key);
+    }
+  }
+
+  const sweepTimer = setInterval(sweep, Math.max(ttlMs, 30_000));
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+
   /**
    * @param {string} apiKey
    * @returns {Promise<{ serviceId: string, serviceName?: string, projectId: string, projectName?: string, apiKeyId?: string, apiKey: string } | null>}
@@ -72,5 +83,5 @@ export function createKeyResolver({ ingestUrl, ttlMs = DEFAULT_TTL_MS, fetchImpl
     cache.clear();
   }
 
-  return { resolve, clear };
+  return { resolve, clear, sweep };
 }

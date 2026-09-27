@@ -73,9 +73,10 @@ app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
 app.use(cookieParser());
 
 const PgSession = connectPgSimple(session);
+// Separate from Prisma's pool (sessions via connect-pg-simple). Keep tiny at idle.
 const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.PG_POOL_MAX || 3),
+  max: Number(process.env.PG_POOL_MAX || 2),
   idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_MS || 10_000),
 });
 

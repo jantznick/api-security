@@ -94,6 +94,8 @@ There is **no** Railway web service for the frontend.
 | `PORT` | all | Railway injects; Dockerfiles set defaults |
 | `INGEST_URL` | agent | Internal only: `http://ingest.railway.internal:<port>` |
 | `ENDPOINT_LIMIT` | ingest | `0` = unlimited; positive = cap new endpoints |
+| `PRISMA_CONNECTION_LIMIT` | core, ingest | Optional; default `2` (raise under load) |
+| `PG_POOL_MAX` / `PG_POOL_IDLE_MS` | core | Optional session-store pool; defaults `2` / `10000` |
 | `AGENT_RATE_MAX` / `AGENT_RATE_WINDOW_MS` / `AGENT_BODY_LIMIT` | agent | Optional; defaults are fine |
 | `AGENT_DEBUG_BUFFER` | agent | Leave unset / `false` in production |
 | `VITE_API_URL` | **Render** build | Public core URL (see [RENDER.md](./RENDER.md)) |
@@ -245,6 +247,28 @@ Checklist (run after Render is live). Full end-to-end: [DEPLOY.md](./DEPLOY.md#5
 6. Missing/bad key → agent `401`  
 7. Stop/break ingest briefly → agent auth path fails closed (`503` / rejects), does not accept unauthenticated work  
 8. Postgres contains schemas/signals only (no raw bodies)
+
+---
+
+## Pausing unused prod (idle cost / memory)
+
+**ingest** and **core** are small Express apps, but each always-on Node process + Prisma query engine typically sits at **~150–300 MB RSS** even with zero traffic. That is baseline cost, not an application leak that grows over a month of idle use.
+
+If the product is not being used:
+
+1. **Stop `agent`, `ingest`, and `core`** in the Railway project (service ⋮ → Stop / remove replicas). Safe while idle — no customer traffic means nothing depends on them.
+2. **Leave Postgres running** if you want inventory / accounts preserved; or stop it too if you are fine restoring from a backup later.
+3. Also stop the separate **`api-glimpse-acme-demo`** project (five demo services) if it is still up — that is pure idle spend.
+4. Render static sites (dashboard / marketing / docs) are cheap; pause them only if you want the public URLs dark too.
+
+To bring product back: start Postgres → ingest → core → agent (same order as deploy). Migrations still run on boot.
+
+Optional knobs when services stay up but quiet:
+
+| Variable | Service | Notes |
+| --- | --- | --- |
+| `PRISMA_CONNECTION_LIMIT` | core, ingest | Default `2`; raise under real load |
+| `PG_POOL_MAX` | core | Session store pool; default `2` |
 
 ---
 
