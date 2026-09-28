@@ -64,7 +64,7 @@
   "devDependencies": {
     "@nestjs/common": "^10.4.15",
     "@nestjs/core": "^11.2.3",
-    "@nestjs/platform-express": "^11.2.3",
+    "@nestjs/platform-express": "^11.2.6",
     "@nestjs/platform-fastify": "^11.2.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
