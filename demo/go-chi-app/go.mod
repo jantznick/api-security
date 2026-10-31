@@ -1,9 +1,9 @@
 module github.com/jantznick/api-security/demo/go-chi-app
 
-go 1.22
+go 1.24
 
 require (
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/jantznick/api-security/connectors/go v0.0.0
 )
 
